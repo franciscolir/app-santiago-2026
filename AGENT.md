@@ -4,7 +4,7 @@
 > Última actualización: 2026-11-23.
 >
 > **Estado:** integración con Supabase **resuelta** (§13). Los dos fallos de la §8 están cerrados.
-> **`schema.sql`:** regenerado desde la BD real el 2026-11-23 (§13.3). Faltan los triggers (query F) y las políticas de Storage (H devolvió 0 filas → no existen).
+> **`schema.sql`:** regenerado desde la BD real el 2026-11-23 (§13.3). Sin triggers en `public` (F=0) y con `ensure_rls` confirmado (F3); falta F2 (trigger en `auth.users`) y las políticas de Storage (H = 0 filas → no existen).
 
 ## 1. Objetivo del proyecto
 
@@ -418,7 +418,7 @@ El `schema.sql` original **no coincidía** con la BD real. Se regeneró con las 
 - `emergency_contacts.phone` es `NOT NULL` (el original lo dejaba nullable).
 - Índices reales: solo `activities_event_date_idx` y `wall_posts_created_idx` además de PK/UNIQUE; **no existen** los índices `user_id` que traía el original.
 - **Query H (Storage): 0 filas** → no hay políticas de adjuntos en `storage.objects`; el bloque de Storage del original **nunca se aplicó**.
-- **Query F (triggers): 0 filas** → no hay ningún trigger en las tablas de `public` (nadie actualiza `updated_at`). ⬜ Pendientes **F2** (trigger en `auth.users` que llama a `handle_new_user`) y **F3** (event triggers, p. ej. el de `rls_auto_enable`).
+- **Query F (triggers): 0 filas** → no hay ningún trigger en las tablas de `public` (nadie actualiza `updated_at`). **F3 (event triggers): hecho** → existe `ensure_rls` (`ddl_command_end` → `rls_auto_enable`, habilitado) más los event triggers por defecto de Supabase (`pgrst_ddl_watch`, etc.). ⬜ Pendiente **F2** (trigger en `auth.users` que llama a `handle_new_user`).
 
 **`schema.sql` ya es usable como referencia** del estado real, salvo las dos secciones pendientes (triggers y Storage).
 
@@ -452,7 +452,7 @@ Con el usuario de prueba `test` (rol admin) se verificó **0 errores de consola*
 ## 14. Pendientes inmediatos
 
 1. ✅ **Regenerar `schema.sql`** desde la BD real — hecho el 2026-11-23 (queries A–H; solo faltan F2/F3 de triggers, ver §15).
-2. **Coordenadas de las 5 actividades de prueba** para que el mapa muestre marcadores → ejecutar `sql/04_coordenadas.sql` (creado, **sin ejecutar**).
+2. ✅ **Coordenadas de las 5 actividades de prueba** — `sql/04_coordenadas.sql` ejecutado el 2026-11-23: las 5 tienen `latitude`/`longitude` (falta verificar los marcadores en el navegador).
 3. **Políticas de Storage**: la query H devolvió 0 filas → no existen para adjuntos. Crear bucket + políticas antes de usar adjuntos (hoy la subida fallará).
 4. **GRANT faltantes para `authenticated`** (query G): solo tienen `SELECT` en `events`, `profiles`, `emergency_contacts`, `activity_user_details` y `activity_attachments` → la administración de eventos/usuarios/contactos y los adjuntos fallarán con `42501`. `service_role` solo tiene `SELECT` en `profiles`.
 5. Asignación de usuarios: el formulario aún pide **UUIDs separados por coma** (solución temporal, ver §8/§9).
@@ -461,9 +461,10 @@ Con el usuario de prueba `test` (rol admin) se verificó **0 errores de consola*
 
 ## 15. Queries para regenerar `schema.sql`
 
-> ✅ Ejecutadas el 2026-11-23: **A, B, C, D, E, G, H** (resultados ya volcados en `schema.sql`).
+> ✅ Ejecutadas el 2026-11-23: **A, B, C, D, E, F, G, H, F3** (resultados ya volcados en `schema.sql`).
 > **F: 0 filas** → sin triggers en tablas de `public`. **H: 0 filas** → sin políticas de Storage.
-> ⬜ **Pendientes: F2 y F3** (añadidas al final del bloque).
+> **F3: hecho** → event trigger `ensure_rls` → `rls_auto_enable` confirmado.
+> ⬜ **Pendiente: F2** (triggers sobre `auth.users`).
 
 Ejecutar en el SQL Editor y volcar la salida al archivo `schema.sql`:
 

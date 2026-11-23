@@ -9,8 +9,9 @@
 -- Estado de las queries de AGENT.md §15 (2026-11-23):
 --   A, B, C, D, E, G ejecutadas y volcadas aquí.
 --   F: 0 filas → sin triggers en tablas de public (ver sección TRIGGERS).
+--   F3: hecho → event trigger ensure_rls → rls_auto_enable confirmado.
 --   H: 0 filas → NO existen políticas de Storage para adjuntos (ver STORAGE).
---   Pendientes: F2 (triggers sobre auth.users) y F3 (event triggers).
+--   Pendiente: F2 (triggers sobre auth.users).
 --
 -- Este archivo es la REFERENCIA fiel del estado real. En una BD nueva
 -- reproduce la misma estructura; en una existente no rompe nada
@@ -455,10 +456,14 @@ grant select, insert, delete on public.wall_posts to authenticated;
 -- No existe NINGÚN trigger en las tablas de public. En particular:
 --   * No hay trigger que actualice activities.updated_at → ese campo solo
 --     cambia si la app lo escribe (el default now() aplica solo al insertar).
---   * handle_new_user() está definida, pero su trigger vive en auth.users,
---     fuera del alcance de la query F: falta F2 (AGENT.md §15).
---   * rls_auto_enable() necesita un event trigger: falta F3 (AGENT.md §15).
--- Por eso NO se recrea ningún trigger aquí: primero ejecutar F2 y F3.
+--   * handle_new_user() está definida, pero su trigger vive en auth.users:
+--     falta F2 (AGENT.md §15) para saber si existe y cómo se llama.
+--   * Event trigger CONFIRMADO (F3): "ensure_rls" sobre ddl_command_end →
+--     rls_auto_enable(), habilitado (enabled = O), junto a los event
+--     triggers por defecto de Supabase (pgrst_ddl_watch, pgrst_drop_watch,
+--     issue_pg_net_access, etc.). No se recrea aquí porque no se
+--     introspeccionó su cláusula WHEN.
+-- Por eso NO se recrea ningún trigger en este archivo.
 
 -- ============================================================================
 -- CONSULTAS DE VERIFICACIÓN (ejecutar aparte)
