@@ -1,104 +1,541 @@
 <!doctype html>
 <html lang="es">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#024059">
-  <meta name="description" content="Agenda compartida APP SANTIAGO 2026">
-  <title>APP SANTIAGO 2026</title>
-  <link rel="manifest" href="./manifest.webmanifest">
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-  <link rel="stylesheet" href="./styles.css">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#006492">
+<meta name="description" content="Agenda compartida APP SANTIAGO 2026">
+<title>APP SANTIAGO 2026</title>
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="stylesheet" href="./styles.css">
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = {
+  darkMode: "class",
+  theme: {
+    extend: {
+      colors: {
+        "on-tertiary-fixed-variant": "#5b4300", "on-tertiary-container": "#503b00",
+        "inverse-surface": "#2c3132", "on-primary-fixed-variant": "#004b6f",
+        "on-tertiary-fixed": "#251a00", "on-primary": "#ffffff",
+        "inverse-on-surface": "#edf1f2", "surface-variant": "#dfe3e4",
+        "tertiary": "#785900", "secondary-container": "#b1e0ff",
+        "tertiary-fixed": "#ffdf9d", "surface-container": "#eaeff0",
+        "primary-fixed-dim": "#8bceff", "secondary-fixed-dim": "#9dcdeb",
+        "on-tertiary": "#ffffff", "secondary-fixed": "#c4e7ff",
+        "primary-fixed": "#c9e6ff", "surface": "#f6fafb",
+        "on-primary-container": "#004262", "background": "#f6fafb",
+        "surface-bright": "#f6fafb", "on-secondary": "#ffffff",
+        "outline-variant": "#bec7d1", "inverse-primary": "#8bceff",
+        "surface-container-low": "#f0f4f5", "surface-container-highest": "#dfe3e4",
+        "surface-tint": "#006492", "on-background": "#181c1d",
+        "on-error": "#ffffff", "primary-container": "#4bb2f2",
+        "tertiary-fixed-dim": "#f9bd14", "on-secondary-container": "#34647f",
+        "surface-container-high": "#e5e9ea", "on-secondary-fixed": "#001e2d",
+        "outline": "#6f7881", "on-primary-fixed": "#001e2f",
+        "surface-dim": "#d6dbdc", "surface-container-lowest": "#ffffff",
+        "error-container": "#ffdad6", "tertiary-container": "#d6a100",
+        "secondary": "#33647e", "on-secondary-fixed-variant": "#164c65",
+        "error": "#ba1a1a", "primary": "#006492",
+        "on-error-container": "#93000a", "on-surface": "#181c1d",
+        "on-surface-variant": "#3f4850"
+      },
+      borderRadius: { "DEFAULT": "1rem", "lg": "2rem", "xl": "3rem", "full": "9999px" },
+      spacing: {
+        "space-md": "1rem", "space-xl": "2rem", "margin-desktop": "2rem",
+        "gutter-desktop": "1.5rem", "margin": "1rem", "space-xs": "0.25rem",
+        "gutter-tablet": "1.25rem", "space-sm": "0.5rem",
+        "margin-tablet": "1.5rem", "gutter": "1rem", "space-lg": "1.5rem"
+      },
+      fontFamily: {
+        "body-lg": ["Plus Jakarta Sans"], "headline-lg": ["Plus Jakarta Sans"],
+        "headline-xl-mobile": ["Plus Jakarta Sans"], "label-sm": ["Plus Jakarta Sans"],
+        "headline-xl": ["Plus Jakarta Sans"], "headline-md": ["Plus Jakarta Sans"],
+        "headline-lg-mobile": ["Plus Jakarta Sans"], "label-md": ["Plus Jakarta Sans"],
+        "body-md": ["Plus Jakarta Sans"], "headline-sm": ["Plus Jakarta Sans"],
+        "body-sm": ["Plus Jakarta Sans"], "label-lg": ["Plus Jakarta Sans"]
+      },
+      fontSize: {
+        "body-lg": ["17px", { lineHeight: "24px", fontWeight: "400" }],
+        "headline-lg": ["28px", { lineHeight: "36px", letterSpacing: "-0.01em", fontWeight: "700" }],
+        "headline-xl-mobile": ["28px", { lineHeight: "34px", letterSpacing: "-0.02em", fontWeight: "800" }],
+        "label-sm": ["11px", { lineHeight: "14px", letterSpacing: "0.04em", fontWeight: "700" }],
+        "headline-xl": ["36px", { lineHeight: "44px", letterSpacing: "-0.02em", fontWeight: "800" }],
+        "headline-md": ["20px", { lineHeight: "26px", fontWeight: "700" }],
+        "headline-lg-mobile": ["22px", { lineHeight: "28px", letterSpacing: "-0.01em", fontWeight: "700" }],
+        "label-md": ["13px", { lineHeight: "16px", letterSpacing: "0.01em", fontWeight: "600" }],
+        "body-md": ["15px", { lineHeight: "21px", fontWeight: "400" }],
+        "headline-sm": ["17px", { lineHeight: "22px", fontWeight: "600" }],
+        "body-sm": ["13px", { lineHeight: "18px", fontWeight: "400" }],
+        "label-lg": ["15px", { lineHeight: "20px", fontWeight: "600" }]
+      }
+    }
+  }
+};
+</script>
+<style>
+@layer base {
+  html, body { width: 100%; margin: 0; padding: 0; }
+  body { overscroll-behavior: none; -webkit-tap-highlight-color: transparent; }
+  .pb-safe { padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 5.5rem); }
+  .pt-safe { padding-top: env(safe-area-inset-top, 0px); }
+}
+::-webkit-scrollbar { display: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+/* Compatibilidad con la lógica de src/main.js */
+.view { display: none; }
+.view.active { display: block; }
+.hidden { display: none !important; }
+.error { color: #93000a; font-size: .83rem; min-height: 1em; }
+.muted { color: #6f7881; }
+#event-info h2 { font-size: 1.35rem; font-weight: 800; color: #004262; margin: 0 0 4px; }
+#event-info p { margin: 0; color: #3f4850; font-size: .9rem; }
+/* Estados de actividad (valores reales de la BD) */
+.status { display: inline-flex; align-items: center; gap: 5px; padding: 5px 10px; border-radius: 999px; font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
+.status.pending { background: #ffdf9d; color: #503b00; }
+.status.in_progress { background: #b1e0ff; color: #004262; }
+.status.completed { background: #dfe3e4; color: #34647f; }
+.status.cancelled { background: #ffdad6; color: #93000a; }
+/* Pestañas del muro */
+.wall-tab { flex: 1; padding: 9px 12px; border-radius: 999px; font-size: 13px; font-weight: 700; background: #eaeff0; color: #3f4850; border: 0; cursor: pointer; }
+.wall-tab.selected { background: #006492; color: #fff; }
+/* Filtro Mis Actividades / Todas */
+.filter-tab { background: transparent; border: 0; cursor: pointer; color: #3f4850; }
+.filter-tab:hover { color: #181c1d; }
+.filter-tab.active { background: #b1e0ff; color: #004262; font-weight: 700; box-shadow: 0 1px 3px rgba(2, 64, 89, .12); }
+/* Navegación inferior */
+.nav-item { background: transparent; border: 0; cursor: pointer; color: #6f7881; }
+.nav-item:hover { color: #181c1d; }
+.nav-item.active { background: #b1e0ff; color: #006492; font-weight: 700; }
+.nav-item.active .material-symbols-outlined { color: #006492; }
+.nav-item.active.nav-emergencia { background: #ffdad6; color: #ba1a1a; }
+.nav-item.active.nav-emergencia .material-symbols-outlined { color: #ba1a1a; }
+/* Leaflet */
+#map { width: 100%; height: 100%; z-index: 0; }
+.leaflet-popup-content-wrapper { border-radius: 12px; font-family: 'Plus Jakarta Sans', sans-serif; }
+/* Diálogo de actividad */
+dialog { border: 0; padding: 0; background: transparent; max-width: 100%; }
+dialog::backdrop { background: rgba(44, 49, 50, .6); backdrop-filter: blur(2px); }
+</style>
 </head>
-<body>
-  <section id="login-screen" class="login-screen">
-    <form id="login-form" class="login-card">
-      <div class="brand-mark">AS</div>
-      <p class="eyebrow">AGENDA COMPARTIDA</p>
-      <h1>APP SANTIAGO 2026</h1>
-      <p class="muted">Ingresa con tu usuario y contraseña</p>
-      <label for="username">Usuario</label>
-      <input id="username" name="username" autocomplete="username" required maxlength="100">
-      <label for="password">Contraseña</label>
-      <input id="password" name="password" type="password" autocomplete="current-password" required>
-      <button class="primary full" type="submit">Ingresar</button>
-      <p id="login-error" class="error" role="alert"></p>
-    </form>
-  </section>
+<body class="bg-surface font-body-md text-on-surface antialiased min-h-screen flex flex-col">
 
-  <div id="app" class="app hidden">
-    <header class="topbar">
-      <div><span class="eyebrow">AGENDA COMPARTIDA</span><strong>APP SANTIAGO 2026</strong></div>
-      <div class="user-area"><span id="user-label"></span><button id="logout-btn" class="icon-button" aria-label="Cerrar sesión" title="Cerrar sesión">↪</button></div>
-    </header>
-    <main id="main-content" class="main-content">
-      <section id="view-agenda" class="view active">
-        <div class="section-heading"><div><p class="eyebrow">PLANIFICACIÓN</p><h1>Agenda</h1></div><span id="event-range" class="muted"></span></div>
-        <div id="event-info" class="event-info"></div>
-        <div id="agenda-list" class="agenda-list"><div class="loading">Cargando agenda…</div></div>
+<!-- ==================== LOGIN ==================== -->
+<section id="login-screen" class="min-h-screen grid place-items-center p-5" style="background: radial-gradient(120% 80% at 50% 0%, #004262 0%, #002538 55%, #001522 100%);">
+  <form id="login-form" class="w-full max-w-[410px] bg-surface-container-lowest rounded-lg p-7 shadow-2xl space-y-4">
+    <div class="w-14 h-14 rounded-2xl bg-secondary-container text-on-primary-container grid place-items-center font-extrabold text-lg shadow-sm">AS</div>
+    <div>
+      <p class="font-label-sm uppercase tracking-[0.18em] text-primary font-bold">Agenda compartida</p>
+      <h1 class="font-headline-xl-mobile text-headline-xl-mobile text-on-primary-container font-extrabold leading-tight">APP SANTIAGO 2026</h1>
+      <p class="text-body-sm text-on-surface-variant mt-1">Ingresa con tu usuario y contraseña</p>
+    </div>
+    <div>
+      <label for="username" class="block font-label-md text-label-md text-on-surface font-semibold mb-1.5">Usuario</label>
+      <input id="username" name="username" autocomplete="username" required maxlength="100"
+             class="w-full h-12 px-3.5 bg-surface rounded-lg text-on-surface border border-outline-variant focus:outline-none focus:ring-2 focus:ring-primary/40">
+    </div>
+    <div>
+      <label for="password" class="block font-label-md text-label-md text-on-surface font-semibold mb-1.5">Contraseña</label>
+      <input id="password" name="password" type="password" autocomplete="current-password" required
+             class="w-full h-12 px-3.5 bg-surface rounded-lg text-on-surface border border-outline-variant focus:outline-none focus:ring-2 focus:ring-primary/40">
+    </div>
+    <button type="submit" class="w-full h-12 rounded-full bg-primary text-on-primary font-label-lg text-label-lg font-bold shadow-md active:scale-[0.98] transition-all">Ingresar</button>
+    <p id="login-error" role="alert" class="error text-center"></p>
+  </form>
+</section>
+
+<!-- ==================== APP ==================== -->
+<div id="app" class="hidden">
+
+  <!-- HEADER -->
+  <header class="fixed top-0 inset-x-0 z-50 bg-surface/90 backdrop-blur-xl shadow-[0_1px_8px_rgba(2,64,89,0.06)] pt-safe">
+    <div class="h-20 px-margin flex items-center justify-between gap-space-sm">
+      <div class="flex items-center gap-space-sm min-w-0 flex-1">
+        <div class="h-8 w-8 flex-shrink-0 rounded-xl bg-secondary-container text-on-primary-container grid place-items-center font-extrabold text-xs">AS</div>
+        <div class="flex flex-col min-w-0">
+          <div class="flex items-center gap-space-xs">
+            <span class="font-headline-sm text-headline-sm text-on-primary-container truncate leading-none tracking-tight">APP SANTIAGO 2026</span>
+            <span class="hidden sm:inline-block w-1.5 h-1.5 rounded-full bg-primary-container"></span>
+            <span class="hidden sm:inline-block font-label-sm text-label-sm text-on-surface-variant font-bold uppercase truncate" id="header-view-label">Agenda</span>
+          </div>
+          <div class="flex items-center gap-1.5 mt-0.5">
+            <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-secondary-container text-on-secondary-container font-label-sm text-label-sm leading-none max-w-full">
+              <span class="w-1.5 h-1.5 rounded-full bg-primary animate-pulse flex-shrink-0"></span>
+              <span id="user-label" class="truncate"></span>
+            </span>
+          </div>
+        </div>
+      </div>
+      <div class="flex items-center gap-space-xs flex-shrink-0">
+        <div class="relative flex items-center justify-center p-0.5 rounded-full ring-2 ring-primary-container/40">
+          <div id="user-initials" class="w-8 h-8 rounded-full bg-secondary text-on-secondary grid place-items-center font-label-sm text-label-sm font-bold">–</div>
+        </div>
+        <button id="logout-btn" aria-label="Cerrar sesión" class="w-11 h-11 flex items-center justify-center rounded-full text-secondary hover:bg-surface-container-high active:scale-95 transition-all" title="Cerrar sesión">
+          <span class="material-symbols-outlined text-[22px]">logout</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="flex flex-col relative w-full pt-20 pb-safe bg-surface flex-1">
+
+    <!-- ==================== VISTA AGENDA ==================== -->
+    <section id="view-agenda" class="view view-section active flex flex-col w-full px-margin pb-10 space-y-space-md">
+      <!-- Banner del evento + filtro -->
+      <section class="bg-surface-container-lowest rounded-lg p-space-md shadow-sm space-y-space-sm" style="border: 1px solid rgb(206, 232, 242); box-shadow: rgba(2, 64, 89, 0.06) 0px 2px 10px;">
+        <div class="flex items-center justify-between gap-space-xs">
+          <div class="flex items-center gap-space-xs min-w-0">
+            <span class="material-symbols-outlined text-primary text-[20px] flex-shrink-0">calendar_month</span>
+            <span id="event-range" class="font-label-md text-label-md text-on-primary-container font-bold truncate"></span>
+          </div>
+          <span id="event-day-badge" class="hidden inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-secondary-container text-on-secondary-container font-label-sm text-label-sm font-bold flex-shrink-0">
+            <span class="w-2 h-2 rounded-full bg-primary animate-pulse"></span><span id="event-day-badge-text"></span>
+          </span>
+        </div>
+        <div id="event-info"></div>
+        <div class="bg-surface-container p-1 rounded-full flex items-center gap-1 shadow-inner" role="tablist">
+          <button class="filter-tab flex-1 py-2 px-3 rounded-full font-label-md text-label-md transition-all duration-200 text-center flex items-center justify-center gap-1.5" id="tab-mine" data-filter="mine" type="button">
+            <span class="material-symbols-outlined text-[18px]">person</span>
+            <span>Mis Actividades (<span id="count-mine">0</span>)</span>
+          </button>
+          <button class="filter-tab flex-1 py-2 px-3 rounded-full font-label-md text-label-md transition-all duration-200 text-center flex items-center justify-center gap-1.5" id="tab-all" data-filter="all" type="button">
+            <span class="material-symbols-outlined text-[18px]">groups</span>
+            <span>Todas (<span id="count-all">0</span>)</span>
+          </button>
+        </div>
+      </section>
+
+      <div class="flex items-center justify-between px-1">
+        <span class="font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">Cronograma general</span>
         <div id="admin-create-wrap" class="admin-only hidden">
-          <button id="new-activity-btn" class="primary">＋ Nueva actividad</button>
+          <button id="new-activity-btn" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-full bg-primary-container text-on-primary-container font-label-md text-label-md font-bold shadow-sm active:scale-95 transition-transform">
+            <span class="material-symbols-outlined text-[18px]">add_circle</span>
+            <span>Nueva Actividad</span>
+          </button>
         </div>
-      </section>
+      </div>
 
-      <section id="view-mapa" class="view">
-        <div class="section-heading"><div><p class="eyebrow">UBICACIONES</p><h1>Mapa</h1></div></div>
-        <p class="muted">Ubicación de las actividades del evento.</p>
+      <div class="space-y-space-sm" id="agenda-list"><div class="text-body-sm text-on-surface-variant px-1">Cargando agenda…</div></div>
+    </section>
+
+    <!-- ==================== VISTA MAPA ==================== -->
+    <section id="view-mapa" class="view view-section hidden w-full relative select-none">
+      <div class="relative w-full h-[62vh] min-h-[420px] bg-surface-container-low overflow-hidden">
+        <!-- Leaflet real -->
         <div id="map"></div>
-        <div id="map-activity-list" class="map-activity-list"></div>
-      </section>
 
-      <section id="view-emergencia" class="view">
-        <div class="section-heading"><div><p class="eyebrow">ASISTENCIA</p><h1>Emergencia</h1></div></div>
-        <div class="notice"><strong>En caso de emergencia</strong><p>Accede al sitio de apoyo y consulta los contactos disponibles.</p></div>
-        <div id="emergency-contacts" class="contact-list"></div>
-        <div class="iframe-heading"><h2>Centro de emergencia</h2></div>
-        <div class="notice emergency-open">
-          <p>El sitio externo no permite mostrarse dentro de la aplicación (bloquea el iframe). Ábrelo en una pestaña nueva:</p>
-          <a id="emergency-open-link" class="primary full emergency-btn" href="https://auxilio-rm-go.base44.app/" target="_blank" rel="noopener">Abrir sistema de emergencia ↗</a>
+        <!-- Barra de búsqueda (filtra la lista de actividades) -->
+        <div class="absolute top-3 inset-x-0 px-margin flex flex-col gap-2 z-[1000]">
+          <div class="w-full h-12 rounded-full bg-surface-container-lowest/95 backdrop-blur-md shadow-[0_6px_20px_rgba(2,64,89,0.12)] px-4 flex items-center gap-3">
+            <span class="material-symbols-outlined text-secondary text-[22px]">search</span>
+            <input id="map-search" class="w-full bg-transparent text-on-surface font-body-md text-body-md placeholder:text-outline focus:outline-none" placeholder="Buscar actividad o lugar…" type="text">
+          </div>
         </div>
-        <p class="muted small">Si el enlace no responde, contacta directamente a los números de emergencia listados arriba.</p>
-      </section>
 
-      <section id="view-muro" class="view">
-        <div class="section-heading"><div><p class="eyebrow">COMUNIDAD</p><h1>Muro</h1></div></div>
-        <div class="wall-tabs">
-          <button class="wall-tab selected" data-category="positive">Positivo</button>
-          <button class="wall-tab" data-category="vent">Descárgate</button>
+        <!-- Controles -->
+        <div class="absolute right-4 top-20 flex flex-col gap-2 z-[1000]">
+          <button aria-label="Acercar mapa" id="map-zoom-in" class="w-11 h-11 rounded-full bg-surface-container-lowest/95 backdrop-blur-md text-on-primary-container shadow-md flex items-center justify-center active:scale-95 hover:bg-surface transition-all">
+            <span class="material-symbols-outlined text-[20px]">add</span>
+          </button>
+          <button aria-label="Alejar mapa" id="map-zoom-out" class="w-11 h-11 rounded-full bg-surface-container-lowest/95 backdrop-blur-md text-on-primary-container shadow-md flex items-center justify-center active:scale-95 hover:bg-surface transition-all">
+            <span class="material-symbols-outlined text-[20px]">remove</span>
+          </button>
+          <button aria-label="Centrar en todas las actividades" id="map-recenter" class="w-11 h-11 rounded-full bg-primary text-on-primary shadow-lg flex items-center justify-center active:scale-95 hover:bg-primary-container hover:text-on-primary-container transition-all mt-1">
+            <span class="material-symbols-outlined text-[22px]">my_location</span>
+          </button>
         </div>
-        <form id="wall-form" class="wall-compose">
-          <label for="wall-content">Comparte con el grupo</label>
-          <textarea id="wall-content" maxlength="500" rows="3" placeholder="Escribe tu mensaje…" required></textarea>
-          <div class="compose-footer"><span id="wall-counter" class="muted small">0/500</span><button class="primary" type="submit">Publicar</button></div>
-          <p id="wall-error" class="error"></p>
+
+        <!-- Panel inferior: sede seleccionada + lista -->
+        <section class="absolute bottom-0 inset-x-0 z-[1000] bg-surface-container-lowest rounded-t-xl shadow-[0_-8px_30px_rgba(2,64,89,0.12)] px-margin pt-3 pb-4 max-h-[62%] overflow-y-auto no-scrollbar flex flex-col">
+          <div class="w-full flex flex-col items-center pb-2 flex-shrink-0">
+            <div class="w-12 h-1.5 rounded-full bg-surface-variant"></div>
+          </div>
+          <div class="flex items-start justify-between gap-3 flex-shrink-0">
+            <div class="flex-1 min-w-0">
+              <div class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-secondary-container text-on-secondary-container font-label-sm text-label-sm font-bold mb-1.5">
+                <span class="w-2 h-2 rounded-full bg-primary animate-ping"></span>
+                <span id="venue-status">Selecciona una actividad</span>
+              </div>
+              <h2 class="font-headline-lg-mobile text-headline-lg-mobile text-on-primary-container font-extrabold tracking-tight leading-snug truncate" id="venue-title">—</h2>
+            </div>
+          </div>
+          <div id="venue-detail" class="hidden flex flex-col gap-3 flex-shrink-0">
+            <div class="flex flex-col gap-2 bg-surface-container-low p-3 rounded-lg">
+            <div class="flex items-center gap-2.5 text-on-surface">
+              <div class="w-7 h-7 rounded-full bg-surface-container-lowest flex items-center justify-center text-primary flex-shrink-0 shadow-sm">
+                <span class="material-symbols-outlined text-[16px]">schedule</span>
+              </div>
+              <span class="font-label-md text-label-md font-semibold text-on-surface" id="venue-time">—</span>
+            </div>
+            <div class="flex items-start gap-2.5 text-on-surface">
+              <div class="w-7 h-7 rounded-full bg-surface-container-lowest flex items-center justify-center text-primary flex-shrink-0 shadow-sm mt-0.5">
+                <span class="material-symbols-outlined text-[16px]">pin_drop</span>
+              </div>
+              <p class="font-body-md text-body-md text-on-surface leading-tight font-medium min-w-0" id="venue-address">—</p>
+            </div>
+          </div>
+          <div class="mt-3 grid grid-cols-2 gap-3 flex-shrink-0">
+            <button class="h-11 rounded-full bg-secondary-container text-on-secondary-container hover:bg-secondary-fixed active:scale-[0.98] transition-all font-label-lg text-label-lg font-bold flex items-center justify-center gap-2 px-4 shadow-sm" id="venue-go-agenda">
+              <span class="material-symbols-outlined text-[20px]">calendar_today</span>
+              <span>Ver actividad</span>
+            </button>
+            <button class="h-11 rounded-full bg-primary-container text-on-primary-container hover:opacity-95 active:scale-[0.98] transition-all font-label-lg text-label-lg font-extrabold flex items-center justify-center gap-2 px-4 shadow-md disabled:opacity-50" id="venue-nav" disabled>
+              <span class="material-symbols-outlined text-[20px]">navigation</span>
+              <span>Cómo llegar</span>
+            </button>
+          </div>
+          </div>
+          <div class="mt-3 flex-shrink-0">
+            <span class="font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">Actividades del evento</span>
+            <div id="map-activity-list" class="mt-1.5 space-y-2 no-scrollbar"></div>
+          </div>
+        </section>
+      </div>
+    </section>
+
+    <!-- ==================== VISTA MURO ==================== -->
+    <section id="view-muro" class="view view-section hidden flex-col w-full relative">
+      <div class="px-margin pt-4">
+        <div class="relative overflow-hidden rounded-2xl text-white p-5 border border-primary-container/20 shadow-lg" style="background: radial-gradient(120% 80% at 50% 0%, #004262 0%, #002538 55%, #001522 100%); box-shadow: 0 0 25px -5px rgba(242,80,80,.25), 0 0 15px -3px rgba(75,178,242,.3);">
+          <div class="absolute -right-8 -top-8 size-36 rounded-full bg-[#f25050]/20 blur-2xl pointer-events-none"></div>
+          <div class="absolute -left-10 bottom-0 size-40 rounded-full bg-primary-container/20 blur-2xl pointer-events-none"></div>
+          <div class="relative z-10 flex flex-col gap-3">
+            <div class="flex items-center justify-between">
+              <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#f25050]/25 border border-[#f25050]/40 text-[#ffdad6] text-xs font-semibold tracking-wide uppercase">
+                <span class="material-symbols-outlined text-[14px]" style="font-variation-settings: 'FILL' 1;">forum</span>
+                Muro del grupo
+              </span>
+            </div>
+            <div>
+              <h1 class="text-xl font-extrabold tracking-tight text-white">Muro • Espacio Seguro</h1>
+              <p class="text-secondary-fixed/90 text-sm leading-relaxed mt-1 font-normal">Comparte lo que quieras con el equipo: logros, ideas o lo que te preocupa. Un rincón para escucharnos y encontrarnos.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="px-margin py-space-sm">
+        <div class="flex items-center gap-2 pb-2" id="muroTabs">
+          <button class="wall-tab selected" data-category="positive">🌟 Positivo</button>
+          <button class="wall-tab" data-category="vent">🔥 Descárgate</button>
+        </div>
+      </div>
+
+      <div class="px-margin pb-28 space-y-4" id="wall-posts">
+        <div class="text-body-sm text-on-surface-variant">Cargando publicaciones…</div>
+      </div>
+
+      <!-- Botón flotante de publicar -->
+      <aside class="fixed bottom-20 right-margin z-40">
+        <button class="inline-flex items-center gap-2.5 h-14 px-5 rounded-full bg-gradient-to-r from-[#f25050] to-[#d6a100] text-white font-bold shadow-xl hover:shadow-2xl active:scale-95 transition-all border border-white/20" id="open-wall-modal" type="button">
+          <span class="material-symbols-outlined text-xl" style="font-variation-settings: 'FILL' 1;">campaign</span>
+          <span class="text-sm tracking-wide">Publicar</span>
+        </button>
+      </aside>
+
+      <!-- Modal de composición -->
+      <div aria-hidden="true" class="fixed inset-0 z-50 flex flex-col justify-end bg-inverse-surface/60 backdrop-blur-sm transition-opacity duration-300 opacity-0 pointer-events-none" id="wall-modal">
+        <form id="wall-form" class="bg-surface-container-lowest w-full rounded-t-xl p-space-lg shadow-2xl transform translate-y-full transition-transform duration-300 max-h-[90vh] overflow-y-auto" novalidate>
+          <div class="flex items-center justify-between pb-space-sm">
+            <div class="flex flex-col">
+              <h3 class="font-headline-md text-headline-md text-on-primary-container">Nueva publicación</h3>
+              <p class="font-body-sm text-body-sm text-on-surface-variant">Visible para toda la comunidad</p>
+            </div>
+            <button class="w-10 h-10 rounded-full flex items-center justify-center bg-surface-container text-on-surface hover:bg-surface-container-high transition-colors active:scale-95" id="close-wall-modal" type="button">
+              <span class="material-symbols-outlined text-[20px]">close</span>
+            </button>
+          </div>
+          <div class="mt-space-sm">
+            <label class="block font-label-sm text-label-sm uppercase font-bold text-on-surface-variant mb-space-xs">Categoría</label>
+            <div class="grid grid-cols-2 gap-space-sm">
+              <button class="wall-tab selected" data-category="positive" type="button">🌟 Positivo</button>
+              <button class="wall-tab" data-category="vent" type="button">🔥 Descárgate</button>
+            </div>
+          </div>
+          <div class="mt-space-md">
+            <label for="wall-content" class="block font-label-sm text-label-sm uppercase font-bold text-on-surface-variant mb-space-xs">Mensaje</label>
+            <div class="relative bg-surface rounded-lg p-space-sm shadow-inner">
+              <textarea id="wall-content" maxlength="500" rows="4" required
+                        class="w-full bg-transparent text-on-primary-container font-body-md text-body-md placeholder:text-outline focus:outline-none resize-none"
+                        placeholder="Escribe tu mensaje… (sé constructivo y respetuoso)"></textarea>
+              <div class="flex items-center justify-between pt-space-xs">
+                <span class="inline-flex items-center gap-1 text-[11px] text-on-surface-variant">
+                  <span class="material-symbols-outlined text-[14px]">shield</span> Convivencia colaborativa
+                </span>
+                <span class="font-label-sm text-label-sm text-on-surface-variant" id="wall-counter">0/500</span>
+              </div>
+            </div>
+            <p id="wall-error" class="error mt-1"></p>
+          </div>
+          <div class="mt-space-lg flex flex-col gap-space-sm pb-space-sm">
+            <button class="w-full h-12 rounded-full bg-gradient-to-r from-[#f25050] to-[#d6a100] text-white font-label-lg text-label-lg font-bold flex items-center justify-center gap-2 shadow-md hover:opacity-95 active:scale-[0.98] transition-all" type="submit">
+              <span class="material-symbols-outlined text-[20px]">send</span>
+              <span>Publicar</span>
+            </button>
+          </div>
         </form>
-        <div id="wall-posts" class="wall-posts"></div>
+      </div>
+    </section>
+
+    <!-- ==================== VISTA EMERGENCIA ==================== -->
+    <section id="view-emergencia" class="view view-section hidden flex-col w-full pb-8">
+      <!-- Estado de red (real: navigator.onLine) -->
+      <div class="px-margin pt-3 pb-2">
+        <div class="bg-surface-container-lowest rounded-lg p-3 shadow-sm flex items-center justify-between gap-space-sm" style="border: 1px solid rgb(206, 232, 242);">
+          <div class="flex items-center gap-2 min-w-0">
+            <span id="net-dot" class="relative flex h-3 w-3 flex-shrink-0">
+              <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-error opacity-75"></span>
+              <span class="relative inline-flex rounded-full h-3 w-3 bg-error"></span>
+            </span>
+            <div class="min-w-0">
+              <p class="font-label-sm text-label-sm uppercase tracking-wider text-on-surface-variant font-bold">Estado de red</p>
+              <p class="font-headline-sm text-headline-sm text-on-surface truncate" id="net-status">Comprobando…</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- HERO SOS -->
+      <section class="px-margin mb-5">
+        <div class="bg-surface-container-lowest rounded-lg p-4 shadow-md relative overflow-hidden flex flex-col items-center text-center" style="border: 1px solid rgb(206, 232, 242);">
+          <div class="absolute inset-0 bg-gradient-to-b from-error/5 via-transparent to-error/10 pointer-events-none"></div>
+          <div class="flex items-center gap-1.5 px-3 py-1 bg-error-container text-on-error-container rounded-full font-label-sm text-label-sm mb-3 font-bold uppercase tracking-wider">
+            <span class="material-symbols-outlined text-[16px] animate-pulse">crisis_alert</span>
+            Protocolo de seguridad
+          </div>
+          <p class="font-headline-lg-mobile text-headline-lg-mobile text-on-surface font-extrabold max-w-xs mb-1">ACTIVAR PROTOCOLO DE EMERGENCIA</p>
+          <p class="font-body-sm text-body-sm text-on-surface-variant max-w-xs mb-4">Aún no hay un sistema de alertas conectado. Mientras tanto, contacta directamente a las personas de la red interna.</p>
+          <div class="relative flex items-center justify-center my-2">
+            <div class="absolute w-36 h-36 rounded-full bg-error/15 animate-ping" style="animation-duration: 2.2s;"></div>
+            <div class="absolute w-44 h-44 rounded-full bg-error/10 pointer-events-none"></div>
+            <button class="relative z-10 w-32 h-32 rounded-full bg-error text-on-error flex flex-col items-center justify-center shadow-lg active:scale-95 transition-all select-none focus:outline-none ring-4 ring-error/40" id="sosButton">
+              <span class="material-symbols-outlined text-[42px] leading-none mb-1">campaign</span>
+              <span class="font-headline-md text-headline-md tracking-wider font-black">SOS</span>
+              <span class="font-label-sm text-label-sm opacity-90 uppercase">Pulsar</span>
+            </button>
+          </div>
+        </div>
       </section>
-    </main>
-    <nav class="bottom-nav" aria-label="Navegación principal">
-      <button class="nav-item active" data-view="agenda"><span>▤</span>Agenda</button>
-      <button class="nav-item" data-view="mapa"><span>⌖</span>Mapa</button>
-      <button class="nav-item" data-view="emergencia"><span>＋</span>Emergencia</button>
-      <button class="nav-item" data-view="muro"><span>▧</span>Muro</button>
-    </nav>
-  </div>
 
-  <dialog id="activity-dialog">
-    <form id="activity-form" class="dialog-form">
-      <div class="dialog-heading"><h2 id="activity-dialog-title">Nueva actividad</h2><button type="button" id="close-activity" class="icon-button">✕</button></div>
-      <input type="hidden" id="activity-id">
-      <label for="activity-title">Nombre de la actividad</label><input id="activity-title" required maxlength="180">
-      <label for="activity-description">Descripción</label><textarea id="activity-description" rows="3"></textarea>
-      <div class="two-fields"><div><label for="activity-date">Fecha</label><input id="activity-date" type="date" required></div><div><label for="activity-place">Lugar</label><input id="activity-place"></div></div>
-      <div class="two-fields"><div><label for="activity-start">Hora inicio</label><input id="activity-start" type="time"></div><div><label for="activity-end">Hora término</label><input id="activity-end" type="time"></div></div>
-      <div class="two-fields"><div><label for="activity-lat">Latitud (opcional)</label><input id="activity-lat" type="number" step="any"></div><div><label for="activity-lng">Longitud (opcional)</label><input id="activity-lng" type="number" step="any"></div></div>
-      <label for="activity-assignees">Asignar usuarios (IDs UUID separados por coma)</label><input id="activity-assignees" placeholder="Opcional">
-      <button class="primary full" type="submit">Guardar actividad</button>
-      <p id="activity-error" class="error"></p>
-    </form>
-  </dialog>
+      <!-- Contactos (reales: tabla emergency_contacts) -->
+      <section class="px-margin mb-6">
+        <div class="flex items-center justify-between mb-2.5">
+          <h3 class="font-headline-sm text-headline-sm text-on-surface">Contactos de emergencia</h3>
+          <span class="font-label-sm text-label-sm text-on-surface-variant">Red interna</span>
+        </div>
+        <div id="emergency-contacts" class="space-y-2.5"></div>
+      </section>
 
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script type="module" src="./src/main.js"></script>
+      <!-- Enlace al sitio externo (X-Frame-Options: DENY) -->
+      <section class="px-margin mb-4">
+        <div class="bg-surface-container-lowest rounded-lg p-4 shadow-sm" style="border: 1px solid rgb(206, 232, 242);">
+          <p class="font-body-sm text-body-sm text-on-surface-variant mb-3">El sitio externo no permite mostrarse dentro de la aplicación (bloquea el iframe). Ábrelo en una pestaña nueva:</p>
+          <a id="emergency-open-link" class="h-12 w-full rounded-full bg-error text-on-error font-label-lg text-label-lg font-bold flex items-center justify-center gap-2 shadow-md active:scale-[0.98] transition-all" href="https://auxilio-rm-go.base44.app/" target="_blank" rel="noopener">
+            <span class="material-symbols-outlined text-[20px]">emergency</span>
+            <span>Abrir sistema de emergencia ↗</span>
+          </a>
+        </div>
+      </section>
+    </section>
+
+    <!-- Toast -->
+    <div class="fixed bottom-24 left-1/2 -translate-x-1/2 bg-inverse-surface text-inverse-on-surface px-4 py-2.5 rounded-full font-label-md text-label-md shadow-xl transition-all duration-300 opacity-0 pointer-events-none z-50 flex items-center gap-2 max-w-[90vw]" id="toast-msg">
+      <span class="material-symbols-outlined text-[18px] text-primary-container">info</span>
+      <span id="toast-text">Acción completada</span>
+    </div>
+  </main>
+
+  <!-- Navegación inferior -->
+  <nav class="fixed bottom-0 inset-x-0 z-50 pb-[env(safe-area-inset-bottom,0px)] bg-surface-container-lowest/95 backdrop-blur-xl shadow-[0_-4px_20px_rgba(2,64,89,0.08)]" aria-label="Navegación principal">
+    <div class="flex justify-around items-center h-16 px-space-sm max-w-lg mx-auto">
+      <button class="nav-item flex flex-col items-center justify-center gap-0.5 px-3 py-1.5 rounded-full transition-all min-w-[64px] min-h-[48px]" data-view="agenda">
+        <span class="material-symbols-outlined text-[24px]">calendar_month</span>
+        <span class="font-label-sm text-label-sm">Agenda</span>
+      </button>
+      <button class="nav-item flex flex-col items-center justify-center gap-0.5 px-3 py-1.5 rounded-full transition-all min-w-[64px] min-h-[48px]" data-view="mapa">
+        <span class="material-symbols-outlined text-[24px]">location_on</span>
+        <span class="font-label-sm text-label-sm">Mapa</span>
+      </button>
+      <button class="nav-item nav-emergencia flex flex-col items-center justify-center gap-0.5 px-3 py-1.5 rounded-full transition-all min-w-[64px] min-h-[48px] relative" data-view="emergencia">
+        <div class="relative flex items-center justify-center">
+          <span class="material-symbols-outlined text-[24px] text-error">emergency</span>
+          <span class="absolute -top-0.5 -right-1 w-2 h-2 rounded-full bg-error ring-2 ring-surface-container-lowest"></span>
+        </div>
+        <span class="font-label-sm text-label-sm text-error">Emergencia</span>
+      </button>
+      <button class="nav-item flex flex-col items-center justify-center gap-0.5 px-3 py-1.5 rounded-full transition-all min-w-[64px] min-h-[48px]" data-view="muro">
+        <span class="material-symbols-outlined text-[24px]">forum</span>
+        <span class="font-label-sm text-label-sm">Muro</span>
+      </button>
+    </div>
+  </nav>
+</div>
+
+<!-- ==================== DIÁLOGO DE ACTIVIDAD (admin) ==================== -->
+<dialog id="activity-dialog">
+  <form id="activity-form" class="bg-surface-container-lowest rounded-t-xl p-space-lg space-y-space-md max-h-[85vh] overflow-y-auto shadow-2xl w-full max-w-lg mx-auto mt-auto animate-in slide-in-from-bottom">
+    <div class="w-12 h-1.5 bg-surface-variant rounded-full mx-auto"></div>
+    <div class="flex items-start justify-between">
+      <h2 id="activity-dialog-title" class="font-headline-md text-headline-md text-on-primary-container">Nueva actividad</h2>
+      <button type="button" id="close-activity" class="w-10 h-10 rounded-full bg-surface-container flex items-center justify-center text-on-surface-variant hover:bg-surface-variant">
+        <span class="material-symbols-outlined text-[20px]">close</span>
+      </button>
+    </div>
+    <input type="hidden" id="activity-id">
+    <div>
+      <label for="activity-title" class="block font-label-md text-label-md text-on-surface font-semibold mb-1">Nombre de la actividad</label>
+      <input id="activity-title" required maxlength="180" class="w-full h-12 px-3.5 bg-surface rounded-lg text-on-surface border border-outline-variant focus:outline-none focus:ring-2 focus:ring-primary/40">
+    </div>
+    <div>
+      <label for="activity-description" class="block font-label-md text-label-md text-on-surface font-semibold mb-1">Descripción</label>
+      <textarea id="activity-description" rows="3" class="w-full p-3 bg-surface rounded-lg text-on-surface border border-outline-variant focus:outline-none focus:ring-2 focus:ring-primary/40 resize-none"></textarea>
+    </div>
+    <div class="grid grid-cols-2 gap-3">
+      <div>
+        <label for="activity-date" class="block font-label-md text-label-md text-on-surface font-semibold mb-1">Fecha</label>
+        <input id="activity-date" type="date" required class="w-full h-12 px-3 bg-surface rounded-lg text-on-surface border border-outline-variant focus:outline-none focus:ring-2 focus:ring-primary/40">
+      </div>
+      <div>
+        <label for="activity-place" class="block font-label-md text-label-md text-on-surface font-semibold mb-1">Lugar</label>
+        <input id="activity-place" class="w-full h-12 px-3 bg-surface rounded-lg text-on-surface border border-outline-variant focus:outline-none focus:ring-2 focus:ring-primary/40">
+      </div>
+    </div>
+    <div class="grid grid-cols-2 gap-3">
+      <div>
+        <label for="activity-start" class="block font-label-md text-label-md text-on-surface font-semibold mb-1">Hora inicio</label>
+        <input id="activity-start" type="time" class="w-full h-12 px-3 bg-surface rounded-lg text-on-surface border border-outline-variant focus:outline-none focus:ring-2 focus:ring-primary/40">
+      </div>
+      <div>
+        <label for="activity-end" class="block font-label-md text-label-md text-on-surface font-semibold mb-1">Hora término</label>
+        <input id="activity-end" type="time" class="w-full h-12 px-3 bg-surface rounded-lg text-on-surface border border-outline-variant focus:outline-none focus:ring-2 focus:ring-primary/40">
+      </div>
+    </div>
+    <div class="grid grid-cols-2 gap-3">
+      <div>
+        <label for="activity-lat" class="block font-label-md text-label-md text-on-surface font-semibold mb-1">Latitud (opcional)</label>
+        <input id="activity-lat" type="number" step="any" class="w-full h-12 px-3 bg-surface rounded-lg text-on-surface border border-outline-variant focus:outline-none focus:ring-2 focus:ring-primary/40">
+      </div>
+      <div>
+        <label for="activity-lng" class="block font-label-md text-label-md text-on-surface font-semibold mb-1">Longitud (opcional)</label>
+        <input id="activity-lng" type="number" step="any" class="w-full h-12 px-3 bg-surface rounded-lg text-on-surface border border-outline-variant focus:outline-none focus:ring-2 focus:ring-primary/40">
+      </div>
+    </div>
+    <div>
+      <label for="activity-assignees" class="block font-label-md text-label-md text-on-surface font-semibold mb-1">Asignar usuarios (IDs UUID separados por coma)</label>
+      <input id="activity-assignees" placeholder="Opcional" class="w-full h-12 px-3.5 bg-surface rounded-lg text-on-surface border border-outline-variant focus:outline-none focus:ring-2 focus:ring-primary/40">
+    </div>
+    <button class="w-full h-12 rounded-full bg-primary text-on-primary font-label-lg text-label-lg font-bold shadow-md active:scale-[0.98] transition-all" type="submit">Guardar actividad</button>
+    <p id="activity-error" class="error"></p>
+  </form>
+</dialog>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script type="module" src="./src/main.js"></script>
 </body>
 </html>

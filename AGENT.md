@@ -458,6 +458,7 @@ Con el usuario de prueba `test` (rol admin) se verificó **0 errores de consola*
 5. Asignación de usuarios: el formulario aún pide **UUIDs separados por coma** (solución temporal, ver §8/§9).
 6. Administración de usuarios, adjuntos, y personalización de instrucciones por usuario.
 7. Antes de producción: CORS de la Edge Function a un origen concreto (hoy `*`), rate limiting en `login-username`, iconos del PWA (`manifest.webmanifest` tiene `"icons":[]`).
+8. ⬜ **`emergency_contacts` está vacía** (verificado el 2026-11-23 en navegador: la vista Emergencia muestra "No hay contactos registrados."). Falta cargar los contactos reales (INSERT con datos reales de la red interna).
 
 ## 15. Queries para regenerar `schema.sql`
 
@@ -529,3 +530,30 @@ ORDER BY c.relname, t.tgname;
 SELECT evtname, evtevent, evtenabled, evtfoid::regproc AS funcion
 FROM pg_event_trigger ORDER BY evtname;
 ```
+
+## 16. Rediseño visual con el mockup `index-up.html` (2026-11-23)
+
+Se reemplazó el frontend por el diseño del mockup `index-up.html` **manteniendo toda la lógica Supabase**.
+Decisiones acordadas con el usuario (todas las recomendadas):
+
+1. **Tailwind por CDN** (`cdn.tailwindcss.com`) + Google Fonts (Plus Jakarta Sans) + Material Symbols, tal como el mock.
+2. **Mapa: Leaflet real** con las coordenadas de las 5 actividades (NO el SVG falso del mock), con panel inferior "sede seleccionada", barra de búsqueda y botones de zoom/recentrar.
+3. **Muro: 2 categorías reales** de la BD (`positive`/`vent`) con el look del mock (4 pestañas del mock descartadas: el CHECK de `wall_posts.category` no cambió).
+4. **Botones sin backend (SOS, reacciones, ficha médica…)**: ocultos o con toast honesto. El SOS informa que no hay alertas automáticas.
+5. **Datos de ejemplo del mock** (Camila Rojas, ficha médica, avatares): conectados a datos reales; los ficticios, ocultos.
+6. **Estados de asistencia**: los de la BD (`pending/in_progress/completed`) con look nuevo; el CHECK no cambió.
+
+Archivos cambiados: `index.html` (diseño nuevo + todos los IDs que necesita `src/main.js`),
+`src/main.js` (navegación con `#header-view-label`, `showToast()`, agenda por días con HOY/progreso/filtro
+Mis-Todas, panel de sede del mapa, modal del muro, red real con `navigator.onLine`) y `styles.css`
+(reescrito en versión mínima: solo clases que genera `main.js`). `index-up.html` se conserva como referencia del diseño.
+
+Verificado en navegador con `test`/`123456` (2026-11-23), **0 errores de consola**:
+login, agenda (5 actividades, acordeón por día, "Día 1 de 8", filtro Mis/Todas con conteos),
+crear/editar (toast "Actividad actualizada."), cancelar/reabrir (píldora `is-cancelled`),
+cambiar estado de asignación (Pendiente/En curso/Completada con botón activo),
+mapa (5 marcadores, selección de sede, "Cómo llegar" habilitado con coordenadas, búsqueda, zoom/recentrar),
+muro (publicar con toast, eliminar, pestañas sincronizadas entre vista y modal),
+emergencia (red real `navigator.onLine`, enlace externo, toast honesto de SOS), navegación y sesión.
+
+> **Pendiente detectado en la verificación**: `emergency_contacts` está vacía (§14.8).

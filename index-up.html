@@ -1,0 +1,1690 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" name="viewport">
+<meta content="mobile_tab" name="shell-type">
+<link href="https://fonts.googleapis.com" rel="preconnect">
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+<style>
+@layer base {
+  html, body { width: 100vw; margin: 0; padding: 0; }
+  body { overscroll-behavior: none; -webkit-tap-highlight-color: transparent; }
+  .pb-safe { padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 5.5rem); }
+  .pt-safe { padding-top: env(safe-area-inset-top, 0px); }
+  main > :first-child { margin-top: 0 !important; }
+  main > :last-child { margin-bottom: 0 !important; }
+}
+::-webkit-scrollbar { display: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+@keyframes slideInFromBottom {
+  from { transform: translateY(100%); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+.animate-in.slide-in-from-bottom {
+  animation: slideInFromBottom 0.3s ease-out forwards;
+}
+.catharsis-gradient {
+  background: radial-gradient(120% 80% at 50% 0%, #004262 0%, #002538 55%, #001522 100%);
+}
+.catharsis-glow {
+  box-shadow: 0 0 25px -5px rgba(242, 80, 80, 0.25), 0 0 15px -3px rgba(75, 178, 242, 0.3);
+}
+</style>
+<script src="https://cdn.tailwindcss.com"></script>
+<script id="tailwind-config">
+tailwind.config = {
+  darkMode: "class",
+  theme: {
+    extend: {
+      colors: {
+        "on-tertiary-fixed-variant": "#5b4300", "on-tertiary-container": "#503b00",
+        "inverse-surface": "#2c3132", "on-primary-fixed-variant": "#004b6f",
+        "on-tertiary-fixed": "#251a00", "on-primary": "#ffffff",
+        "inverse-on-surface": "#edf1f2", "surface-variant": "#dfe3e4",
+        "tertiary": "#785900", "secondary-container": "#b1e0ff",
+        "tertiary-fixed": "#ffdf9d", "surface-container": "#eaeff0",
+        "primary-fixed-dim": "#8bceff", "secondary-fixed-dim": "#9dcdeb",
+        "on-tertiary": "#ffffff", "secondary-fixed": "#c4e7ff",
+        "primary-fixed": "#c9e6ff", "surface": "#f6fafb",
+        "on-primary-container": "#004262", "background": "#f6fafb",
+        "surface-bright": "#f6fafb", "on-secondary": "#ffffff",
+        "outline-variant": "#bec7d1", "inverse-primary": "#8bceff",
+        "surface-container-low": "#f0f4f5", "surface-container-highest": "#dfe3e4",
+        "surface-tint": "#006492", "on-background": "#181c1d",
+        "on-error": "#ffffff", "primary-container": "#4bb2f2",
+        "tertiary-fixed-dim": "#f9bd14", "on-secondary-container": "#34647f",
+        "surface-container-high": "#e5e9ea", "on-secondary-fixed": "#001e2d",
+        "outline": "#6f7881", "on-primary-fixed": "#001e2f",
+        "surface-dim": "#d6dbdc", "surface-container-lowest": "#ffffff",
+        "error-container": "#ffdad6", "tertiary-container": "#d6a100",
+        "secondary": "#33647e", "on-secondary-fixed-variant": "#164c65",
+        "error": "#ba1a1a", "primary": "#006492",
+        "on-error-container": "#93000a", "on-surface": "#181c1d",
+        "on-surface-variant": "#3f4850"
+      },
+      borderRadius: { "DEFAULT": "1rem", "lg": "2rem", "xl": "3rem", "full": "9999px" },
+      spacing: {
+        "space-md": "1rem", "space-xl": "2rem", "margin-desktop": "2rem",
+        "gutter-desktop": "1.5rem", "margin": "1rem", "space-xs": "0.25rem",
+        "gutter-tablet": "1.25rem", "space-sm": "0.5rem",
+        "margin-tablet": "1.5rem", "gutter": "1rem", "space-lg": "1.5rem"
+      },
+      fontFamily: {
+        "body-lg": ["Plus Jakarta Sans"], "headline-lg": ["Plus Jakarta Sans"],
+        "headline-xl-mobile": ["Plus Jakarta Sans"], "label-sm": ["Plus Jakarta Sans"],
+        "headline-xl": ["Plus Jakarta Sans"], "headline-md": ["Plus Jakarta Sans"],
+        "headline-lg-mobile": ["Plus Jakarta Sans"], "label-md": ["Plus Jakarta Sans"],
+        "body-md": ["Plus Jakarta Sans"], "headline-sm": ["Plus Jakarta Sans"],
+        "body-sm": ["Plus Jakarta Sans"], "label-lg": ["Plus Jakarta Sans"]
+      },
+      fontSize: {
+        "body-lg": ["17px", { lineHeight: "24px", fontWeight: "400" }],
+        "headline-lg": ["28px", { lineHeight: "36px", letterSpacing: "-0.01em", fontWeight: "700" }],
+        "headline-xl-mobile": ["28px", { lineHeight: "34px", letterSpacing: "-0.02em", fontWeight: "800" }],
+        "label-sm": ["11px", { lineHeight: "14px", letterSpacing: "0.04em", fontWeight: "700" }],
+        "headline-xl": ["36px", { lineHeight: "44px", letterSpacing: "-0.02em", fontWeight: "800" }],
+        "headline-md": ["20px", { lineHeight: "26px", fontWeight: "700" }],
+        "headline-lg-mobile": ["22px", { lineHeight: "28px", letterSpacing: "-0.01em", fontWeight: "700" }],
+        "label-md": ["13px", { lineHeight: "16px", letterSpacing: "0.01em", fontWeight: "600" }],
+        "body-md": ["15px", { lineHeight: "21px", fontWeight: "400" }],
+        "headline-sm": ["17px", { lineHeight: "22px", fontWeight: "600" }],
+        "body-sm": ["13px", { lineHeight: "18px", fontWeight: "400" }],
+        "label-lg": ["15px", { lineHeight: "20px", fontWeight: "600" }]
+      }
+    }
+  }
+};
+</script>
+</head>
+<body class="bg-surface font-body-md text-on-surface antialiased min-h-screen flex flex-col">
+
+<!-- HEADER -->
+<header class="fixed top-0 inset-x-0 z-50 bg-surface/90 backdrop-blur-xl shadow-[0_1px_8px_rgba(2,64,89,0.06)] pt-safe">
+  <div class="h-20 px-margin flex items-center justify-between gap-space-sm">
+    <div class="flex items-center gap-space-sm min-w-0 flex-1">
+      <img alt="APP SANTIAGO 2026 Logo" class="h-8 w-auto object-contain flex-shrink-0" src="https://lh3.googleusercontent.com/aida/ALJJyrAi7XgMrHuzz--w2sHD3Ga4hd0dw7bJ-d06hPNvfyVER9G_cS86pyR-JOOxkUpGRaR8Q9SOYW_BOjmPN-9WAGMm7XKnefq9x3ym1eWsd7XxQ-NIhwghtjdPSPmcuA--H5UczwQxywZoR-KNmea_T7uWTN7EkmumkI7PwhWnBZryoGnRkaF3RZoODEwlD2uMMOk5MvS431TJJXO8TrvO9VNZ9MQ0XOShqpV9igjumrqTpg">
+      <div class="flex flex-col min-w-0">
+        <div class="flex items-center gap-space-xs">
+          <span class="font-headline-sm text-headline-sm text-on-primary-container truncate leading-none tracking-tight">APP SANTIAGO 2026</span>
+          <span class="hidden sm:inline-block w-1.5 h-1.5 rounded-full bg-primary-container"></span>
+          <span class="hidden sm:inline-block font-label-sm text-label-sm text-on-surface-variant font-bold uppercase truncate" id="header-view-label">Agenda</span>
+        </div>
+        <div class="flex items-center gap-1.5 mt-0.5">
+          <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-secondary-container text-on-secondary-container font-label-sm text-label-sm leading-none">
+            <span class="w-1.5 h-1.5 rounded-full bg-primary animate-pulse"></span>Camila Rojas (Coordinadora)
+          </span>
+        </div>
+      </div>
+    </div>
+    <div class="flex items-center gap-space-xs flex-shrink-0">
+      <div class="relative flex items-center justify-center p-0.5 rounded-full ring-2 ring-primary-container/40">
+        <img alt="Profile" class="w-8 h-8 rounded-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCT1JVeqegjWc9-2YW75QQZ-huVeS3rnWUl0_-2z7gd6nuE9uC_jOJfYj6QSLp3WHSqxPN7_FvVnp9LHwi5AP-F2xj0_cL-qNFiP9bJ337VQUCLR1k-ZoGBXSR8JePs5N_h6iGqE6YZx_W6zQSCU0NvZr4rShNVmojekMpbyNDV736sj0d_eYhrbb8ga1tPNFwPIlKNwoFlewTGv44TwoUICX3E-gNWJnF6K0KN4xYm">
+      </div>
+      <button aria-label="Cerrar sesión" class="w-11 h-11 flex items-center justify-center rounded-full text-secondary hover:bg-surface-container-high active:scale-95 transition-all" title="Cerrar sesión">
+        <span class="material-symbols-outlined text-[22px]">logout</span>
+      </button>
+    </div>
+  </div>
+</header>
+
+<main class="flex flex-col relative w-full pt-20 pb-safe bg-surface flex-1" style="background-color: rgb(234, 242, 246);">
+
+  <!-- ==================== VISTA AGENDA ==================== -->
+  <section id="view-agenda" class="view-section flex flex-col w-full px-margin pb-10 space-y-space-md">
+    <!-- Header Banner & Event Context -->
+    <section class="bg-surface-container-lowest rounded-lg p-space-md shadow-sm space-y-space-sm" style="background-color: rgb(255, 255, 255); border: 1px solid rgb(206, 232, 242); box-shadow: rgba(2, 64, 89, 0.06) 0px 2px 10px;">
+      <div class="flex items-center justify-between gap-space-xs">
+        <div class="flex items-center gap-space-xs">
+          <span class="material-symbols-outlined text-primary text-[20px]">calendar_month</span>
+          <span class="font-label-md text-label-md text-on-primary-container font-bold">12 al 18 Octubre, 2026</span>
+        </div>
+        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-secondary-container text-on-secondary-container font-label-sm text-label-sm font-bold">
+          <span class="w-2 h-2 rounded-full bg-primary animate-pulse"></span> Día 3 de 7
+        </span>
+      </div>
+      <div class="flex items-baseline justify-between">
+        <div>
+          <h2 class="font-headline-lg-mobile text-headline-lg-mobile text-on-primary-container">Miércoles 14 Octubre</h2>
+          <p class="font-body-sm text-body-sm text-on-surface-variant">Jornada Oficial de Apertura y Logística Urbana</p>
+        </div>
+      </div>
+      <div class="bg-surface-container p-1 rounded-full flex items-center gap-1 shadow-inner" role="tablist">
+        <button class="flex-1 py-2 px-3 rounded-full font-label-md text-label-md text-on-primary-container bg-primary-container shadow-sm transition-all duration-200 text-center font-bold flex items-center justify-center gap-1.5" id="tab-mine" onclick="switchFilter('mine')">
+          <span class="material-symbols-outlined text-[18px]">person</span>
+          <span>Mis Actividades (4)</span>
+        </button>
+        <button class="flex-1 py-2 px-3 rounded-full font-label-md text-label-md text-on-surface-variant hover:text-on-surface transition-all duration-200 text-center flex items-center justify-center gap-1.5" id="tab-all" onclick="switchFilter('all')">
+          <span class="material-symbols-outlined text-[18px]">groups</span>
+          <span>Todas (18)</span>
+        </button>
+      </div>
+    </section>
+
+    <div class="flex items-center justify-between px-1">
+      <span class="font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">Cronograma General</span>
+      <button class="inline-flex items-center gap-1.5 px-3 py-2 rounded-full bg-primary-container text-on-primary-container font-label-md text-label-md font-bold shadow-sm active:scale-95 transition-transform" onclick="openModal('add-act')">
+        <span class="material-symbols-outlined text-[18px]">add_circle</span>
+        <span>Nueva Actividad</span>
+      </button>
+    </div>
+
+    <div class="space-y-space-sm" id="agenda-accordion-group">
+      <!-- Day 1 -->
+      <div class="bg-surface-container-lowest rounded-DEFAULT shadow-sm overflow-hidden transition-all duration-200" style="background-color: rgb(255, 255, 255); border: 1px solid rgb(206, 232, 242); box-shadow: rgba(2, 64, 89, 0.05) 0px 2px 8px;">
+        <button class="w-full flex items-center justify-between p-space-md text-left focus:outline-none" onclick="toggleDay('day-1')">
+          <div class="flex items-center gap-space-sm">
+            <div class="w-9 h-9 rounded-full flex items-center justify-center text-on-surface-variant" style="background-color: #dfe3e4;">
+              <span class="material-symbols-outlined text-[20px]" style="color: #024059;">done_all</span>
+            </div>
+            <div>
+              <div class="flex items-center gap-2">
+                <span class="font-headline-sm text-headline-sm font-bold" style="color: #024059;">Lunes 12 Octubre</span>
+                <span class="px-2 py-0.5 rounded-full font-label-sm text-label-sm font-bold" style="background-color: #dfe3e4; color: #34647f;">5 completadas</span>
+              </div>
+              <p class="font-body-sm text-body-sm font-semibold" style="color: #3f4850;">Arribos iniciales y montaje técnico</p>
+            </div>
+          </div>
+          <span class="material-symbols-outlined text-outline transition-transform duration-200" id="day-1-icon">expand_more</span>
+        </button>
+        <div class="hidden px-space-md pb-space-md pt-1 space-y-2" id="day-1-content">
+          <div class="p-space-sm rounded-DEFAULT flex items-center justify-between" style="background-color: #f6fafb; border: 1px solid #CEE8F2;">
+            <span class="font-body-sm text-body-sm font-bold" style="color: #024059;">Briefing General de Líderes</span>
+            <span class="font-label-sm text-label-sm font-bold" style="color: #33647e;">09:00 - 11:30</span>
+          </div>
+          <div class="p-space-sm rounded-DEFAULT flex items-center justify-between" style="background-color: #f6fafb; border: 1px solid #CEE8F2;">
+            <span class="font-body-sm text-body-sm font-bold" style="color: #024059;">Test de Señalética en Sedes</span>
+            <span class="font-label-sm text-label-sm font-bold" style="color: #33647e;">14:00 - 18:00</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Day 2 -->
+      <div class="bg-surface-container-lowest rounded-DEFAULT shadow-sm overflow-hidden transition-all duration-200" style="background-color: rgb(255, 255, 255); border: 1px solid rgb(206, 232, 242); box-shadow: rgba(2, 64, 89, 0.05) 0px 2px 8px;">
+        <button class="w-full flex items-center justify-between p-space-md text-left focus:outline-none" onclick="toggleDay('day-2')">
+          <div class="flex items-center gap-space-sm">
+            <div class="w-9 h-9 rounded-full flex items-center justify-center text-on-surface-variant" style="background-color: #dfe3e4;">
+              <span class="material-symbols-outlined text-[20px]" style="color: #024059;">done_all</span>
+            </div>
+            <div>
+              <div class="flex items-center gap-2">
+                <span class="font-headline-sm text-headline-sm font-bold" style="color: #024059;">Martes 13 Octubre</span>
+                <span class="px-2 py-0.5 rounded-full font-label-sm text-label-sm font-bold" style="background-color: #dfe3e4; color: #34647f;">6 completadas</span>
+              </div>
+              <p class="font-body-sm text-body-sm font-semibold" style="color: #3f4850;">Ensayos protocolares y simulacros</p>
+            </div>
+          </div>
+          <span class="material-symbols-outlined text-outline transition-transform duration-200" id="day-2-icon">expand_more</span>
+        </button>
+        <div class="hidden px-space-md pb-space-md pt-1 space-y-2" id="day-2-content">
+          <div class="p-space-sm rounded-DEFAULT flex items-center justify-between" style="background-color: #f6fafb; border: 1px solid #CEE8F2;">
+            <span class="font-body-sm text-body-sm font-bold" style="color: #024059;">Entrega de Radios VHF a Turnos</span>
+            <span class="font-label-sm text-label-sm font-bold" style="color: #33647e;">10:00 - 12:00</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Day 3 TODAY -->
+      <div class="bg-surface-container-lowest rounded-lg shadow-md overflow-hidden transition-all duration-200" style="background-color: rgb(255, 255, 255); border: 2px solid rgb(75, 178, 242); box-shadow: rgba(2, 64, 89, 0.12) 0px 4px 20px;">
+        <div class="p-space-md flex flex-col gap-2" style="background-color: #b1e0ff; border-bottom: 1px solid #CEE8F2;">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <div class="w-8 h-8 rounded-full flex items-center justify-center text-on-primary shadow-sm" style="background-color: #006492;">
+                <span class="material-symbols-outlined text-[18px]">bolt</span>
+              </div>
+              <div>
+                <span class="font-headline-sm text-headline-sm font-extrabold" style="color: #004262;">Miércoles 14 Octubre</span>
+                <span class="ml-1.5 px-2 py-0.5 rounded-full text-on-primary-container font-label-sm text-label-sm font-black uppercase shadow-sm" style="background-color: #ffffff; color: #004262;">HOY</span>
+              </div>
+            </div>
+            <span class="px-2.5 py-1 rounded-full font-label-sm text-label-sm font-bold shadow-sm" style="background-color: #ffffff; color: #004262; border: 1px solid #CEE8F2;">4 Actividades</span>
+          </div>
+          <div class="mt-1 space-y-1">
+            <div class="flex justify-between items-center font-label-sm text-label-sm font-bold" style="color: #004262;">
+              <span>Progreso de la jornada</span>
+              <span>1 de 4 completada (25%)</span>
+            </div>
+            <div class="w-full h-2 rounded-full overflow-hidden" style="background-color: rgba(255,255,255,0.7);">
+              <div class="h-full rounded-full transition-all duration-500" style="width: 25%; background-color: #006492;"></div>
+            </div>
+          </div>
+        </div>
+        <div class="p-space-md space-y-space-md" style="background-color: #f0f4f5;">
+          <!-- Card 1 -->
+          <article class="rounded-DEFAULT p-space-md space-y-space-sm transition-all" style="background-color: #ffffff; border: 1px solid #CEE8F2; box-shadow: 0 2px 6px rgba(2,64,89,0.06);">
+            <div class="flex items-start justify-between gap-2">
+              <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full font-label-sm text-label-sm font-bold" style="background-color: #b1e0ff; color: #004262;">
+                <span class="material-symbols-outlined text-[14px]">check_circle</span> Completada
+              </span>
+              <div class="flex items-center gap-1 font-label-md text-label-md font-bold" style="color: #024059;">
+                <span class="material-symbols-outlined text-[16px]">schedule</span><span>08:30 - 10:30</span>
+              </div>
+            </div>
+            <div>
+              <h3 class="font-headline-sm text-headline-sm font-bold" style="color: #024059;">Recepción Delegación Internacional Aeropuerto SCL</h3>
+              <p class="font-body-sm text-body-sm mt-1" style="color: #3f4850;">Recepción protocolar de autoridades y traslado coordinado en vans a Hotel W Santiago.</p>
+            </div>
+            <div class="flex items-center gap-1.5 font-body-sm text-body-sm font-medium" style="color: #024059;">
+              <span class="material-symbols-outlined text-[18px]" style="color: #006492;">pin_drop</span>
+              <span class="truncate">Terminal Internacional Nuevo Pudahuel - Puerta 4</span>
+            </div>
+            <div class="pt-2 flex items-center justify-between border-t border-slate-100">
+              <div class="flex items-center -space-x-2">
+                <img alt="Camila Rojas" class="w-7 h-7 rounded-full object-cover shadow-sm ring-1 ring-white" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCT1JVeqegjWc9-2YW75QQZ-huVeS3rnWUl0_-2z7gd6nuE9uC_jOJfYj6QSLp3WHSqxPN7_FvVnp9LHwi5AP-F2xj0_cL-qNFiP9bJ337VQUCLR1k-ZoGBXSR8JePs5N_h6iGqE6YZx_W6zQSCU0NvZr4rShNVmojekMpbyNDV736sj0d_eYhrbb8ga1tPNFwPIlKNwoFlewTGv44TwoUICX3E-gNWJnF6K0KN4xYm">
+                <div class="w-7 h-7 rounded-full text-on-secondary flex items-center justify-center font-label-sm text-label-sm font-bold shadow-sm ring-1 ring-white" style="background-color: #33647e;">MR</div>
+                <div class="w-7 h-7 rounded-full text-on-secondary-container flex items-center justify-center font-label-sm text-label-sm font-bold shadow-sm ring-1 ring-white" style="background-color: #b1e0ff; color: #004262;">AL</div>
+                <div class="w-7 h-7 rounded-full flex items-center justify-center font-label-sm text-label-sm font-bold shadow-sm ring-1 ring-white" style="background-color: #dfe3e4; color: #024059;">+2</div>
+              </div>
+              <button class="font-label-md text-label-md font-bold hover:underline flex items-center gap-0.5" style="color: #006492;" onclick="openModal('activity-1')">
+                <span>Detalles</span><span class="material-symbols-outlined text-[16px]">chevron_right</span>
+              </button>
+            </div>
+          </article>
+
+          <!-- Card 2 Active -->
+          <article class="rounded-lg p-space-md space-y-space-sm shadow-md relative overflow-hidden" style="background-color: #ffffff; border: 1.5px solid #4bb2f2; box-shadow: 0 4px 14px rgba(2,64,89,0.1);">
+            <div class="absolute top-0 left-0 right-0 h-1.5" style="background-color: #006492;"></div>
+            <div class="flex items-center justify-between gap-2 pt-1">
+              <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full font-label-sm text-label-sm font-black tracking-wide uppercase shadow-sm" style="background-color: #4bb2f2; color: #004262;">
+                <span class="w-2 h-2 rounded-full animate-ping" style="background-color: #004262;"></span> En desarrollo
+              </span>
+              <div class="flex items-center gap-1 font-headline-sm text-headline-sm font-extrabold" style="color: #004262;">
+                <span class="material-symbols-outlined text-[18px]" style="color: #006492;">schedule</span><span>11:00 - 13:30</span>
+              </div>
+            </div>
+            <div>
+              <h3 class="font-headline-md text-headline-md leading-tight font-extrabold" style="color: #024059;">Ceremonia de Inauguración y Acreditación General</h3>
+              <p class="font-body-sm text-body-sm mt-1.5 font-medium" style="color: #3f4850;">Validación de credenciales QR, entrega de kits a comitivas y acto de apertura oficial en plenario central.</p>
+            </div>
+            <div class="p-space-sm rounded-DEFAULT flex items-center gap-2" style="background-color: #EDF4F7; border: 1px solid #CEE8F2;">
+              <span class="material-symbols-outlined text-[20px]" style="color: #006492;">location_on</span>
+              <div class="min-w-0">
+                <p class="font-label-md text-label-md font-bold truncate" style="color: #024059;">Centro de Convenciones Espacio Riesco</p>
+                <p class="font-body-sm text-body-sm font-medium" style="color: #3f4850;">Gran Salón A - Accesos 1 al 3</p>
+              </div>
+            </div>
+            <div class="flex items-center justify-between pt-1">
+              <div class="flex items-center gap-2">
+                <div class="flex items-center -space-x-2">
+                  <img alt="Camila Rojas" class="w-8 h-8 rounded-full object-cover ring-2 ring-white shadow-sm" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCT1JVeqegjWc9-2YW75QQZ-huVeS3rnWUl0_-2z7gd6nuE9uC_jOJfYj6QSLp3WHSqxPN7_FvVnp9LHwi5AP-F2xj0_cL-qNFiP9bJ337VQUCLR1k-ZoGBXSR8JePs5N_h6iGqE6YZx_W6zQSCU0NvZr4rShNVmojekMpbyNDV736sj0d_eYhrbb8ga1tPNFwPIlKNwoFlewTGv44TwoUICX3E-gNWJnF6K0KN4xYm">
+                  <div class="w-8 h-8 rounded-full text-on-secondary flex items-center justify-center font-label-sm text-label-sm font-bold ring-2 ring-white shadow-sm" style="background-color: #33647e;">RM</div>
+                  <div class="w-8 h-8 rounded-full text-on-secondary-container flex items-center justify-center font-label-sm text-label-sm font-bold ring-2 ring-white shadow-sm" style="background-color: #b1e0ff; color: #004262;">SV</div>
+                </div>
+                <span class="font-body-sm text-body-sm font-bold" style="color: #024059;">Tú y 2 más</span>
+              </div>
+              <button class="px-2.5 py-1 rounded-full font-label-sm text-label-sm font-bold flex items-center gap-1 active:scale-95 transition-transform shadow-sm" style="background-color: #eaeff0; color: #024059; border: 1px solid #CEE8F2;" onclick="toggleMyStatus(this)" title="Cambiar mi estado">
+                <span class="w-2 h-2 rounded-full" style="background-color: #006492;"></span>
+                <span id="my-status-text">Mi estado: Asistiendo</span>
+              </button>
+            </div>
+            <div class="pt-2 flex items-center gap-space-sm">
+              <button class="flex-1 py-3 px-space-md rounded-full font-label-lg text-label-lg font-bold shadow-sm active:scale-95 transition-all flex items-center justify-center gap-2" style="background-color: #4bb2f2; color: #004262;" onclick="openModal('activity-2')">
+                <span class="material-symbols-outlined text-[20px]">assignment</span>
+                <span>Ver Detalle Operativo</span>
+              </button>
+              <button class="w-12 h-12 rounded-full flex items-center justify-center active:scale-90 transition-transform shadow-sm" style="background-color: #b1e0ff; color: #004262;" onclick="checkInQuick()" title="Confirmar Check-in">
+                <span class="material-symbols-outlined text-[22px]">how_to_reg</span>
+              </button>
+            </div>
+          </article>
+
+          <!-- Card 3 -->
+          <article class="rounded-DEFAULT p-space-md space-y-space-sm transition-all" style="background-color: #ffffff; border: 1px solid #CEE8F2; box-shadow: 0 2px 6px rgba(2,64,89,0.06);">
+            <div class="flex items-start justify-between gap-2">
+              <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full font-label-sm text-label-sm font-bold" style="background-color: #ffdf9d; color: #503b00;">
+                <span class="material-symbols-outlined text-[14px]">hourglass_top</span> Pendiente
+              </span>
+              <div class="flex items-center gap-1 font-label-md text-label-md font-bold" style="color: #024059;">
+                <span class="material-symbols-outlined text-[16px]">schedule</span><span>15:00 - 17:00</span>
+              </div>
+            </div>
+            <div>
+              <h3 class="font-headline-sm text-headline-sm font-bold" style="color: #024059;">Sesión Plenaria: Innovación y Logística Urbana</h3>
+              <p class="font-body-sm text-body-sm mt-1" style="color: #3f4850;">Coordinación de flotas de transporte sustentable y despliegue técnico para el fin de semana.</p>
+            </div>
+            <div class="flex items-center gap-1.5 font-body-sm text-body-sm font-medium" style="color: #024059;">
+              <span class="material-symbols-outlined text-[18px]" style="color: #006492;">location_on</span>
+              <span class="truncate">Hotel W Santiago - Salón Manquehue</span>
+            </div>
+            <div class="pt-2 flex items-center justify-between border-t border-slate-100">
+              <div class="flex items-center -space-x-2">
+                <img alt="Camila Rojas" class="w-7 h-7 rounded-full object-cover shadow-sm ring-1 ring-white" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCT1JVeqegjWc9-2YW75QQZ-huVeS3rnWUl0_-2z7gd6nuE9uC_jOJfYj6QSLp3WHSqxPN7_FvVnp9LHwi5AP-F2xj0_cL-qNFiP9bJ337VQUCLR1k-ZoGBXSR8JePs5N_h6iGqE6YZx_W6zQSCU0NvZr4rShNVmojekMpbyNDV736sj0d_eYhrbb8ga1tPNFwPIlKNwoFlewTGv44TwoUICX3E-gNWJnF6K0KN4xYm">
+                <div class="w-7 h-7 rounded-full text-on-secondary flex items-center justify-center font-label-sm text-label-sm font-bold shadow-sm ring-1 ring-white" style="background-color: #33647e;">CP</div>
+              </div>
+              <button class="font-label-md text-label-md font-bold hover:underline flex items-center gap-0.5" style="color: #006492;" onclick="openModal('activity-3')">
+                <span>Instrucciones</span><span class="material-symbols-outlined text-[16px]">chevron_right</span>
+              </button>
+            </div>
+          </article>
+
+          <!-- Card 4 -->
+          <article class="rounded-DEFAULT p-space-md space-y-space-sm transition-all" style="background-color: #ffffff; border: 1px solid #CEE8F2; box-shadow: 0 2px 6px rgba(2,64,89,0.06);">
+            <div class="flex items-start justify-between gap-2">
+              <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full font-label-sm text-label-sm font-bold" style="background-color: #ffdf9d; color: #503b00;">
+                <span class="material-symbols-outlined text-[14px]">security</span> Pendiente
+              </span>
+              <div class="flex items-center gap-1 font-label-md text-label-md font-bold" style="color: #024059;">
+                <span class="material-symbols-outlined text-[16px]">schedule</span><span>19:30 - 21:00</span>
+              </div>
+            </div>
+            <div>
+              <h3 class="font-headline-sm text-headline-sm font-bold" style="color: #024059;">Inspección Nocturna y Briefing de Seguridad</h3>
+              <p class="font-body-sm text-body-sm mt-1" style="color: #3f4850;">Revisión de perímetro, iluminación de contingencia y enlace con cuadrillas de primeros auxilios.</p>
+            </div>
+            <div class="flex items-center gap-1.5 font-body-sm text-body-sm font-medium" style="color: #024059;">
+              <span class="material-symbols-outlined text-[18px]" style="color: #006492;">stadium</span>
+              <span class="truncate">Estadio Nacional - Puesto Comando 1</span>
+            </div>
+            <div class="pt-2 flex items-center justify-between border-t border-slate-100">
+              <div class="flex items-center -space-x-2">
+                <img alt="Camila Rojas" class="w-7 h-7 rounded-full object-cover shadow-sm ring-1 ring-white" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCT1JVeqegjWc9-2YW75QQZ-huVeS3rnWUl0_-2z7gd6nuE9uC_jOJfYj6QSLp3WHSqxPN7_FvVnp9LHwi5AP-F2xj0_cL-qNFiP9bJ337VQUCLR1k-ZoGBXSR8JePs5N_h6iGqE6YZx_W6zQSCU0NvZr4rShNVmojekMpbyNDV736sj0d_eYhrbb8ga1tPNFwPIlKNwoFlewTGv44TwoUICX3E-gNWJnF6K0KN4xYm">
+                <div class="w-7 h-7 rounded-full text-inverse-on-surface flex items-center justify-center font-label-sm text-label-sm font-bold shadow-sm ring-1 ring-white" style="background-color: #2c3132;">EG</div>
+                <div class="w-7 h-7 rounded-full flex items-center justify-center font-label-sm text-label-sm font-bold shadow-sm ring-1 ring-white" style="background-color: #dfe3e4; color: #024059;">+4</div>
+              </div>
+              <button class="font-label-md text-label-md font-bold hover:underline flex items-center gap-0.5" style="color: #006492;" onclick="openModal('activity-4')">
+                <span>Ver Plan</span><span class="material-symbols-outlined text-[16px]">chevron_right</span>
+              </button>
+            </div>
+          </article>
+        </div>
+      </div>
+
+      <!-- Day 4 -->
+      <div class="bg-surface-container-lowest rounded-DEFAULT shadow-sm overflow-hidden transition-all duration-200" style="background-color: rgb(255, 255, 255); border: 1px solid rgb(206, 232, 242); box-shadow: rgba(2, 64, 89, 0.05) 0px 2px 8px;">
+        <button class="w-full flex items-center justify-between p-space-md text-left focus:outline-none" onclick="toggleDay('day-4')">
+          <div class="flex items-center gap-space-sm">
+            <div class="w-9 h-9 rounded-full flex items-center justify-center text-primary" style="background-color: #c9e6ff;">
+              <span class="material-symbols-outlined text-[20px]" style="color: #006492;">event</span>
+            </div>
+            <div>
+              <div class="flex items-center gap-2">
+                <span class="font-headline-sm text-headline-sm font-bold" style="color: #024059;">Jueves 15 Octubre</span>
+                <span class="px-2 py-0.5 rounded-full font-label-sm text-label-sm font-bold" style="background-color: #eaeff0; color: #024059;">4 actividades</span>
+              </div>
+              <p class="font-body-sm text-body-sm font-semibold" style="color: #3f4850;">Rondas deportivas clasificatorias y prensa</p>
+            </div>
+          </div>
+          <span class="material-symbols-outlined text-outline transition-transform duration-200" id="day-4-icon">expand_more</span>
+        </button>
+        <div class="hidden px-space-md pb-space-md pt-1 space-y-2" id="day-4-content">
+          <div class="p-space-sm rounded-DEFAULT flex items-center justify-between" style="background-color: #f6fafb; border: 1px solid #CEE8F2;">
+            <span class="font-body-sm text-body-sm font-bold" style="color: #024059;">Conferencia de Prensa Central</span>
+            <span class="font-label-sm text-label-sm font-bold" style="color: #33647e;">09:30 - 11:00</span>
+          </div>
+          <div class="p-space-sm rounded-DEFAULT flex items-center justify-between" style="background-color: #f6fafb; border: 1px solid #CEE8F2;">
+            <span class="font-body-sm text-body-sm font-bold" style="color: #024059;">Operativo de Transporte Delegaciones</span>
+            <span class="font-label-sm text-label-sm font-bold" style="color: #33647e;">13:00 - 16:30</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Day 5 -->
+      <div class="bg-surface-container-lowest rounded-DEFAULT shadow-sm overflow-hidden transition-all duration-200" style="background-color: rgb(255, 255, 255); border: 1px solid rgb(206, 232, 242); box-shadow: rgba(2, 64, 89, 0.05) 0px 2px 8px;">
+        <button class="w-full flex items-center justify-between p-space-md text-left focus:outline-none" onclick="toggleDay('day-5')">
+          <div class="flex items-center gap-space-sm">
+            <div class="w-9 h-9 rounded-full flex items-center justify-center text-primary" style="background-color: #c9e6ff;">
+              <span class="material-symbols-outlined text-[20px]" style="color: #006492;">event</span>
+            </div>
+            <div>
+              <div class="flex items-center gap-2">
+                <span class="font-headline-sm text-headline-sm font-bold" style="color: #024059;">Viernes 16 Octubre</span>
+                <span class="px-2 py-0.5 rounded-full font-label-sm text-label-sm font-bold" style="background-color: #eaeff0; color: #024059;">5 actividades</span>
+              </div>
+              <p class="font-body-sm text-body-sm font-semibold" style="color: #3f4850;">Semifinales y festival cultural en Parque Cerrillos</p>
+            </div>
+          </div>
+          <span class="material-symbols-outlined text-outline transition-transform duration-200" id="day-5-icon">expand_more</span>
+        </button>
+        <div class="hidden px-space-md pb-space-md pt-1 space-y-2" id="day-5-content">
+          <div class="p-space-sm rounded-DEFAULT flex items-center justify-between" style="background-color: #f6fafb; border: 1px solid #CEE8F2;">
+            <span class="font-body-sm text-body-sm font-bold" style="color: #024059;">Control de Accesos Masivos Parque Cerrillos</span>
+            <span class="font-label-sm text-label-sm font-bold" style="color: #33647e;">11:00 - 19:00</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Day 6 -->
+      <div class="bg-surface-container-lowest rounded-DEFAULT shadow-sm overflow-hidden transition-all duration-200" style="background-color: rgb(255, 255, 255); border: 1px solid rgb(206, 232, 242); box-shadow: rgba(2, 64, 89, 0.05) 0px 2px 8px;">
+        <button class="w-full flex items-center justify-between p-space-md text-left focus:outline-none" onclick="toggleDay('day-6')">
+          <div class="flex items-center gap-space-sm">
+            <div class="w-9 h-9 rounded-full flex items-center justify-center text-primary" style="background-color: #c9e6ff;">
+              <span class="material-symbols-outlined text-[20px]" style="color: #006492;">event</span>
+            </div>
+            <div>
+              <div class="flex items-center gap-2">
+                <span class="font-headline-sm text-headline-sm font-bold" style="color: #024059;">Sábado 17 Octubre</span>
+                <span class="px-2 py-0.5 rounded-full font-label-sm text-label-sm font-bold" style="background-color: #eaeff0; color: #024059;">3 actividades</span>
+              </div>
+              <p class="font-body-sm text-body-sm font-semibold" style="color: #3f4850;">Finales de Atletismo y Ceremonias de Medallas</p>
+            </div>
+          </div>
+          <span class="material-symbols-outlined text-outline transition-transform duration-200" id="day-6-icon">expand_more</span>
+        </button>
+        <div class="hidden px-space-md pb-space-md pt-1 space-y-2" id="day-6-content">
+          <div class="p-space-sm rounded-DEFAULT flex items-center justify-between" style="background-color: #f6fafb; border: 1px solid #CEE8F2;">
+            <span class="font-body-sm text-body-sm font-bold" style="color: #024059;">Coordinación de Podio y Premiación</span>
+            <span class="font-label-sm text-label-sm font-bold" style="color: #33647e;">16:00 - 20:00</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Day 7 -->
+      <div class="bg-surface-container-lowest rounded-DEFAULT shadow-sm overflow-hidden transition-all duration-200" style="background-color: rgb(255, 255, 255); border: 1px solid rgb(206, 232, 242); box-shadow: rgba(2, 64, 89, 0.05) 0px 2px 8px;">
+        <button class="w-full flex items-center justify-between p-space-md text-left focus:outline-none" onclick="toggleDay('day-7')">
+          <div class="flex items-center gap-space-sm">
+            <div class="w-9 h-9 rounded-full flex items-center justify-center text-tertiary" style="background-color: #ffdf9d;">
+              <span class="material-symbols-outlined text-[20px]" style="color: #785900;">flag</span>
+            </div>
+            <div>
+              <div class="flex items-center gap-2">
+                <span class="font-headline-sm text-headline-sm font-bold" style="color: #024059;">Domingo 18 Octubre</span>
+                <span class="px-2 py-0.5 rounded-full font-label-sm text-label-sm font-bold" style="background-color: #ffdf9d; color: #503b00;">Clausura</span>
+              </div>
+              <p class="font-body-sm text-body-sm font-semibold" style="color: #3f4850;">Ceremonia de despedida y desconvocatoria general</p>
+            </div>
+          </div>
+          <span class="material-symbols-outlined text-outline transition-transform duration-200" id="day-7-icon">expand_more</span>
+        </button>
+        <div class="hidden px-space-md pb-space-md pt-1 space-y-2" id="day-7-content">
+          <div class="p-space-sm rounded-DEFAULT flex items-center justify-between" style="background-color: #f6fafb; border: 1px solid #CEE8F2;">
+            <span class="font-body-sm text-body-sm font-bold" style="color: #024059;">Desfile de Delegaciones y Apagado de Llama</span>
+            <span class="font-label-sm text-label-sm font-bold" style="color: #33647e;">18:00 - 22:00</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================== VISTA MAPA ==================== -->
+  <section id="view-mapa" class="view-section hidden w-full relative select-none">
+    <div class="relative w-full h-[620px] bg-surface-container-low overflow-hidden">
+      <svg class="absolute inset-0 w-full h-full object-cover" fill="none" viewBox="0 0 400 650" xmlns="http://www.w3.org/2000/svg">
+        <path d="M180,80 Q250,110 270,190 Q290,260 250,300 Q190,280 170,220 Q150,140 180,80 Z" fill="#e5e9ea" opacity="0.8"></path>
+        <path d="M120,380 Q145,390 140,415 Q125,430 110,420 Q105,395 120,380 Z" fill="#e5e9ea" opacity="0.9"></path>
+        <path d="M-20,290 C90,280 160,260 240,290 C310,320 370,300 420,280" opacity="0.6" stroke="#b1e0ff" stroke-linecap="round" stroke-width="8"></path>
+        <path d="M-20,290 C90,280 160,260 240,290 C310,320 370,300 420,280" stroke="#ffffff" stroke-linecap="round" stroke-width="3"></path>
+        <path d="M90,-20 L90,670" stroke="#ffffff" stroke-width="7"></path>
+        <path d="M90,-20 L90,670" stroke="#bec7d1" stroke-dasharray="8 6" stroke-width="1.5"></path>
+        <path d="M-10,90 Q210,50 370,160 Q420,200 430,420" stroke="#ffffff" stroke-width="6"></path>
+        <path d="M-20,360 L180,360 L320,310 L420,300" stroke="#ffffff" stroke-width="6"></path>
+        <path d="M-20,360 L180,360 L320,310 L420,300" opacity="0.3" stroke="#primary-fixed-dim" stroke-width="2"></path>
+        <path d="M180,360 L200,480 L290,560" stroke="#ffffff" stroke-width="5"></path>
+        <path d="M120,490 L390,490" stroke="#ffffff" stroke-width="4"></path>
+        <g opacity="0.9" stroke="#ffffff" stroke-width="2.5">
+          <line x1="40" x2="160" y1="180" y2="180"></line>
+          <line x1="30" x2="170" y1="230" y2="230"></line>
+          <line x1="10" x2="170" y1="320" y2="320"></line>
+          <line x1="20" x2="190" y1="410" y2="410"></line>
+          <line x1="30" x2="190" y1="450" y2="450"></line>
+          <line x1="220" x2="380" y1="360" y2="360"></line>
+          <line x1="240" x2="390" y1="420" y2="420"></line>
+          <line x1="160" x2="160" y1="120" y2="470"></line>
+          <line x1="260" x2="260" y1="210" y2="460"></line>
+          <line x1="330" x2="330" y1="260" y2="450"></line>
+        </g>
+        <text class="font-label-sm text-label-sm tracking-wider uppercase opacity-75" fill="#6f7881" x="215" y="160">Parque Metropolitano</text>
+        <text class="font-label-sm text-label-sm tracking-widest uppercase opacity-75" fill="#6f7881" x="40" y="275">Costanera Norte</text>
+        <text class="font-label-sm text-label-sm tracking-wider uppercase opacity-75" fill="#6f7881" x="240" y="325">Providencia</text>
+        <text class="font-label-sm text-label-sm tracking-widest uppercase opacity-75" fill="#6f7881" x="95" y="350">Alameda</text>
+        <text class="font-label-sm text-label-sm tracking-wider uppercase opacity-75" fill="#6f7881" x="210" y="525">Ñuñoa • Estadio</text>
+      </svg>
+      <div class="absolute left-[135px] top-[340px] -translate-x-1/2 -translate-y-1/2 pointer-events-none z-10 flex items-center justify-center">
+        <span class="w-8 h-8 rounded-full bg-primary-container/30 animate-ping absolute"></span>
+        <span class="w-4 h-4 rounded-full bg-primary shadow-md border-2 border-surface-container-lowest relative z-10"></span>
+      </div>
+      <button class="absolute left-[38px] top-[140px] -translate-x-1/2 -translate-y-1/2 flex flex-col items-center group focus:outline-none z-10" onclick="selectVenue('Aeropuerto SCL', 'Recepción de Delegaciones', '08:30 - 18:00 hrs', 'Pudahuel, Terminal 2', 'A 24 min (16.2 km)', 'active')">
+        <div class="bg-surface-container-lowest text-on-surface px-2 py-0.5 rounded-full shadow-md text-[10px] font-label-sm font-bold mb-1 flex items-center gap-1">
+          <span class="w-1.5 h-1.5 rounded-full bg-tertiary-container"></span>08:30
+        </div>
+        <div class="w-9 h-9 rounded-full bg-on-primary-container flex items-center justify-center shadow-lg transition-transform active:scale-90">
+          <span class="w-4 h-4 rounded-full bg-tertiary-container flex items-center justify-center text-on-tertiary">
+            <span class="material-symbols-outlined text-[11px] text-on-primary-fixed">flight</span>
+          </span>
+        </div>
+        <div class="w-1.5 h-1.5 bg-on-primary-container rotate-45 -mt-1 rounded-xs"></div>
+      </button>
+      <button class="absolute left-[295px] top-[305px] -translate-x-1/2 -translate-y-1/2 flex flex-col items-center group focus:outline-none z-10" onclick="selectVenue('Gimnasio Providencia', 'Entrenamiento Gimnasia Rítmica', '14:00 - 17:30 hrs', 'Av. Santa Isabel 0830', 'A 9 min (3.1 km)', 'ready')">
+        <div class="bg-surface-container-lowest text-on-surface px-2 py-0.5 rounded-full shadow-md text-[10px] font-label-sm font-bold mb-1 flex items-center gap-1">
+          <span class="w-1.5 h-1.5 rounded-full bg-primary-container"></span>14:00
+        </div>
+        <div class="w-9 h-9 rounded-full bg-on-primary-container flex items-center justify-center shadow-lg transition-transform active:scale-90">
+          <span class="w-4 h-4 rounded-full bg-primary-container flex items-center justify-center text-on-primary-container font-bold text-[10px]">
+            <span class="material-symbols-outlined text-[12px] text-on-primary-container">sports_gymnastics</span>
+          </span>
+        </div>
+        <div class="w-1.5 h-1.5 bg-on-primary-container rotate-45 -mt-1 rounded-xs"></div>
+      </button>
+      <button class="absolute left-[245px] top-[505px] -translate-x-1/2 -translate-y-1/2 flex flex-col items-center group focus:outline-none z-10" onclick="selectVenue('Estadio Nacional Julio Martínez', 'Pruebas de Pista y Campo', '16:00 - 20:00 hrs', 'Av. Grecia 2001, Ñuñoa', 'A 14 min (5.8 km)', 'ready')">
+        <div class="bg-surface-container-lowest text-on-surface px-2 py-0.5 rounded-full shadow-md text-[10px] font-label-sm font-bold mb-1 flex items-center gap-1">
+          <span class="w-1.5 h-1.5 rounded-full bg-secondary"></span>16:00
+        </div>
+        <div class="w-9 h-9 rounded-full bg-on-primary-container flex items-center justify-center shadow-lg transition-transform active:scale-90">
+          <span class="w-4 h-4 rounded-full bg-secondary-container flex items-center justify-center">
+            <span class="material-symbols-outlined text-[12px] text-on-secondary-container">stadium</span>
+          </span>
+        </div>
+        <div class="w-1.5 h-1.5 bg-on-primary-container rotate-45 -mt-1 rounded-xs"></div>
+      </button>
+      <button class="absolute left-[110px] top-[460px] -translate-x-1/2 -translate-y-1/2 flex flex-col items-center group focus:outline-none z-10" onclick="selectVenue('Centro Acuático', 'Clasificatorias Natación 100m', 'Hoy • 15:30 hrs', 'Beauchef 1250, Santiago', 'A 11 min (4.2 km)', 'ready')">
+        <div class="w-8 h-8 rounded-full bg-on-primary-container flex items-center justify-center shadow-lg transition-transform active:scale-90">
+          <span class="w-3.5 h-3.5 rounded-full bg-primary-container flex items-center justify-center">
+            <span class="material-symbols-outlined text-[11px] text-on-primary-container">pool</span>
+          </span>
+        </div>
+        <div class="w-1.5 h-1.5 bg-on-primary-container rotate-45 -mt-1 rounded-xs"></div>
+      </button>
+      <div class="absolute left-[175px] top-[165px] -translate-x-1/2 -translate-y-1/2 flex flex-col items-center z-20 cursor-pointer" id="featured-pin" onclick="resetActiveCard()">
+        <div class="absolute -top-3 w-16 h-16 rounded-full bg-secondary-fixed opacity-75 animate-ping pointer-events-none"></div>
+        <div class="absolute -top-1 w-12 h-12 rounded-full bg-secondary-container/50 pointer-events-none"></div>
+        <div class="bg-surface-container-lowest text-on-primary-container px-2.5 py-0.5 rounded-full shadow-lg text-[11px] font-label-sm font-extrabold mb-1.5 flex items-center gap-1.5 z-10">
+          <span class="w-2 h-2 rounded-full bg-primary-container animate-pulse"></span>
+          <span>AHORA 11:00</span>
+        </div>
+        <div class="w-12 h-12 rounded-full bg-on-primary-container flex items-center justify-center shadow-2xl relative z-10 ring-4 ring-surface-container-lowest">
+          <div class="w-6 h-6 rounded-full bg-primary-container flex items-center justify-center text-on-primary-container font-extrabold">
+            <span class="material-symbols-outlined text-[16px] text-on-primary-container">stars</span>
+          </div>
+        </div>
+        <div class="w-3 h-3 bg-on-primary-container rotate-45 -mt-2 rounded-xs shadow-md z-10"></div>
+      </div>
+      <div class="absolute top-3 inset-x-0 px-margin flex flex-col gap-2 z-30">
+        <div class="w-full h-12 rounded-full bg-surface-container-lowest/95 backdrop-blur-md shadow-[0_6px_20px_rgba(2,64,89,0.12)] px-4 flex items-center gap-3">
+          <span class="material-symbols-outlined text-secondary text-[22px]">search</span>
+          <input class="w-full bg-transparent text-on-surface font-body-md text-body-md placeholder:text-outline focus:outline-none" placeholder="Buscar lugar o actividad en Santiago..." type="text">
+          <button aria-label="Filtros avanzados" class="w-8 h-8 rounded-full flex items-center justify-center text-secondary hover:bg-surface-container active:scale-95 transition-transform">
+            <span class="material-symbols-outlined text-[18px]">tune</span>
+          </button>
+        </div>
+        <div class="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar -mx-margin px-margin">
+          <button class="flex-shrink-0 h-9 px-4 rounded-full bg-primary-container text-on-primary-container font-label-md text-label-md font-bold shadow-sm flex items-center gap-1.5 active:scale-95 transition-transform">
+            <span>Todas</span>
+            <span class="w-5 h-5 rounded-full bg-on-primary-container text-on-primary text-[11px] flex items-center justify-center">8</span>
+          </button>
+          <button class="flex-shrink-0 h-9 px-3.5 rounded-full bg-surface-container-lowest/90 backdrop-blur-md text-on-surface font-label-md text-label-md shadow-sm flex items-center gap-1.5 active:scale-95 transition-transform">
+            <span class="w-2 h-2 rounded-full bg-tertiary-container animate-pulse"></span>
+            <span>En curso</span>
+            <span class="text-on-surface-variant font-bold text-[11px]">2</span>
+          </button>
+          <button class="flex-shrink-0 h-9 px-3.5 rounded-full bg-surface-container-lowest/90 backdrop-blur-md text-on-surface font-label-md text-label-md shadow-sm flex items-center gap-1.5 active:scale-95 transition-transform">
+            <span>Hoy</span>
+            <span class="px-1.5 py-0.2 rounded-full bg-secondary-container text-on-secondary-container text-[10px] font-bold">4</span>
+          </button>
+          <button class="flex-shrink-0 h-9 px-4 rounded-full bg-surface-container-lowest/90 backdrop-blur-md text-on-surface font-label-md text-label-md shadow-sm active:scale-95 transition-transform">Espacio Riesco</button>
+          <button class="flex-shrink-0 h-9 px-4 rounded-full bg-surface-container-lowest/90 backdrop-blur-md text-on-surface font-label-md text-label-md shadow-sm active:scale-95 transition-transform">Providencia</button>
+          <button class="flex-shrink-0 h-9 px-4 rounded-full bg-surface-container-lowest/90 backdrop-blur-md text-on-surface font-label-md text-label-md shadow-sm active:scale-95 transition-transform">Santiago Centro</button>
+        </div>
+      </div>
+      <div class="absolute right-4 top-28 flex flex-col gap-2 z-20">
+        <button aria-label="Selector de capas" class="w-11 h-11 rounded-full bg-surface-container-lowest/95 backdrop-blur-md text-on-primary-container shadow-md flex items-center justify-center active:scale-95 hover:bg-surface transition-all" onclick="toggleLayerNotice(this)">
+          <span class="material-symbols-outlined text-[20px]">layers</span>
+        </button>
+        <button aria-label="Acercar mapa" class="w-11 h-11 rounded-full bg-surface-container-lowest/95 backdrop-blur-md text-on-primary-container shadow-md flex items-center justify-center active:scale-95 hover:bg-surface transition-all">
+          <span class="material-symbols-outlined text-[20px]">add</span>
+        </button>
+        <button aria-label="Alejar mapa" class="w-11 h-11 rounded-full bg-surface-container-lowest/95 backdrop-blur-md text-on-primary-container shadow-md flex items-center justify-center active:scale-95 hover:bg-surface transition-all">
+          <span class="material-symbols-outlined text-[20px]">remove</span>
+        </button>
+        <button aria-label="Mi ubicación actual" class="w-11 h-11 rounded-full bg-primary text-on-primary shadow-lg flex items-center justify-center active:scale-95 hover:bg-primary-container hover:text-on-primary-container transition-all mt-1" onclick="recenterMap()">
+          <span class="material-symbols-outlined text-[22px]">my_location</span>
+        </button>
+      </div>
+      <div class="absolute left-4 bottom-6 z-20 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-surface-container-lowest/90 backdrop-blur-md shadow-md text-on-surface font-label-sm text-label-sm">
+        <span class="material-symbols-outlined text-[16px] text-primary">near_me</span>
+        <span id="map-distance-badge">GPS Activo • Radio 10 km</span>
+      </div>
+    </div>
+
+    <section class="relative w-full bg-surface-container-lowest rounded-t-xl shadow-[0_-8px_30px_rgba(2,64,89,0.12)] -mt-4 z-40 px-margin pt-3 pb-8 transition-all duration-300">
+      <div class="w-full flex flex-col items-center cursor-grab active:cursor-grabbing pb-3">
+        <div class="w-12 h-1.5 rounded-full bg-surface-variant"></div>
+        <div class="flex items-center gap-1 mt-1 text-on-surface-variant/80 font-label-sm text-[11px]">
+          <span class="material-symbols-outlined text-[14px]">expand_less</span>
+          <span>Desliza para ver 8 sedes activas</span>
+        </div>
+      </div>
+      <div class="flex items-start justify-between gap-3 mt-1">
+        <div class="flex-1 min-w-0">
+          <div class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-secondary-container text-on-secondary-container font-label-sm text-label-sm font-bold mb-1.5">
+            <span class="w-2 h-2 rounded-full bg-primary animate-ping"></span>
+            <span id="venue-status">En desarrollo</span>
+          </div>
+          <h2 class="font-headline-lg-mobile text-headline-lg-mobile text-on-primary-container font-extrabold tracking-tight leading-snug" id="venue-title">
+            Ceremonia de Inauguración y Acreditación
+          </h2>
+        </div>
+        <button aria-label="Guardar sede" class="w-11 h-11 rounded-full bg-surface-container flex-shrink-0 flex items-center justify-center text-secondary hover:bg-secondary-container transition-colors active:scale-95">
+          <span class="material-symbols-outlined text-[20px]">bookmark</span>
+        </button>
+      </div>
+      <div class="mt-3 flex flex-col gap-2 bg-surface-container-low p-3.5 rounded-DEFAULT">
+        <div class="flex items-center gap-2.5 text-on-surface">
+          <div class="w-7 h-7 rounded-full bg-surface-container-lowest flex items-center justify-center text-primary flex-shrink-0 shadow-sm">
+            <span class="material-symbols-outlined text-[16px]">schedule</span>
+          </div>
+          <span class="font-label-md text-label-md font-semibold text-on-surface" id="venue-time">
+            Hoy, 14 Octubre • 11:00 - 13:30 hrs
+          </span>
+        </div>
+        <div class="flex items-start gap-2.5 text-on-surface">
+          <div class="w-7 h-7 rounded-full bg-surface-container-lowest flex items-center justify-center text-primary flex-shrink-0 shadow-sm mt-0.5">
+            <span class="material-symbols-outlined text-[16px]">pin_drop</span>
+          </div>
+          <div class="min-w-0 flex-1">
+            <p class="font-body-md text-body-md text-on-surface leading-tight font-medium" id="venue-address">
+              Av. El Salto 5000, Huechuraba (Espacio Riesco)
+            </p>
+            <div class="flex items-center gap-1.5 mt-1 text-on-surface-variant font-label-sm text-label-sm">
+              <span class="material-symbols-outlined text-[14px] text-tertiary-container">directions_car</span>
+              <span class="font-semibold text-on-secondary-container" id="venue-eta">A 18 min de tu posición (7.4 km)</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="mt-3.5 flex items-center justify-between px-1">
+        <div class="flex items-center gap-2">
+          <div class="flex -space-x-2 overflow-hidden">
+            <div class="w-7 h-7 rounded-full bg-secondary-container text-on-secondary-container font-label-sm flex items-center justify-center ring-2 ring-surface-container-lowest font-bold">CR</div>
+            <div class="w-7 h-7 rounded-full bg-primary-container text-on-primary-container font-label-sm flex items-center justify-center ring-2 ring-surface-container-lowest font-bold">MF</div>
+            <div class="w-7 h-7 rounded-full bg-surface-variant text-on-surface font-label-sm flex items-center justify-center ring-2 ring-surface-container-lowest font-bold">+42</div>
+          </div>
+          <span class="font-label-sm text-label-sm text-on-surface-variant">Equipo en zona</span>
+        </div>
+        <div class="flex items-center gap-1 text-primary font-label-sm text-label-sm font-bold">
+          <span class="material-symbols-outlined text-[16px]">wifi_tethering</span>
+          <span>Canal Radio 4B</span>
+        </div>
+      </div>
+      <div class="mt-4 grid grid-cols-2 gap-3">
+        <a class="h-12 rounded-full bg-secondary-container text-on-secondary-container hover:bg-secondary-fixed active:scale-98 transition-all font-label-lg text-label-lg font-bold flex items-center justify-center gap-2 px-4 shadow-sm" href="#" onclick="navigateTo('agenda', event)">
+          <span class="material-symbols-outlined text-[20px]">calendar_today</span>
+          <span>Ver actividad</span>
+        </a>
+        <button class="h-12 rounded-full bg-primary-container text-on-primary-container hover:opacity-95 active:scale-98 transition-all font-label-lg text-label-lg font-extrabold flex items-center justify-center gap-2 px-4 shadow-md" onclick="openNavigationModal()">
+          <span class="material-symbols-outlined text-[20px]">navigation</span>
+          <span>Cómo llegar</span>
+        </button>
+      </div>
+    </section>
+
+    <div class="fixed inset-0 z-50 bg-inverse-surface/40 backdrop-blur-xs hidden flex-col justify-end p-margin transition-opacity" id="nav-dialog">
+      <div class="w-full bg-surface-container-lowest rounded-lg p-5 shadow-2xl flex flex-col gap-4">
+        <div class="flex items-center justify-between">
+          <h3 class="font-headline-sm text-headline-sm text-on-primary-container font-bold">Iniciar navegación</h3>
+          <button class="w-9 h-9 rounded-full bg-surface-container flex items-center justify-center text-on-surface-variant" onclick="closeNavigationModal()">
+            <span class="material-symbols-outlined text-[18px]">close</span>
+          </button>
+        </div>
+        <p class="font-body-sm text-body-sm text-on-surface-variant">
+          Selecciona tu aplicación de tránsito preferida para la ruta óptima hacia <strong class="text-on-surface font-semibold">Espacio Riesco</strong>.
+        </p>
+        <div class="grid grid-cols-3 gap-2">
+          <button class="flex flex-col items-center justify-center gap-1.5 p-3 rounded-DEFAULT bg-surface-container-low hover:bg-secondary-container transition-colors active:scale-95" onclick="launchApp('Google Maps')">
+            <span class="material-symbols-outlined text-[28px] text-primary">map</span>
+            <span class="font-label-sm text-label-sm font-bold text-on-surface">Maps</span>
+          </button>
+          <button class="flex flex-col items-center justify-center gap-1.5 p-3 rounded-DEFAULT bg-surface-container-low hover:bg-secondary-container transition-colors active:scale-95" onclick="launchApp('Waze')">
+            <span class="material-symbols-outlined text-[28px] text-tertiary-container">swap_calls</span>
+            <span class="font-label-sm text-label-sm font-bold text-on-surface">Waze</span>
+          </button>
+          <button class="flex flex-col items-center justify-center gap-1.5 p-3 rounded-DEFAULT bg-surface-container-low hover:bg-secondary-container transition-colors active:scale-95" onclick="launchApp('Apple Maps')">
+            <span class="material-symbols-outlined text-[28px] text-secondary">explore</span>
+            <span class="font-label-sm text-label-sm font-bold text-on-surface">Apple</span>
+          </button>
+        </div>
+        <button class="w-full h-11 rounded-full bg-surface-container text-on-surface-variant font-label-md text-label-md font-bold" onclick="closeNavigationModal()">
+          Cancelar
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================== VISTA MURO (MODO CATARSIS / DESCÁRGATE) ==================== -->
+  <section id="view-muro" class="view-section hidden flex-col w-full relative">
+    <div class="px-margin pt-4">
+      <div class="relative overflow-hidden rounded-2xl catharsis-gradient text-white p-5 border border-primary-container/20 shadow-lg catharsis-glow">
+        <div class="absolute -right-8 -top-8 size-36 rounded-full bg-[#f25050]/20 blur-2xl pointer-events-none"></div>
+        <div class="absolute -left-10 bottom-0 size-40 rounded-full bg-primary-container/20 blur-2xl pointer-events-none"></div>
+        <div class="relative z-10 flex flex-col gap-3">
+          <div class="flex items-center justify-between">
+            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#f25050]/25 border border-[#f25050]/40 text-[#ffdad6] text-xs font-semibold tracking-wide uppercase">
+              <span class="material-symbols-outlined text-[14px]" style="font-variation-settings: 'FILL' 1;">local_fire_department</span>
+              Modo Catarsis & Escucha
+            </span>
+            <span class="text-secondary-fixed text-xs font-medium flex items-center gap-1">
+              <span class="material-symbols-outlined text-sm">lock</span>
+              100% Anónimo
+            </span>
+          </div>
+          <div>
+            <h1 class="text-xl font-extrabold tracking-tight text-white flex items-center gap-2">
+              Muro de Descarga • Espacio Seguro
+            </h1>
+            <p class="text-secondary-fixed/90 text-sm leading-relaxed mt-1 font-normal">
+              Exprésate libremente: comparte dificultades, demoras, calor o desahógate de la jornada. Un rincón seguro para escucharnos sin juzgar y encontrar soluciones en equipo.
+            </p>
+          </div>
+          <div class="pt-2 border-t border-white/10 flex items-center justify-between">
+            <div class="flex items-center gap-2 text-xs text-primary-fixed">
+              <span class="material-symbols-outlined text-base">chevron_left</span>
+              <span>Moderación empática activa</span>
+            </div>
+            <button class="inline-flex items-center gap-1 text-xs font-semibold text-white bg-white/10 hover:bg-white/20 active:scale-95 transition-all px-3 py-1.5 rounded-full border border-white/15">
+              <span>Pautas de respeto</span>
+              <span class="material-symbols-outlined text-sm">chevron_right</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="px-margin py-space-sm">
+      <div class="flex items-center gap-2 overflow-x-auto pb-2 no-scrollbar" id="muroTabs">
+        <button class="flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-full bg-primary text-on-primary pl-3.5 pr-4 shadow-sm font-semibold text-xs tracking-wide ring-2 ring-primary/30" data-filter="descargate">
+          <span class="material-symbols-outlined text-base text-[#ffdad6]" style="font-variation-settings: 'FILL' 1;">local_fire_department</span>
+          <span>🔥 Descárgate</span>
+          <span class="ml-1 px-1.5 py-0.5 rounded-full bg-[#f25050] text-[10px] font-bold text-white uppercase tracking-wider">Activo</span>
+        </button>
+        <button class="flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-full bg-surface-container-high hover:bg-surface-variant text-on-surface-variant px-3.5 text-xs font-medium transition-colors" data-filter="demoras">
+          <span>⚡ Demoras & Logística</span>
+        </button>
+        <button class="flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-full bg-surface-container-high hover:bg-surface-variant text-on-surface-variant px-3.5 text-xs font-medium transition-colors" data-filter="calor">
+          <span>🌡️ Calor y Descanso</span>
+        </button>
+        <button class="flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-full bg-surface-container-high hover:bg-surface-variant text-on-surface-variant px-3.5 text-xs font-medium transition-colors" data-filter="charla">
+          <span>💬 Charla Libre</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="px-margin pb-24 space-y-4" id="feedContainer">
+      <!-- Post 1 -->
+      <article class="feed-item relative overflow-hidden rounded-2xl bg-surface-container-lowest border-l-4 border-l-[#f25050] border border-outline-variant/40 p-4 shadow-sm hover:shadow-md transition-shadow" data-category="demoras">
+        <div class="flex items-start justify-between gap-2 mb-2">
+          <div class="flex items-center gap-2">
+            <span class="flex size-7 items-center justify-center rounded-full bg-[#ffdad6] text-error">
+              <span class="material-symbols-outlined text-base">emergency_heat</span>
+            </span>
+            <div>
+              <div class="flex items-center gap-1.5">
+                <span class="text-xs font-bold text-on-surface">Voluntario Anónimo</span>
+                <span class="text-[11px] px-1.5 py-0.2 rounded bg-surface-container-high text-on-surface-variant font-medium">Acceso Estadio</span>
+              </div>
+              <p class="text-[11px] text-outline">Desahogo Operativo • Hace 12 min</p>
+            </div>
+          </div>
+          <button aria-label="Opciones del post" class="text-outline hover:text-on-surface p-1">
+            <span class="material-symbols-outlined text-lg">more_horiz</span>
+          </button>
+        </div>
+        <div class="mb-3">
+          <h3 class="text-base font-bold text-on-surface leading-snug">Llevamos 40 min esperando la reposición de hidratación en Puerta 4</h3>
+          <p class="text-on-surface-variant text-sm mt-1.5 leading-relaxed font-normal">El calor está insoportable y el flujo de delegaciones no para. Nos prometieron botellas heladas a las 14:00 y aún no llega la camioneta. ¡El equipo sigue dándolo todo pero necesitamos agua ya!</p>
+        </div>
+        <div class="relative w-full h-44 rounded-xl overflow-hidden mb-3 border border-outline-variant/30">
+          <img class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB8BMcXcKMtQkwsJgk9fijPCKvCq0NviTj226WSl-ftmhQqdIQ8-dv9RSiY7yKpYOuKYN3if8d-uE6EgnzUYVZre5RASRsOWWB0EevZX8qgzAFbg_AkgCsz85k0hIphKtJ8jdhchEa1Si93Gpi74eO49jpCE4tySOOMqP6RiybHkSjPR8xBA6a9-lwaNFKtUSSc_wu2Q7macHZ3yHGbc-ExdqTU8tKMe3zWYRxlNcau"/>
+          <div class="absolute bottom-2 left-2 bg-on-surface/80 backdrop-blur-md text-white text-[11px] px-2 py-0.5 rounded-full flex items-center gap-1 font-medium">
+            <span class="material-symbols-outlined text-[13px] text-tertiary-fixed-dim">location_on</span>
+            Sector Estadio Nacional • Puerta 4
+          </div>
+        </div>
+        <div class="flex flex-wrap items-center gap-1.5 pt-2 border-t border-surface-container">
+          <button class="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-surface-container hover:bg-secondary-fixed text-on-surface text-xs font-medium active:scale-95 transition-all">
+            <span class="text-sm">🤝</span><span class="font-semibold text-secondary">Te entiendo</span><span class="text-[11px] text-outline font-bold">28</span>
+          </button>
+          <button class="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-surface-container hover:bg-secondary-fixed text-on-surface text-xs font-medium active:scale-95 transition-all">
+            <span class="text-sm">💪</span><span class="font-semibold text-secondary">¡Fuerza equipo!</span><span class="text-[11px] text-outline font-bold">42</span>
+          </button>
+          <button class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-full bg-[#ffdad6]/60 hover:bg-[#ffdad6] text-on-error-container text-xs font-bold active:scale-95 transition-all ml-auto">
+            <span class="material-symbols-outlined text-sm">flag</span><span>Reportar a Logística</span>
+          </button>
+        </div>
+      </article>
+
+      <!-- Post 2 -->
+      <article class="feed-item relative overflow-hidden rounded-2xl bg-surface-container-lowest border-l-4 border-l-tertiary-container border border-outline-variant/40 p-4 shadow-sm hover:shadow-md transition-shadow" data-category="charla">
+        <div class="flex items-start justify-between gap-2 mb-2">
+          <div class="flex items-center gap-2">
+            <span class="flex size-7 items-center justify-center rounded-full bg-tertiary-fixed text-on-tertiary-container">
+              <span class="material-symbols-outlined text-base">sentiment_dissatisfied</span>
+            </span>
+            <div>
+              <div class="flex items-center gap-1.5">
+                <span class="text-xs font-bold text-on-surface">Voluntaria Acreditaciones</span>
+                <span class="text-[11px] px-1.5 py-0.2 rounded bg-surface-container-high text-on-surface-variant font-medium">Turno Tarde</span>
+              </div>
+              <p class="text-[11px] text-outline">Desahogo Emocional • Hace 34 min</p>
+            </div>
+          </div>
+          <span class="text-[11px] font-bold text-tertiary flex items-center gap-0.5">
+            <span class="material-symbols-outlined text-xs">mood_bad</span> Descompresión
+          </span>
+        </div>
+        <div class="mb-3">
+          <h3 class="text-base font-bold text-on-surface leading-snug">Un asistente nos trató súper mal por una cola que no podemos controlar 😔</h3>
+          <p class="text-on-surface-variant text-sm mt-1.5 leading-relaxed font-normal">Sé que la gente viene nerviosa por no perderse la ceremonia, pero no es culpa de los voluntarios que el sistema de validación se caiga 5 minutos. Me dio pena pero respiré hondo y seguimos adelante con una sonrisa. Solo necesitaba sacarlo del pecho.</p>
+        </div>
+        <div class="flex flex-wrap items-center gap-1.5 pt-2 border-t border-surface-container">
+          <button class="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-[#ffdad6]/40 text-on-error-container text-xs font-semibold hover:bg-[#ffdad6]/70 active:scale-95 transition-all">
+            <span class="material-symbols-outlined text-sm text-error" style="font-variation-settings: 'FILL' 1;">favorite</span>
+            <span>Abrazo virtual</span><span class="text-[11px] font-bold">56</span>
+          </button>
+          <button class="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-surface-container hover:bg-secondary-fixed text-on-surface text-xs font-medium active:scale-95 transition-all">
+            <span class="text-sm">👏</span><span class="font-semibold text-secondary">Orgullosos de ti</span><span class="text-[11px] text-outline font-bold">19</span>
+          </button>
+          <button class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-full bg-surface-container-high text-on-surface-variant text-xs font-medium hover:bg-surface-variant transition-colors ml-auto">
+            <span class="material-symbols-outlined text-sm">chat_bubble</span><span>14 respuestas</span>
+          </button>
+        </div>
+      </article>
+
+      <!-- Post 3 -->
+      <article class="feed-item relative overflow-hidden rounded-2xl bg-surface-container-lowest border-l-4 border-l-secondary-container border border-outline-variant/40 p-4 shadow-sm hover:shadow-md transition-shadow" data-category="calor">
+        <div class="flex items-center justify-between gap-2 mb-2">
+          <div class="flex items-center gap-2">
+            <span class="flex size-7 items-center justify-center rounded-full bg-secondary-fixed text-secondary">
+              <span class="material-symbols-outlined text-base">self_improvement</span>
+            </span>
+            <div>
+              <span class="text-xs font-bold text-on-surface">Guía de Cancha • Anónimo</span>
+              <p class="text-[11px] text-outline">Hace 1 hora</p>
+            </div>
+          </div>
+          <span class="px-2 py-0.5 rounded-full bg-surface-container-high text-[11px] font-medium text-secondary">Pausa de 10 min</span>
+        </div>
+        <p class="text-on-surface text-sm leading-relaxed font-normal mb-3">
+          “Mis pies ya no existen después de 14.000 pasos en el polideportivo, pero ver la emoción de los niños al entrar lo compensa todo. ¡Fuerza al turno nocturno!”
+        </p>
+        <div class="flex items-center gap-2 pt-2 border-t border-surface-container">
+          <button class="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-surface-container hover:bg-secondary-fixed text-on-surface text-xs font-medium">
+            <span>❤️</span><span class="font-semibold text-secondary">¡Qué gran actitud!</span><span class="text-[11px] text-outline font-bold">33</span>
+          </button>
+        </div>
+      </article>
+    </div>
+
+    <aside class="fixed bottom-20 left-0 z-40 pl-4">
+      <a href="#" onclick="navigateTo('emergencia', event)" class="inline-flex items-center gap-1.5 h-14 px-4 rounded-full bg-error text-on-error shadow-xl active:scale-95 transition-all font-label-lg text-label-lg font-bold shadow-[0_4px_16px_rgba(186,26,26,0.35)]" title="Emergencia SOS" aria-label="Emergencia SOS">
+        <span class="material-symbols-outlined text-[24px] animate-pulse" style="font-variation-settings: 'FILL' 1;">campaign</span>
+        <span>SOS</span>
+      </a>
+    </aside>
+
+    <aside class="fixed bottom-20 right-margin z-40">
+      <button class="inline-flex items-center gap-2.5 h-14 px-5 rounded-full bg-gradient-to-r from-[#f25050] to-[#d6a100] text-white font-bold shadow-xl hover:shadow-2xl active:scale-95 transition-all catharsis-glow border border-white/20" id="openModalBtn" type="button">
+        <span class="material-symbols-outlined text-xl" style="font-variation-settings: 'FILL' 1;">campaign</span>
+        <span class="text-sm tracking-wide">Desahogarme / Publicar</span>
+      </button>
+    </aside>
+
+    <div aria-hidden="true" class="fixed inset-0 z-50 flex flex-col justify-end bg-inverse-surface/60 backdrop-blur-sm transition-opacity duration-300 opacity-0 pointer-events-none" id="composeModal">
+      <div class="bg-surface-container-lowest w-full rounded-t-xl p-space-lg shadow-2xl transform translate-y-full transition-transform duration-300 max-h-[90vh] overflow-y-auto" id="modalPanel">
+        <div class="flex items-center justify-between pb-space-sm">
+          <div class="flex flex-col">
+            <h3 class="font-headline-md text-headline-md text-on-primary-container">Nuevo Desahogo</h3>
+            <p class="font-body-sm text-body-sm text-on-surface-variant">100% anónimo • Visible para la comunidad</p>
+          </div>
+          <button class="w-10 h-10 rounded-full flex items-center justify-center bg-surface-container text-on-surface hover:bg-surface-container-high transition-colors active:scale-95" id="closeModalBtn" type="button">
+            <span class="material-symbols-outlined text-[20px]">close</span>
+          </button>
+        </div>
+        <div class="mt-space-sm">
+          <label class="block font-label-sm text-label-sm uppercase font-bold text-on-surface-variant mb-space-xs">Selecciona la categoría *</label>
+          <div class="grid grid-cols-2 gap-space-sm" id="categorySelector">
+            <button class="cat-option selected flex items-center justify-center gap-2 h-12 rounded-lg bg-[#ffdad6] text-on-error-container font-label-md text-label-md font-bold transition-all shadow-sm active:scale-95" data-cat="descargate" type="button">
+              <span>🔥</span><span>Descárgate</span>
+            </button>
+            <button class="cat-option flex items-center justify-center gap-2 h-12 rounded-lg bg-surface-container text-on-surface-variant font-label-md text-label-md font-bold transition-all active:scale-95" data-cat="demoras" type="button">
+              <span>⚡</span><span>Demoras</span>
+            </button>
+            <button class="cat-option flex items-center justify-center gap-2 h-12 rounded-lg bg-surface-container text-on-surface-variant font-label-md text-label-md font-bold transition-all active:scale-95" data-cat="calor" type="button">
+              <span>🌡️</span><span>Calor</span>
+            </button>
+            <button class="cat-option flex items-center justify-center gap-2 h-12 rounded-lg bg-surface-container text-on-surface-variant font-label-md text-label-md font-bold transition-all active:scale-95" data-cat="charla" type="button">
+              <span>💬</span><span>Charla Libre</span>
+            </button>
+          </div>
+        </div>
+        <div class="mt-space-md">
+          <label class="block font-label-sm text-label-sm uppercase font-bold text-on-surface-variant mb-space-xs" for="postContentInput">Mensaje de desahogo</label>
+          <div class="relative bg-surface rounded-DEFAULT p-space-sm shadow-inner">
+            <textarea class="w-full bg-transparent text-on-primary-container font-body-md text-body-md placeholder:text-outline focus:outline-none resize-none" id="postContentInput" maxlength="500" placeholder="Escribe tu mensaje... (sé constructivo y respetuoso)" rows="4"></textarea>
+            <div class="flex items-center justify-between pt-space-xs">
+              <span class="inline-flex items-center gap-1 text-[11px] text-on-surface-variant">
+                <span class="material-symbols-outlined text-[14px]">shield</span> Convivencia colaborativa
+              </span>
+              <span class="font-label-sm text-label-sm text-on-surface-variant" id="charCounter">0 / 500</span>
+            </div>
+          </div>
+        </div>
+        <div class="mt-space-lg flex flex-col gap-space-sm pb-space-sm">
+          <button class="w-full h-12 rounded-full bg-gradient-to-r from-[#f25050] to-[#d6a100] text-white font-label-lg text-label-lg font-bold flex items-center justify-center gap-2 shadow-md hover:opacity-95 active:scale-98 transition-all" id="publishSubmitBtn" type="button">
+            <span class="material-symbols-outlined text-[20px]">send</span>
+            <span>Publicar desahogo</span>
+          </button>
+          <p class="font-label-sm text-label-sm text-center text-on-surface-variant">
+            Publicas de forma <strong>anónima</strong> en el Muro de Descarga
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================== VISTA EMERGENCIA ==================== -->
+  <section id="view-emergencia" class="view-section hidden flex-col w-full pb-8">
+    <!-- Estado de red -->
+    <div class="px-margin pt-3 pb-2">
+      <div class="bg-surface-container-lowest rounded-DEFAULT p-3 shadow-sm flex items-center justify-between gap-space-sm">
+        <div class="flex items-center gap-2 min-w-0">
+          <span class="relative flex h-3 w-3 flex-shrink-0">
+            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-error opacity-75"></span>
+            <span class="relative inline-flex rounded-full h-3 w-3 bg-error"></span>
+          </span>
+          <div class="min-w-0">
+            <p class="font-label-sm text-label-sm uppercase tracking-wider text-on-surface-variant font-bold">Estado de Red Operativa</p>
+            <p class="font-headline-sm text-headline-sm text-on-surface truncate">Nivel 1 • Monitoreo Activo 24/7</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-1 bg-surface-container px-2 py-1 rounded-full flex-shrink-0">
+          <span class="material-symbols-outlined text-[16px] text-primary" style="font-variation-settings: 'FILL' 1;">gps_fixed</span>
+          <span class="font-label-sm text-label-sm font-bold text-on-surface">GPS ON</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Ficha médica -->
+    <div class="px-margin mb-3">
+      <div class="bg-tertiary-fixed text-on-tertiary-fixed-variant px-3.5 py-2 rounded-full flex items-center justify-between shadow-sm">
+        <div class="flex items-center gap-2 min-w-0">
+          <span class="material-symbols-outlined text-[18px] text-tertiary flex-shrink-0" style="font-variation-settings: 'FILL' 1;">medical_information</span>
+          <span class="font-label-md text-label-md font-bold truncate">Ficha Médica: Camila Rojas</span>
+        </div>
+        <span class="font-label-sm text-label-sm bg-surface-container-lowest text-on-tertiary-container px-2 py-0.5 rounded-full font-extrabold flex-shrink-0 shadow-sm">
+          Grupo: O+ | Alergia: Penicilina
+        </span>
+      </div>
+    </div>
+
+    <!-- HERO SOS -->
+    <section class="px-margin mb-5">
+      <div class="bg-surface-container-lowest rounded-lg p-4 shadow-md relative overflow-hidden flex flex-col items-center text-center">
+        <div class="absolute inset-0 bg-gradient-to-b from-error/5 via-transparent to-error/10 pointer-events-none"></div>
+        <div class="flex items-center gap-1.5 px-3 py-1 bg-error-container text-on-error-container rounded-full font-label-sm text-label-sm mb-3 font-bold uppercase tracking-wider">
+          <span class="material-symbols-outlined text-[16px] animate-pulse">crisis_alert</span>
+          Protocolo Crítico de Seguridad
+        </div>
+        <p class="font-headline-lg-mobile text-headline-lg-mobile text-on-surface font-extrabold max-w-xs mb-1">
+          ACTIVAR PROTOCOLO DE EMERGENCIA
+        </p>
+        <p class="font-body-sm text-body-sm text-on-surface-variant max-w-xs mb-4">
+          Envía tu ubicación GPS al puesto de mando central y genera alerta inmediata a brigadas en terreno.
+        </p>
+        <div class="relative flex items-center justify-center my-2">
+          <div class="absolute w-36 h-36 rounded-full bg-error/15 animate-ping" style="animation-duration: 2.2s;"></div>
+          <div class="absolute w-44 h-44 rounded-full bg-error/10 pointer-events-none"></div>
+          <button class="relative z-10 w-32 h-32 rounded-full bg-error text-on-error flex flex-col items-center justify-center shadow-lg active:scale-95 transition-all select-none focus:outline-none ring-4 ring-error/40" id="sosButton" onclick="triggerSosCountdown()">
+            <span class="material-symbols-outlined text-[42px] leading-none mb-1">campaign</span>
+            <span class="font-headline-md text-headline-md tracking-wider font-black">SOS</span>
+            <span class="font-label-sm text-label-sm opacity-90 uppercase">Pulsar</span>
+          </button>
+        </div>
+        <div class="mt-4 w-full bg-error-container text-on-error-container p-3 rounded-DEFAULT text-left flex items-start gap-2 shadow-sm" id="sosAlertBox">
+          <span class="material-symbols-outlined text-error flex-shrink-0 text-[20px]">notifications_active</span>
+          <div class="flex-1 min-w-0">
+            <p class="font-label-md text-label-md font-bold">Transmitiendo Alerta al Puesto Central...</p>
+            <p class="font-body-sm text-body-sm mt-0.5">GPS: -33.4372, -70.6506 (Precisión 3m). Mantén esta pantalla activa.</p>
+          </div>
+          <button class="px-2 py-1 bg-surface-container-lowest text-on-surface rounded-full font-label-sm text-label-sm font-bold shadow-sm" onclick="cancelSos()">Cancelar</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Contactos internos -->
+    <section class="px-margin mb-6">
+      <div class="flex items-center justify-between mb-2.5">
+        <h3 class="font-headline-sm text-headline-sm text-on-surface">Red Interna Santiago 2026</h3>
+        <span class="font-label-sm text-label-sm text-on-surface-variant">Operaciones Sedes</span>
+      </div>
+      <div class="space-y-2.5">
+        <div class="bg-surface-container-lowest rounded-DEFAULT p-3.5 shadow-sm">
+          <div class="flex items-start justify-between gap-2 mb-2">
+            <div class="flex items-center gap-2.5">
+              <div class="w-9 h-9 rounded-full bg-secondary-container text-on-secondary-container flex items-center justify-center flex-shrink-0">
+                <span class="material-symbols-outlined text-[20px]">radio</span>
+              </div>
+              <div>
+                <div class="flex items-center gap-1.5">
+                  <p class="font-label-lg text-label-lg text-on-surface font-bold">Puesto Comando Central</p>
+                  <span class="bg-tertiary-fixed text-on-tertiary-fixed-variant px-1.5 py-0.2 rounded-full font-label-sm text-label-sm font-extrabold">24/7</span>
+                </div>
+                <p class="font-body-sm text-body-sm text-on-surface-variant">+56 9 8765 4321 • Frecuencia VHF Ch 4</p>
+              </div>
+            </div>
+          </div>
+          <div class="grid grid-cols-2 gap-2 mt-2">
+            <a class="h-11 bg-primary text-on-primary rounded-full flex items-center justify-center gap-1.5 font-label-md text-label-md font-bold shadow-sm active:scale-95 transition-all" href="tel:+56987654321">
+              <span class="material-symbols-outlined text-[18px]">call</span>
+              Llamar
+            </a>
+            <a class="h-11 bg-surface-container text-on-surface rounded-full flex items-center justify-center gap-1.5 font-label-md text-label-md font-bold shadow-sm active:scale-95 transition-all" href="https://wa.me/56987654321?text=Emergencia%20Coordinación%20Santiago%202026" rel="noopener noreferrer" target="_blank">
+              <span class="material-symbols-outlined text-[18px] text-primary">chat</span>
+              WhatsApp
+            </a>
+          </div>
+        </div>
+        <div class="bg-surface-container-lowest rounded-DEFAULT p-3.5 shadow-sm flex items-center justify-between gap-3">
+          <div class="flex items-center gap-2.5 min-w-0">
+            <div class="w-9 h-9 rounded-full bg-surface-container text-secondary flex items-center justify-center flex-shrink-0">
+              <span class="material-symbols-outlined text-[20px]">stethoscope</span>
+            </div>
+            <div class="min-w-0">
+              <p class="font-label-lg text-label-lg text-on-surface font-bold truncate">Coord. Médica Espacio Riesco</p>
+              <p class="font-body-sm text-body-sm text-on-surface-variant truncate">Dr. Fernando Soto • +56 9 7654 3210</p>
+            </div>
+          </div>
+          <a aria-label="Llamar a Coordinación Médica" class="w-11 h-11 bg-surface-container text-primary rounded-full flex items-center justify-center flex-shrink-0 shadow-sm active:scale-95 transition-all" href="tel:+56976543210">
+            <span class="material-symbols-outlined text-[20px]">call</span>
+          </a>
+        </div>
+        <div class="bg-surface-container-lowest rounded-DEFAULT p-3.5 shadow-sm flex items-center justify-between gap-3">
+          <div class="flex items-center gap-2.5 min-w-0">
+            <div class="w-9 h-9 rounded-full bg-surface-container text-secondary flex items-center justify-center flex-shrink-0">
+              <span class="material-symbols-outlined text-[20px]">directions_bus</span>
+            </div>
+            <div class="min-w-0">
+              <p class="font-label-lg text-label-lg text-on-surface font-bold truncate">Seguridad y Flota Operativa</p>
+              <p class="font-body-sm text-body-sm text-on-surface-variant truncate">Central Monitoreo • +56 2 2987 6543</p>
+            </div>
+          </div>
+          <a aria-label="Llamar a Seguridad y Transporte" class="w-11 h-11 bg-surface-container text-primary rounded-full flex items-center justify-center flex-shrink-0 shadow-sm active:scale-95 transition-all" href="tel:+56229876543">
+            <span class="material-symbols-outlined text-[20px]">call</span>
+          </a>
+        </div>
+      </div>
+    </section>
+  </section>
+
+  <!-- Detail Drawer / Modal for Activity Details (global para agenda) -->
+  <div class="fixed inset-0 z-50 bg-inverse-surface/60 backdrop-blur-sm hidden flex items-end justify-center" id="activity-modal">
+    <div class="w-full max-w-lg bg-surface-container-lowest rounded-t-xl p-space-lg space-y-space-md max-h-[85vh] overflow-y-auto shadow-2xl animate-in slide-in-from-bottom duration-300">
+      <div class="w-12 h-1.5 bg-surface-variant rounded-full mx-auto"></div>
+      <div class="flex items-start justify-between">
+        <div>
+          <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-primary-container text-on-primary-container font-label-sm text-label-sm font-black uppercase">En Desarrollo - Actividad Prioritaria</span>
+          <h3 class="font-headline-md text-headline-md text-on-primary-container mt-2">Ceremonia de Inauguración y Acreditación General</h3>
+        </div>
+        <button class="w-10 h-10 rounded-full bg-surface-container flex items-center justify-center text-on-surface-variant hover:bg-surface-variant" onclick="closeModal()">
+          <span class="material-symbols-outlined text-[20px]">close</span>
+        </button>
+      </div>
+      <div class="p-space-md rounded-DEFAULT bg-secondary-container/40 space-y-1">
+        <div class="flex items-center gap-2 text-on-primary-container font-headline-sm text-headline-sm">
+          <span class="material-symbols-outlined text-primary text-[20px]">priority_high</span>
+          <span>Instrucción particular para Camila Rojas:</span>
+        </div>
+        <p class="font-body-sm text-body-sm text-on-surface-variant">Supervisar los pórticos 1 y 2. En caso de congestión de lectores QR, activar contingencia con listado impreso de respaldo y notificar por radio canal 4.</p>
+      </div>
+      <div class="grid grid-cols-2 gap-space-sm">
+        <div class="p-space-sm rounded-DEFAULT bg-surface-container-low">
+          <span class="font-label-sm text-label-sm text-on-surface-variant uppercase">Horario</span>
+          <p class="font-headline-sm text-headline-sm text-on-primary-container mt-0.5">11:00 - 13:30</p>
+        </div>
+        <div class="p-space-sm rounded-DEFAULT bg-surface-container-low">
+          <span class="font-label-sm text-label-sm text-on-surface-variant uppercase">Canal Radial</span>
+          <p class="font-headline-sm text-headline-sm text-on-primary-container mt-0.5">VHF Ch 4 (Logística)</p>
+        </div>
+      </div>
+      <div class="space-y-2">
+        <span class="font-label-md text-label-md text-on-surface-variant font-bold uppercase">Archivos y Protocolos</span>
+        <div class="p-space-sm rounded-DEFAULT bg-surface-container flex items-center justify-between">
+          <div class="flex items-center gap-space-sm">
+            <div class="w-10 h-10 rounded-DEFAULT bg-error-container text-on-error-container flex items-center justify-center">
+              <span class="material-symbols-outlined text-[22px]">picture_as_pdf</span>
+            </div>
+            <div>
+              <p class="font-label-md text-label-md text-on-surface font-bold">Plan_Rutas_V1.pdf</p>
+              <p class="font-body-sm text-body-sm text-on-surface-variant">2.4 MB • Protocolo Oficial de Despliegue</p>
+            </div>
+          </div>
+          <button class="w-10 h-10 rounded-full bg-surface-container-lowest text-primary flex items-center justify-center shadow-sm active:scale-95 transition-transform" onclick="downloadDocNotification()" title="Descargar PDF">
+            <span class="material-symbols-outlined text-[20px]">download</span>
+          </button>
+        </div>
+      </div>
+      <div class="space-y-2">
+        <span class="font-label-md text-label-md text-on-surface-variant font-bold uppercase">Equipo en Terreno (3)</span>
+        <div class="space-y-2">
+          <div class="flex items-center justify-between p-2 rounded-DEFAULT bg-surface-container-lowest">
+            <div class="flex items-center gap-2">
+              <img alt="Camila" class="w-8 h-8 rounded-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCT1JVeqegjWc9-2YW75QQZ-huVeS3rnWUl0_-2z7gd6nuE9uC_jOJfYj6QSLp3WHSqxPN7_FvVnp9LHwi5AP-F2xj0_cL-qNFiP9bJ337VQUCLR1k-ZoGBXSR8JePs5N_h6iGqE6YZx_W6zQSCU0NvZr4rShNVmojekMpbyNDV736sj0d_eYhrbb8ga1tPNFwPIlKNwoFlewTGv44TwoUICX3E-gNWJnF6K0KN4xYm">
+              <div>
+                <p class="font-label-md text-label-md text-on-surface font-bold leading-none">Camila Rojas</p>
+                <p class="font-label-sm text-label-sm text-primary">Coordinadora de Puesto</p>
+              </div>
+            </div>
+            <span class="font-label-sm text-label-sm px-2 py-0.5 rounded-full bg-secondary-container text-on-secondary-container">En Turno</span>
+          </div>
+          <div class="flex items-center justify-between p-2 rounded-DEFAULT bg-surface-container-lowest">
+            <div class="flex items-center gap-2">
+              <div class="w-8 h-8 rounded-full bg-secondary text-on-secondary flex items-center justify-center font-label-sm text-label-sm font-bold">RM</div>
+              <div>
+                <p class="font-label-md text-label-md text-on-surface font-bold leading-none">Rodrigo Morales</p>
+                <p class="font-label-sm text-label-sm text-on-surface-variant">Líder Soporte Técnico</p>
+              </div>
+            </div>
+            <span class="font-label-sm text-label-sm px-2 py-0.5 rounded-full bg-secondary-container text-on-secondary-container">En Turno</span>
+          </div>
+        </div>
+      </div>
+      <div class="pt-2 space-y-2">
+        <label class="font-label-md text-label-md text-on-surface-variant font-bold">Modificar mi estado de asistencia:</label>
+        <div class="grid grid-cols-3 gap-2">
+          <button class="py-2.5 px-2 rounded-full bg-primary-container text-on-primary-container font-label-sm text-label-sm font-bold flex items-center justify-center gap-1 active:scale-95 transition-all" onclick="setModalStatus('Asistiendo')">
+            <span class="material-symbols-outlined text-[16px]">check</span><span>Asistiendo</span>
+          </button>
+          <button class="py-2.5 px-2 rounded-full bg-surface-container text-on-surface font-label-sm text-label-sm font-bold flex items-center justify-center gap-1 active:scale-95 transition-all" onclick="setModalStatus('En Camino')">
+            <span class="material-symbols-outlined text-[16px]">directions_run</span><span>En Camino</span>
+          </button>
+          <button class="py-2.5 px-2 rounded-full bg-tertiary-fixed-dim text-on-tertiary-container font-label-sm text-label-sm font-bold flex items-center justify-center gap-1 active:scale-95 transition-all" onclick="setModalStatus('Con Demora')">
+            <span class="material-symbols-outlined text-[16px]">warning</span><span>Con Demora</span>
+          </button>
+        </div>
+      </div>
+      <div class="pt-2">
+        <button class="w-full py-3.5 rounded-full bg-secondary text-on-secondary font-label-lg text-label-lg font-bold shadow-sm active:scale-98 transition-all" onclick="closeModal()">Cerrar Detalle</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Notification Toast feedback container (global) -->
+  <div class="fixed bottom-24 left-1/2 -translate-x-1/2 bg-inverse-surface text-inverse-on-surface px-4 py-2.5 rounded-full font-label-md text-label-md shadow-xl transition-all duration-300 opacity-0 pointer-events-none z-50 flex items-center gap-2" id="toast-msg">
+    <span class="material-symbols-outlined text-[18px] text-primary-container">info</span>
+    <span id="toast-text">Acción completada</span>
+  </div>
+
+  <!-- Toast de Emergencia -->
+  <div class="fixed bottom-24 inset-x-4 max-w-sm mx-auto bg-inverse-surface text-inverse-on-surface px-4 py-3 rounded-DEFAULT shadow-xl z-50 flex items-center gap-3 transform transition-all duration-300 translate-y-24 opacity-0 pointer-events-none" id="sosToast">
+    <span class="material-symbols-outlined text-primary-container flex-shrink-0">check_circle</span>
+    <span class="font-body-sm text-body-sm font-semibold" id="sosToastText">¡Alerta enviada a Puesto de Mando!</span>
+  </div>
+
+  <!-- Modales de Emergencia -->
+  <div class="fixed inset-0 z-50 bg-inverse-surface/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-4 hidden" id="incidentModal">
+    <div class="bg-surface-container-lowest rounded-lg w-full max-w-md p-5 shadow-xl relative">
+      <div class="flex items-center justify-between pb-3">
+        <div class="flex items-center gap-2">
+          <div class="w-8 h-8 rounded-full bg-secondary-container text-on-secondary-container flex items-center justify-center">
+            <span class="material-symbols-outlined text-[20px]">assignment</span>
+          </div>
+          <h4 class="font-headline-sm text-headline-sm text-on-surface">Registrar Novedad</h4>
+        </div>
+        <button class="w-9 h-9 flex items-center justify-center rounded-full bg-surface-container text-on-surface-variant" onclick="closeIncidentReportModal()">
+          <span class="material-symbols-outlined text-[20px]">close</span>
+        </button>
+      </div>
+      <div class="space-y-3 pt-2">
+        <div>
+          <label class="font-label-md text-label-md text-on-surface font-semibold block mb-1">Tipo de Incidencia</label>
+          <select class="w-full h-12 px-3 bg-surface-container-low rounded-DEFAULT text-on-surface font-body-md focus:outline-none">
+            <option>Demora en transporte de delegación</option>
+            <option>Falla en acreditación / torniquete</option>
+            <option>Desabastecimiento de hidratación</option>
+            <option>Solicitud de relevo de voluntario</option>
+            <option>Otro evento logístico menor</option>
+          </select>
+        </div>
+        <div>
+          <label class="font-label-md text-label-md text-on-surface font-semibold block mb-1">Sector / Recinto</label>
+          <input class="w-full h-12 px-3 bg-surface-container-low rounded-DEFAULT text-on-surface font-body-md focus:outline-none" type="text" value="Parque O'Higgins - Sector Norte">
+        </div>
+        <div>
+          <label class="font-label-md text-label-md text-on-surface font-semibold block mb-1">Detalle breve</label>
+          <textarea class="w-full p-3 bg-surface-container-low rounded-DEFAULT text-on-surface font-body-md focus:outline-none resize-none" placeholder="Describe la situación para resolución del turno..." rows="3"></textarea>
+        </div>
+        <button class="w-full h-12 bg-primary text-on-primary rounded-full font-label-lg text-label-lg font-bold shadow-sm active:scale-95 transition-all mt-2" onclick="submitIncidentReport()">
+          Enviar Reporte al Tablero
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="hidden fixed inset-0 z-50 bg-inverse-surface/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-4" id="editContactsModal">
+    <div class="bg-surface-container-lowest rounded-lg w-full max-w-md p-5 shadow-xl relative">
+      <div class="flex items-center justify-between pb-3">
+        <h4 class="font-headline-sm text-headline-sm text-on-surface">Editar Contactos ICE</h4>
+        <button class="w-9 h-9 flex items-center justify-center rounded-full bg-surface-container text-on-surface-variant" onclick="toggleEditModal()">
+          <span class="material-symbols-outlined text-[20px]">close</span>
+        </button>
+      </div>
+      <div class="space-y-3 pt-2">
+        <div>
+          <label class="font-label-sm text-label-sm text-on-surface-variant font-bold uppercase block mb-1">Contacto Primario</label>
+          <input class="w-full h-11 px-3 mb-1.5 bg-surface-container-low rounded-DEFAULT text-on-surface font-body-md focus:outline-none" type="text" value="Javier Morales (Cónyuge)">
+          <input class="w-full h-11 px-3 bg-surface-container-low rounded-DEFAULT text-on-surface font-body-md focus:outline-none" type="tel" value="+56 9 1234 5678">
+        </div>
+        <div>
+          <label class="font-label-sm text-label-sm text-on-surface-variant font-bold uppercase block mb-1">Contacto Secundario</label>
+          <input class="w-full h-11 px-3 mb-1.5 bg-surface-container-low rounded-DEFAULT text-on-surface font-body-md focus:outline-none" type="text" value="Dra. Marcela Bravo (Médico de cabecera)">
+          <input class="w-full h-11 px-3 bg-surface-container-low rounded-DEFAULT text-on-surface font-body-md focus:outline-none" type="tel" value="+56 9 8765 1122">
+        </div>
+        <button class="w-full h-12 bg-primary text-on-primary rounded-full font-label-lg text-label-lg font-bold shadow-sm active:scale-95 transition-all mt-3" onclick="saveContacts()">
+          Guardar Cambios
+        </button>
+      </div>
+    </div>
+  </div>
+</main>
+
+<!-- Botón SOS flotante global -->
+<div class="fixed bottom-20 left-4 z-50">
+  <a href="#" onclick="navigateTo('emergencia', event)" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-full text-on-error shadow-xl active:scale-90 transition-all duration-200 ring-2 ring-surface-container-lowest animate-pulse" style="background-color: #F25050; box-shadow: 0 4px 18px rgba(242, 80, 80, 0.45);" title="Alerta SOS Emergencia" aria-label="SOS Emergencia">
+    <span class="material-symbols-outlined text-[20px]">campaign</span>
+    <span class="font-label-sm text-label-sm font-black tracking-wider uppercase">SOS</span>
+  </a>
+</div>
+
+<!-- Navegación inferior -->
+<nav class="fixed bottom-0 inset-x-0 z-50 pb-[env(safe-area-inset-bottom,0px)] bg-surface-container-lowest/95 backdrop-blur-xl shadow-[0_-4px_20px_rgba(2,64,89,0.08)]">
+  <div class="flex justify-around items-center h-16 px-space-sm max-w-lg mx-auto">
+    <a aria-current="page" class="flex flex-col items-center justify-center gap-0.5 px-3 py-1.5 rounded-full transition-all min-w-[64px] min-h-[48px] text-on-primary-container bg-secondary-container font-bold" data-path="agenda" href="#" onclick="navigateTo('agenda', event)">
+      <span class="material-symbols-outlined text-[24px]">calendar_month</span>
+      <span class="font-label-sm text-label-sm">Agenda</span>
+    </a>
+    <a class="flex flex-col items-center justify-center gap-0.5 px-3 py-1.5 rounded-full text-on-surface-variant hover:text-on-surface transition-all min-w-[64px] min-h-[48px]" data-path="mapa" href="#" onclick="navigateTo('mapa', event)">
+      <span class="material-symbols-outlined text-[24px]">location_on</span>
+      <span class="font-label-sm text-label-sm">Mapa</span>
+    </a>
+    <a class="flex flex-col items-center justify-center gap-0.5 px-3 py-1.5 rounded-full text-on-surface-variant hover:text-on-surface transition-all min-w-[64px] min-h-[48px] relative" data-path="emergencia" href="#" onclick="navigateTo('emergencia', event)">
+      <div class="relative flex items-center justify-center">
+        <span class="material-symbols-outlined text-[24px] text-error">emergency</span>
+        <span class="absolute -top-0.5 -right-1 w-2 h-2 rounded-full bg-error ring-2 ring-surface-container-lowest"></span>
+      </div>
+      <span class="font-label-sm text-label-sm text-error">Emergencia</span>
+    </a>
+    <a class="flex flex-col items-center justify-center gap-0.5 px-3 py-1.5 rounded-full text-on-surface-variant hover:text-on-surface transition-all min-w-[64px] min-h-[48px]" data-path="muro" href="#" onclick="navigateTo('muro', event)">
+      <span class="material-symbols-outlined text-[24px]">forum</span>
+      <span class="font-label-sm text-label-sm">Muro</span>
+    </a>
+  </div>
+</nav>
+
+<script>
+  // --- Navegación SPA ---
+  function navigateTo(view, event) {
+    if (event) event.preventDefault();
+    document.querySelectorAll('.view-section').forEach(s => s.classList.add('hidden'));
+    const target = document.getElementById('view-' + view);
+    if (target) target.classList.remove('hidden');
+
+    const labelMap = { agenda: 'Agenda', mapa: 'Mapa', emergencia: 'Emergencia', muro: 'Muro' };
+    const headerLabel = document.getElementById('header-view-label');
+    if (headerLabel) headerLabel.textContent = labelMap[view] || view;
+
+    document.querySelectorAll('nav [data-path]').forEach(link => {
+      const active = link.dataset.path === view;
+      if (active) {
+        link.setAttribute('aria-current', 'page');
+        link.classList.add('text-on-primary-container', 'bg-secondary-container', 'font-bold');
+        link.classList.remove('text-on-surface-variant', 'hover:text-on-surface');
+      } else {
+        link.removeAttribute('aria-current');
+        link.classList.remove('text-on-primary-container', 'bg-secondary-container', 'font-bold');
+        link.classList.add('text-on-surface-variant', 'hover:text-on-surface');
+      }
+    });
+
+    closeModal();
+    closeNavigationModal();
+  }
+
+  // --- Agenda ---
+  function toggleDay(dayId) {
+    const content = document.getElementById(dayId + '-content');
+    const icon = document.getElementById(dayId + '-icon');
+    if (content.classList.contains('hidden')) {
+      content.classList.remove('hidden');
+      icon.textContent = 'expand_less';
+    } else {
+      content.classList.add('hidden');
+      icon.textContent = 'expand_more';
+    }
+  }
+
+  function switchFilter(type) {
+    const tabMine = document.getElementById('tab-mine');
+    const tabAll = document.getElementById('tab-all');
+    if (type === 'mine') {
+      tabMine.className = "flex-1 py-2 px-3 rounded-full font-label-md text-label-md text-on-primary-container bg-primary-container shadow-sm transition-all duration-200 text-center font-bold flex items-center justify-center gap-1.5";
+      tabAll.className = "flex-1 py-2 px-3 rounded-full font-label-md text-label-md text-on-surface-variant hover:text-on-surface transition-all duration-200 text-center flex items-center justify-center gap-1.5";
+      showToast("Mostrando 4 actividades asignadas a tu perfil");
+    } else {
+      tabAll.className = "flex-1 py-2 px-3 rounded-full font-label-md text-label-md text-on-primary-container bg-primary-container shadow-sm transition-all duration-200 text-center font-bold flex items-center justify-center gap-1.5";
+      tabMine.className = "flex-1 py-2 px-3 rounded-full font-label-md text-label-md text-on-surface-variant hover:text-on-surface transition-all duration-200 text-center flex items-center justify-center gap-1.5";
+      showToast("Mostrando el total de 18 actividades del evento");
+    }
+  }
+
+  function openModal(id) {
+    const modal = document.getElementById('activity-modal');
+    modal.classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeModal() {
+    const modal = document.getElementById('activity-modal');
+    if (modal) modal.classList.add('hidden');
+    document.body.style.overflow = '';
+  }
+
+  function checkInQuick() { showToast("✓ Check-in registrado en Centro Espacio Riesco"); }
+
+  function toggleMyStatus(button) {
+    const statusText = document.getElementById('my-status-text');
+    if (statusText.innerText.includes('Asistiendo')) {
+      statusText.innerText = 'Mi estado: En Camino';
+      button.classList.remove('bg-surface-container');
+      button.classList.add('bg-tertiary-fixed-dim', 'text-on-tertiary-container');
+      showToast("Estado actualizado a: En Camino");
+    } else {
+      statusText.innerText = 'Mi estado: Asistiendo';
+      button.classList.remove('bg-tertiary-fixed-dim', 'text-on-tertiary-container');
+      button.classList.add('bg-surface-container');
+      showToast("Estado actualizado a: Asistiendo");
+    }
+  }
+
+  function setModalStatus(status) {
+    document.getElementById('my-status-text').innerText = 'Mi estado: ' + status;
+    showToast("Tu estado se actualizó a: " + status);
+  }
+
+  function downloadDocNotification() { showToast("Descargando Plan_Rutas_V1.pdf..."); }
+
+  function showToast(text) {
+    const toast = document.getElementById('toast-msg');
+    const toastText = document.getElementById('toast-text');
+    toastText.innerText = text;
+    toast.classList.remove('opacity-0', 'pointer-events-none');
+    toast.classList.add('opacity-100');
+    setTimeout(() => {
+      toast.classList.remove('opacity-100');
+      toast.classList.add('opacity-0', 'pointer-events-none');
+    }, 2800);
+  }
+
+  // --- Mapa ---
+  function selectVenue(title, activity, time, address, eta, statusType) {
+    const titleElem = document.getElementById('venue-title');
+    const timeElem = document.getElementById('venue-time');
+    const addressElem = document.getElementById('venue-address');
+    const etaElem = document.getElementById('venue-eta');
+    const statusElem = document.getElementById('venue-status');
+    if (titleElem) titleElem.textContent = activity + ' • ' + title;
+    if (timeElem) timeElem.textContent = time;
+    if (addressElem) addressElem.textContent = address;
+    if (etaElem) etaElem.textContent = eta;
+    if (statusElem) {
+      if (statusType === 'active') {
+        statusElem.textContent = 'En curso';
+        statusElem.parentElement.className = 'inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-tertiary-fixed text-on-tertiary-container font-label-sm text-label-sm font-bold mb-1.5';
+      } else {
+        statusElem.textContent = 'Programado';
+        statusElem.parentElement.className = 'inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-secondary-container text-on-secondary-container font-label-sm text-label-sm font-bold mb-1.5';
+      }
+    }
+  }
+
+  function resetActiveCard() {
+    selectVenue('Espacio Riesco', 'Ceremonia de Inauguración y Acreditación', 'Hoy, 14 Octubre • 11:00 - 13:30 hrs', 'Av. El Salto 5000, Huechuraba (Espacio Riesco)', 'A 18 min de tu posición (7.4 km)', 'active');
+  }
+
+  function openNavigationModal() {
+    const modal = document.getElementById('nav-dialog');
+    if (modal) { modal.classList.remove('hidden'); modal.classList.add('flex'); }
+  }
+
+  function closeNavigationModal() {
+    const modal = document.getElementById('nav-dialog');
+    if (modal) { modal.classList.add('hidden'); modal.classList.remove('flex'); }
+  }
+
+  function launchApp(appName) {
+    closeNavigationModal();
+    const badge = document.getElementById('map-distance-badge');
+    if (badge) {
+      badge.textContent = 'Enrutando con ' + appName + '...';
+      setTimeout(() => { badge.textContent = 'GPS Activo • Radio 10 km'; }, 3000);
+    }
+  }
+
+  function recenterMap() {
+    const badge = document.getElementById('map-distance-badge');
+    if (badge) {
+      badge.textContent = 'Posición centrada: Santiago Centro';
+      setTimeout(() => { badge.textContent = 'GPS Activo • Radio 10 km'; }, 2500);
+    }
+  }
+
+  function toggleLayerNotice(btn) {
+    btn.classList.toggle('text-primary');
+    const badge = document.getElementById('map-distance-badge');
+    if (badge) {
+      badge.textContent = 'Capa de tráfico en vivo actualizada';
+      setTimeout(() => { badge.textContent = 'GPS Activo • Radio 10 km'; }, 2200);
+    }
+  }
+
+  // --- Muro de Descarga (Modo Catarsis) ---
+  (function initCatharsisWall() {
+    const tabs = document.querySelectorAll('#muroTabs button[data-filter]');
+    const items = document.querySelectorAll('#feedContainer .feed-item');
+    const openModalBtn = document.getElementById('openModalBtn');
+    const closeModalBtn = document.getElementById('closeModalBtn');
+    const composeModal = document.getElementById('composeModal');
+    const modalPanel = document.getElementById('modalPanel');
+    const catOptions = document.querySelectorAll('#categorySelector .cat-option');
+    const postInput = document.getElementById('postContentInput');
+    const charCounter = document.getElementById('charCounter');
+    const submitBtn = document.getElementById('publishSubmitBtn');
+    const feedContainer = document.getElementById('feedContainer');
+
+    if (!openModalBtn || !composeModal) return;
+
+    let activeSelectedCategory = 'descargate';
+
+    tabs.forEach(tab => {
+      tab.addEventListener('click', () => {
+        tabs.forEach(t => {
+          t.classList.remove('bg-primary', 'text-on-primary', 'ring-2', 'ring-primary/30');
+          t.classList.add('bg-surface-container-high', 'text-on-surface-variant');
+        });
+        tab.classList.add('bg-primary', 'text-on-primary', 'ring-2', 'ring-primary/30');
+        tab.classList.remove('bg-surface-container-high', 'text-on-surface-variant');
+
+        const filter = tab.getAttribute('data-filter');
+        items.forEach(item => {
+          const cat = item.getAttribute('data-category');
+          item.style.display = (filter === 'all' || cat === filter) ? 'block' : 'none';
+        });
+      });
+    });
+
+    function showModal() {
+      composeModal.classList.remove('opacity-0', 'pointer-events-none');
+      composeModal.classList.add('opacity-100');
+      modalPanel.classList.remove('translate-y-full');
+      modalPanel.classList.add('translate-y-0');
+      postInput.focus();
+    }
+
+    function hideModal() {
+      modalPanel.classList.remove('translate-y-0');
+      modalPanel.classList.add('translate-y-full');
+      composeModal.classList.remove('opacity-100');
+      composeModal.classList.add('opacity-0', 'pointer-events-none');
+    }
+
+    openModalBtn.addEventListener('click', showModal);
+    closeModalBtn.addEventListener('click', hideModal);
+    composeModal.addEventListener('click', (e) => { if (e.target === composeModal) hideModal(); });
+
+    catOptions.forEach(btn => {
+      btn.addEventListener('click', () => {
+        catOptions.forEach(b => {
+          b.classList.remove('bg-[#ffdad6]', 'text-on-error-container', 'bg-tertiary-fixed', 'text-on-tertiary-fixed', 'shadow-sm');
+          b.classList.add('bg-surface-container', 'text-on-surface-variant');
+        });
+        activeSelectedCategory = btn.getAttribute('data-cat');
+        if (activeSelectedCategory === 'descargate') btn.classList.add('bg-[#ffdad6]', 'text-on-error-container', 'shadow-sm');
+        else btn.classList.add('bg-tertiary-fixed', 'text-on-tertiary-fixed', 'shadow-sm');
+        btn.classList.remove('bg-surface-container', 'text-on-surface-variant');
+      });
+    });
+
+    postInput.addEventListener('input', () => {
+      charCounter.textContent = `${postInput.value.length} / 500`;
+    });
+
+    submitBtn.addEventListener('click', () => {
+      const text = postInput.value.trim();
+      if (!text) { postInput.focus(); return; }
+
+      const catLabels = {
+        descargate: { label: 'Descárgate', icon: '🔥', border: 'border-l-[#f25050]' },
+        demoras: { label: 'Demoras & Logística', icon: '⚡', border: 'border-l-primary' },
+        calor: { label: 'Calor y Descanso', icon: '🌡️', border: 'border-l-tertiary-container' },
+        charla: { label: 'Charla Libre', icon: '💬', border: 'border-l-secondary-container' }
+      };
+      const meta = catLabels[activeSelectedCategory] || catLabels.descargate;
+
+      const newCard = document.createElement('article');
+      newCard.className = `feed-item relative overflow-hidden rounded-2xl bg-surface-container-lowest border-l-4 ${meta.border} border border-outline-variant/40 p-4 shadow-sm hover:shadow-md transition-shadow`;
+      newCard.setAttribute('data-category', activeSelectedCategory);
+      newCard.innerHTML = `
+        <div class="flex items-start justify-between gap-2 mb-2">
+          <div class="flex items-center gap-2">
+            <span class="flex size-7 items-center justify-center rounded-full bg-[#ffdad6] text-error">
+              <span class="material-symbols-outlined text-base">local_fire_department</span>
+            </span>
+            <div>
+              <div class="flex items-center gap-1.5">
+                <span class="text-xs font-bold text-on-surface">Tú (Anónimo)</span>
+                <span class="text-[11px] px-1.5 py-0.2 rounded bg-surface-container-high text-on-surface-variant font-medium">${meta.label}</span>
+              </div>
+              <p class="text-[11px] text-outline">Desahogo • Ahora mismo</p>
+            </div>
+          </div>
+        </div>
+        <p class="text-on-surface text-sm leading-relaxed font-normal mb-3">${text.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</p>
+        <div class="flex flex-wrap items-center gap-1.5 pt-2 border-t border-surface-container">
+          <button class="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-surface-container hover:bg-secondary-fixed text-on-surface text-xs font-medium active:scale-95 transition-all">
+            <span class="text-sm">🤝</span><span class="font-semibold text-secondary">Te entiendo</span><span class="text-[11px] text-outline font-bold">0</span>
+          </button>
+          <button class="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-surface-container hover:bg-secondary-fixed text-on-surface text-xs font-medium active:scale-95 transition-all">
+            <span class="text-sm">💪</span><span class="font-semibold text-secondary">¡Fuerza equipo!</span><span class="text-[11px] text-outline font-bold">0</span>
+          </button>
+        </div>
+      `;
+      feedContainer.prepend(newCard);
+      postInput.value = '';
+      charCounter.textContent = '0 / 500';
+      hideModal();
+      showToast('Desahogo publicado de forma anónima');
+    });
+  })();
+
+  function toggleLike(btn) {
+    const countEl = btn.querySelector('.like-count');
+    if (!countEl) return;
+    let count = parseInt(countEl.textContent, 10);
+    const isLiked = btn.getAttribute('data-liked') === 'true';
+    if (isLiked) {
+      btn.setAttribute('data-liked', 'false');
+      countEl.textContent = count - 1;
+      btn.classList.remove('bg-secondary-container');
+      btn.classList.add('bg-surface-container');
+    } else {
+      btn.setAttribute('data-liked', 'true');
+      countEl.textContent = count + 1;
+      btn.classList.remove('bg-surface-container');
+      btn.classList.add('bg-secondary-container');
+    }
+  }
+
+  function markHelpful(btn) {
+    btn.innerHTML = `<span class="material-symbols-outlined text-[16px] text-tertiary">done_all</span><span>¡Agradecido!</span>`;
+    btn.classList.remove('bg-surface-container-high');
+    btn.classList.add('bg-tertiary-fixed', 'text-on-tertiary-fixed');
+    btn.disabled = true;
+  }
+
+  // --- Emergencia ---
+  (function initEmergency() {
+    let countdownTimer = null;
+
+    function showSosToast(message) {
+      const toast = document.getElementById('sosToast');
+      const toastText = document.getElementById('sosToastText');
+      if (!toast || !toastText) return;
+      toastText.textContent = message;
+      toast.classList.remove('translate-y-24', 'opacity-0', 'pointer-events-none');
+      toast.classList.add('translate-y-0', 'opacity-100');
+      setTimeout(() => {
+        toast.classList.add('translate-y-24', 'opacity-0', 'pointer-events-none');
+        toast.classList.remove('translate-y-0', 'opacity-100');
+      }, 3200);
+    }
+
+    window.triggerSosCountdown = function() {
+      const alertBox = document.getElementById('sosAlertBox');
+      const sosBtn = document.getElementById('sosButton');
+      if (alertBox) {
+        alertBox.classList.remove('hidden');
+        sosBtn.classList.add('ring-4', 'ring-error/40');
+        showSosToast('¡Alerta enviada a Puesto de Mando!');
+        if (navigator.vibrate) navigator.vibrate([200, 100, 200, 100, 400]);
+      }
+    };
+
+    window.cancelSos = function() {
+      const alertBox = document.getElementById('sosAlertBox');
+      const sosBtn = document.getElementById('sosButton');
+      if (alertBox) {
+        alertBox.classList.add('hidden');
+        sosBtn.classList.remove('ring-4', 'ring-error/40');
+        showSosToast('Protocolo SOS cancelado.');
+      }
+    };
+
+    window.openIncidentReportModal = function() {
+      const m = document.getElementById('incidentModal');
+      if (m) m.classList.remove('hidden');
+    };
+
+    window.closeIncidentReportModal = function() {
+      const m = document.getElementById('incidentModal');
+      if (m) m.classList.add('hidden');
+    };
+
+    window.submitIncidentReport = function() {
+      closeIncidentReportModal();
+      showSosToast('Novedad operativa enviada exitosamente.');
+    };
+
+    window.toggleEditModal = function() {
+      const m = document.getElementById('editContactsModal');
+      if (m) m.classList.toggle('hidden');
+    };
+
+    window.saveContacts = function() {
+      toggleEditModal();
+      showSosToast('Contactos de emergencia actualizados.');
+    };
+  })();
+</script>
+
+</body>
+</html>
