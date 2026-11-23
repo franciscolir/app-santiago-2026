@@ -452,9 +452,9 @@ Con el usuario de prueba `test` (rol admin) se verificó **0 errores de consola*
 ## 14. Pendientes inmediatos
 
 1. ✅ **Regenerar `schema.sql`** desde la BD real — hecho el 2026-11-23 con todas las queries (A–H, F2, F3).
-2. ✅ **Coordenadas de las 5 actividades de prueba** — `sql/04_coordenadas.sql` ejecutado el 2026-11-23: las 5 tienen `latitude`/`longitude` (falta verificar los marcadores en el navegador).
-3. **Políticas de Storage**: la query H devolvió 0 filas → no existen para adjuntos. Crear bucket + políticas antes de usar adjuntos (hoy la subida fallará).
-4. **GRANT faltantes para `authenticated`** (query G): solo tienen `SELECT` en `events`, `profiles`, `emergency_contacts`, `activity_user_details` y `activity_attachments` → la administración de eventos/usuarios/contactos y los adjuntos fallarán con `42501`. `service_role` solo tiene `SELECT` en `profiles`.
+2. ✅ **Coordenadas de las 5 actividades de prueba** — `sql/04_coordenadas.sql` ejecutado el 2026-11-23 y **verificado en navegador: 5 marcadores, 5 botones "Cómo llegar", 0 errores**.
+3. ⬜ **Políticas de Storage**: la query H devolvió 0 filas → no existen. **Bajada de prioridad (2026-11-23): el frontend no usa Storage en absoluto** (0 referencias a adjuntos/subidas en `src/` e `index.html`). Crearlas cuando se implemente la función de adjuntos.
+4. ⬜ **GRANT faltantes para `authenticated`** → script listo: **`sql/05_grants_admin.sql`** (pendiente de ejecutar). Da escritura en `events`, `profiles` (UPDATE), `activity_user_details`, `emergency_contacts` y `activity_attachments`. RLS sigue filtrando por fila (`is_admin()`). *Nota: los GRANT no construyen la interfaz: la administración de eventos/usuarios sigue sin UI (§11.6). Observación aparte: `service_role` solo tiene `SELECT` en `profiles` (query G) — si una Edge Function necesita leer más tablas, faltan GRANT.*
 5. Asignación de usuarios: el formulario aún pide **UUIDs separados por coma** (solución temporal, ver §8/§9).
 6. Administración de usuarios, adjuntos, y personalización de instrucciones por usuario.
 7. Antes de producción: CORS de la Edge Function a un origen concreto (hoy `*`), rate limiting en `login-username`, iconos del PWA (`manifest.webmanifest` tiene `"icons":[]`).
