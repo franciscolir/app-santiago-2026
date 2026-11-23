@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#024059">
+  <meta name="description" content="Agenda compartida APP SANTIAGO 2026">
+  <title>APP SANTIAGO 2026</title>
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <section id="login-screen" class="login-screen">
+    <form id="login-form" class="login-card">
+      <div class="brand-mark">AS</div>
+      <p class="eyebrow">AGENDA COMPARTIDA</p>
+      <h1>APP SANTIAGO 2026</h1>
+      <p class="muted">Ingresa con tu usuario y contraseña</p>
+      <label for="username">Usuario</label>
+      <input id="username" name="username" autocomplete="username" required maxlength="100">
+      <label for="password">Contraseña</label>
+      <input id="password" name="password" type="password" autocomplete="current-password" required>
+      <button class="primary full" type="submit">Ingresar</button>
+      <p id="login-error" class="error" role="alert"></p>
+    </form>
+  </section>
+
+  <div id="app" class="app hidden">
+    <header class="topbar">
+      <div><span class="eyebrow">AGENDA COMPARTIDA</span><strong>APP SANTIAGO 2026</strong></div>
+      <div class="user-area"><span id="user-label"></span><button id="logout-btn" class="icon-button" aria-label="Cerrar sesión" title="Cerrar sesión">↪</button></div>
+    </header>
+    <main id="main-content" class="main-content">
+      <section id="view-agenda" class="view active">
+        <div class="section-heading"><div><p class="eyebrow">PLANIFICACIÓN</p><h1>Agenda</h1></div><span id="event-range" class="muted"></span></div>
+        <div id="event-info" class="event-info"></div>
+        <div id="agenda-list" class="agenda-list"><div class="loading">Cargando agenda…</div></div>
+        <div id="admin-create-wrap" class="admin-only hidden">
+          <button id="new-activity-btn" class="primary">＋ Nueva actividad</button>
+        </div>
+      </section>
+
+      <section id="view-mapa" class="view">
+        <div class="section-heading"><div><p class="eyebrow">UBICACIONES</p><h1>Mapa</h1></div></div>
+        <p class="muted">Ubicación de las actividades del evento.</p>
+        <div id="map"></div>
+        <div id="map-activity-list" class="map-activity-list"></div>
+      </section>
+
+      <section id="view-emergencia" class="view">
+        <div class="section-heading"><div><p class="eyebrow">ASISTENCIA</p><h1>Emergencia</h1></div></div>
+        <div class="notice"><strong>En caso de emergencia</strong><p>Accede al sitio de apoyo y consulta los contactos disponibles.</p></div>
+        <div id="emergency-contacts" class="contact-list"></div>
+        <div class="iframe-heading"><h2>Centro de emergencia</h2><a href="https://auxilio-rm-go.base44.app/" target="_blank" rel="noopener">Abrir en otra pestaña ↗</a></div>
+        <iframe class="emergency-frame" src="https://auxilio-rm-go.base44.app/" title="Sistema externo de emergencia" loading="lazy" referrerpolicy="strict-origin-when-cross-origin"></iframe>
+        <p class="muted small">Si el sitio no permite mostrarse dentro de la aplicación, utiliza el enlace “Abrir en otra pestaña”.</p>
+      </section>
+
+      <section id="view-muro" class="view">
+        <div class="section-heading"><div><p class="eyebrow">COMUNIDAD</p><h1>Muro</h1></div></div>
+        <div class="wall-tabs">
+          <button class="wall-tab selected" data-category="positive">Positivo</button>
+          <button class="wall-tab" data-category="vent">Descárgate</button>
+        </div>
+        <form id="wall-form" class="wall-compose">
+          <label for="wall-content">Comparte con el grupo</label>
+          <textarea id="wall-content" maxlength="500" rows="3" placeholder="Escribe tu mensaje…" required></textarea>
+          <div class="compose-footer"><span id="wall-counter" class="muted small">0/500</span><button class="primary" type="submit">Publicar</button></div>
+          <p id="wall-error" class="error"></p>
+        </form>
+        <div id="wall-posts" class="wall-posts"></div>
+      </section>
+    </main>
+    <nav class="bottom-nav" aria-label="Navegación principal">
+      <button class="nav-item active" data-view="agenda"><span>▤</span>Agenda</button>
+      <button class="nav-item" data-view="mapa"><span>⌖</span>Mapa</button>
+      <button class="nav-item" data-view="emergencia"><span>＋</span>Emergencia</button>
+      <button class="nav-item" data-view="muro"><span>▧</span>Muro</button>
+    </nav>
+  </div>
+
+  <dialog id="activity-dialog">
+    <form id="activity-form" class="dialog-form">
+      <div class="dialog-heading"><h2 id="activity-dialog-title">Nueva actividad</h2><button type="button" id="close-activity" class="icon-button">✕</button></div>
+      <input type="hidden" id="activity-id">
+      <label for="activity-title">Nombre de la actividad</label><input id="activity-title" required maxlength="180">
+      <label for="activity-description">Descripción</label><textarea id="activity-description" rows="3"></textarea>
+      <div class="two-fields"><div><label for="activity-date">Fecha</label><input id="activity-date" type="date" required></div><div><label for="activity-place">Lugar</label><input id="activity-place"></div></div>
+      <div class="two-fields"><div><label for="activity-start">Hora inicio</label><input id="activity-start" type="time"></div><div><label for="activity-end">Hora término</label><input id="activity-end" type="time"></div></div>
+      <div class="two-fields"><div><label for="activity-lat">Latitud (opcional)</label><input id="activity-lat" type="number" step="any"></div><div><label for="activity-lng">Longitud (opcional)</label><input id="activity-lng" type="number" step="any"></div></div>
+      <label for="activity-assignees">Asignar usuarios (IDs UUID separados por coma)</label><input id="activity-assignees" placeholder="Opcional">
+      <button class="primary full" type="submit">Guardar actividad</button>
+      <p id="activity-error" class="error"></p>
+    </form>
+  </dialog>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>

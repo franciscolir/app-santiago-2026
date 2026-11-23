@@ -1,0 +1,9 @@
+{
+  "name":"APP SANTIAGO 2026",
+  "short_name":"Santiago 2026",
+  "start_url":"./",
+  "display":"standalone",
+  "background_color":"#f3f8fa",
+  "theme_color":"#024059",
+  "icons":[]
+}
