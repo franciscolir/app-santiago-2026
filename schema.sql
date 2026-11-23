@@ -422,24 +422,26 @@ with check (user_id = (select auth.uid()));
 grant usage on schema public to authenticated;
 
 grant select on public.profiles to authenticated;
-grant select on public.events to authenticated;
+grant update on public.profiles to authenticated;                 -- 05: admin edita perfiles
+grant select, insert, update, delete on public.events to authenticated;  -- 05: admin gestiona eventos
 grant select, insert, update, delete on public.activities to authenticated;
 grant select, insert, delete on public.activity_assignments to authenticated;
 grant update (status) on public.activity_assignments to authenticated;
-grant select on public.activity_user_details to authenticated;
-grant select on public.activity_attachments to authenticated;
-grant select on public.emergency_contacts to authenticated;
+grant select, insert, update, delete on public.activity_user_details to authenticated;  -- 05
+grant select, insert, update, delete on public.activity_attachments to authenticated;   -- 05
+grant select, insert, update, delete on public.emergency_contacts to authenticated;     -- 05
 grant select, insert, delete on public.wall_posts to authenticated;
+
+-- Verificado el 2026-11-23 tras ejecutar sql/05_grants_admin.sql.
+-- RLS sigue filtrando por fila: el solo hecho de tener el GRANT no permite
+-- escribir si la política is_admin() no lo autoriza.
 
 -- service_role: según la query G solo tiene REFERENCES/TRIGGER/TRUNCATE en
 -- todas las tablas y SELECT en profiles. Si alguna Edge Function necesita
 -- leer otras tablas, faltan GRANT (pendiente, AGENT.md §14).
 
--- BRECHAS CONOCIDAS (query G, 2026-11-23) — authenticated NO puede escribir en:
---   events, profiles, emergency_contacts, activity_user_details,
---   activity_attachments (solo SELECT en todas ellas).
--- => La administración de eventos/usuarios/contactos y la subida de adjuntos
---    FALLARÁN con 42501 hasta añadir los GRANT correspondientes.
+-- PENDIENTE: Storage (query H = 0 filas) → no existen políticas de adjuntos.
+-- El frontend hoy no usa Storage; crearlas cuando se implementen adjuntos.
 
 -- ============================================================================
 -- 5) STORAGE — adjuntos
