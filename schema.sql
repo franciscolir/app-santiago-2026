@@ -6,12 +6,12 @@
 -- funciones, políticas RLS y GRANTs tal como están aplicados hoy.
 -- Origen: queries A–E, G y H de AGENT.md §15.
 --
--- Estado de las queries de AGENT.md §15 (2026-11-23):
---   A, B, C, D, E, G ejecutadas y volcadas aquí.
+-- Estado de las queries de AGENT.md §15 (2026-11-23): TODAS ejecutadas.
+--   A, B, C, D, E, G volcadas aquí.
 --   F: 0 filas → sin triggers en tablas de public (ver sección TRIGGERS).
+--   F2: hecho → trigger on_auth_user_created en auth.users (ver TRIGGERS).
 --   F3: hecho → event trigger ensure_rls → rls_auto_enable confirmado.
 --   H: 0 filas → NO existen políticas de Storage para adjuntos (ver STORAGE).
---   Pendiente: F2 (triggers sobre auth.users).
 --
 -- Este archivo es la REFERENCIA fiel del estado real. En una BD nueva
 -- reproduce la misma estructura; en una existente no rompe nada
@@ -451,19 +451,24 @@ grant select, insert, delete on public.wall_posts to authenticated;
 --    No se inventan aquí a propósito: hay que definirlas y probarlas.
 
 -- ============================================================================
--- 6) TRIGGERS — query F ejecutada el 2026-11-23: 0 filas
+-- 6) TRIGGERS — queries F (0 filas), F2 y F3 ejecutadas el 2026-11-23
 -- ============================================================================
--- No existe NINGÚN trigger en las tablas de public. En particular:
---   * No hay trigger que actualice activities.updated_at → ese campo solo
---     cambia si la app lo escribe (el default now() aplica solo al insertar).
---   * handle_new_user() está definida, pero su trigger vive en auth.users:
---     falta F2 (AGENT.md §15) para saber si existe y cómo se llama.
---   * Event trigger CONFIRMADO (F3): "ensure_rls" sobre ddl_command_end →
---     rls_auto_enable(), habilitado (enabled = O), junto a los event
---     triggers por defecto de Supabase (pgrst_ddl_watch, pgrst_drop_watch,
---     issue_pg_net_access, etc.). No se recrea aquí porque no se
---     introspeccionó su cláusula WHEN.
--- Por eso NO se recrea ningún trigger en este archivo.
+-- F: no existe NINGÚN trigger en las tablas de public. En particular no hay
+--    trigger que actualice activities.updated_at → ese campo solo cambia si
+--    la app lo escribe (el default now() aplica solo al insertar).
+-- F2: SÍ existe el trigger de registro en auth.users (recreado abajo).
+-- F3: existe el event trigger "ensure_rls" sobre ddl_command_end →
+--    rls_auto_enable(), habilitado (enabled = O), junto a los event triggers
+--    por defecto de Supabase (pgrst_ddl_watch, pgrst_drop_watch,
+--    issue_pg_net_access, etc.). NO se recrea aquí: no se introspeccionó
+--    su cláusula WHEN y ya existe en la BD.
+
+-- Registro de usuario → creación de perfil (estado real, F2).
+drop trigger if exists on_auth_user_created on auth.users;
+create trigger on_auth_user_created
+after insert on auth.users
+for each row
+execute function public.handle_new_user();
 
 -- ============================================================================
 -- CONSULTAS DE VERIFICACIÓN (ejecutar aparte)
