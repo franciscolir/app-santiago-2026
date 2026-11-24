@@ -18,7 +18,7 @@ El objetivo inmediato es estabilizar la autenticación, la lectura de actividade
 - Backend: Supabase (PostgreSQL, Auth, RLS, Storage y Edge Functions).
 - Despliegue: GitHub Pages.
 - PWA: `manifest.webmanifest`.
-- Mapa: Leaflet (según el frontend inicial).
+- Mapa: **MapLibre GL** (v4.7.1, estilo OpenFreeMap `positron`, CDN unpkg) — migrado desde Leaflet el 2026-11-23; vista satélite con capa raster Esri World Imagery y GPS continuo con `watchPosition`.
 - Inicio de sesión: nombre de usuario + contraseña. Supabase Auth autentica con email/contraseña; una Edge Function resuelve el nombre de usuario al email asociado.
 - No introducir frameworks o herramientas nuevas sin una razón clara y sin consultar primero.
 - No incorporar credenciales secretas al repositorio ni al frontend.
@@ -443,7 +443,7 @@ Con el usuario de prueba `test` (rol admin) se verificó **0 errores de consola*
 6. La validación de UUID ocurría *después* de guardar (actividad quedaba a medias).
 7. El admin no veía ni podía reabrir canceladas; no había acción Cancelar.
 8. Se elegía el evento más reciente en vez del **vigente** (el que contiene hoy).
-9. `fitBounds` con la vista oculta + la lista del mapa dependía de Leaflet (si el CDN fallaba, no se pintaba nada).
+9. `fitBounds` con la vista oculta + la lista del mapa dependía de Leaflet (si el CDN fallaba, no se pintaba nada; hoy el mapa es MapLibre con creación perezosa al abrir la pestaña).
 10. Coordenadas solo admitían `latitude/longitude` (rompía con `lat/long`).
 11. **El iframe de emergencia nunca funcionó**: el sitio externo envía `X-Frame-Options: DENY`. Reemplazado por botón de apertura en pestaña nueva.
 12. Errores `42501`/`PGRST204` silenciados; ahora se muestran y se registra `console.error`.
@@ -537,7 +537,7 @@ Se reemplazó el frontend por el diseño del mockup `index-up.html` **manteniend
 Decisiones acordadas con el usuario (todas las recomendadas):
 
 1. **Tailwind por CDN** (`cdn.tailwindcss.com`) + Google Fonts (Plus Jakarta Sans) + Material Symbols, tal como el mock.
-2. **Mapa: Leaflet real** con las coordenadas de las 5 actividades (NO el SVG falso del mock), con panel inferior "sede seleccionada", barra de búsqueda y botones de zoom/recentrar.
+2. ~~**Mapa: Leaflet real**~~ → **Mapa: MapLibre GL** (decisión posterior, ver §17), con las coordenadas de las 5 actividades (NO el SVG falso del mock), con panel inferior "sede seleccionada", barra de búsqueda y botones de zoom/recentrar.
 3. **Muro: 2 categorías reales** de la BD (`positive`/`vent`) con el look del mock (4 pestañas del mock descartadas: el CHECK de `wall_posts.category` no cambió).
 4. **Botones sin backend (SOS, reacciones, ficha médica…)**: ocultos o con toast honesto. El SOS informa que no hay alertas automáticas.
 5. **Datos de ejemplo del mock** (Camila Rojas, ficha médica, avatares): conectados a datos reales; los ficticios, ocultos.
@@ -557,3 +557,30 @@ muro (publicar con toast, eliminar, pestañas sincronizadas entre vista y modal)
 emergencia (red real `navigator.onLine`, enlace externo, toast honesto de SOS), navegación y sesión.
 
 > **Pendiente detectado en la verificación**: `emergency_contacts` está vacía (§14.8).
+
+## 17. Migración del mapa a MapLibre GL (2026-11-23)
+
+Se reemplazó **Leaflet 1.9.4 por MapLibre GL 4.7.1** (decisión explícita del usuario), alineando la app con
+la implementación de referencia de `gps/territorio-gps-movil`. Cambios:
+
+- **CDN**: `unpkg.com/maplibre-gl@4.7.1` (CSS + JS); estilos popup/controles adaptados en `styles.css`.
+- **Estilo base**: OpenFreeMap `positron` (`https://tiles.openfreemap.org/styles/positron`) — mismo estilo que
+  territorio-gps-movil, sin API key.
+- **Vista satélite**: capa raster Esri World Imagery insertada bajo la primera capa `symbol` del estilo
+  (alternada con `#map-satellite`, `aria-pressed`).
+- **GPS continuo**: `watchPosition` al iniciar sesión (una sola vez), badge `#gps-badge` sobre el mapa
+  (GPS activo / Ubicación no disponible) y punto azul `.user-dot` en el mapa; `#map-locate` centra con offset.
+- **Pines**: `renderMarkers()` con `PIN_ICON` (Material Symbols en div `.map-pin`, color por estado:
+  `pending` #F2B705, `in_progress` #4BB2F2, `completed` #006492, `cancelled` #F25050) + popup.
+- **Creación perezosa**: el mapa solo se instancia al abrir la pestaña Mapa (el contenedor necesita tamaño);
+  `gotoView` llama `renderMap()` con `setTimeout(100)` y `resize()`.
+- **Encuadre sin tapar pines**: `paddingMapa()` deja libres la barra de búsqueda (arriba) y el panel inferior;
+  `applyPendingFit()` re-aplica a los 300 ms por si el layout aún se estabiliza (`maxZoom:14`).
+  `offsetPanel()` desplaza `flyTo` para que el punto centrado caiga en la franja visible.
+- **Controles**: fila horizontal `top-16` (zoom +/−, recentrar, mi ubicación, satélite) para no quedar
+  bajo el panel inferior; panel inferior limitado a `max-h-[52%]`.
+- **App informativa**: NO se migró la cola offline ni gestión de reportes/estados (territorio-gps-movil sí la
+  tiene); solo lectura de puntos públicos y actividades.
+
+Verificado en navegador (`test`/`123456`): 5 pines, selección desde lista y desde pín (popup + panel),
+vista satélite alternando OK, botones visibles, badge GPS, **0 errores de consola**.

@@ -4,7 +4,7 @@ import { EMERGENCY_URL } from "./config.js";
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => document.querySelectorAll(s);
 const state = { user:null, profile:null, event:null, activities:[], category:"positive", filter:"mine",
-  map:null, markers:null, markerById:new Map(), pendingFit:null, selectedId:null, toastTimer:null };
+  map:null, mapListo:false, markers:null, markerById:new Map(), pendingFit:null, selectedId:null, toastTimer:null };
 const statusText = {pending:"Pendiente", in_progress:"En curso", completed:"Completada", cancelled:"Cancelada"};
 const venueStatusText = {pending:"Programada", in_progress:"En curso", completed:"Finalizada", cancelled:"Cancelada"};
 const viewLabels = {agenda:"Agenda", mapa:"Mapa", muro:"Muro", emergencia:"Emergencia"};
@@ -17,7 +17,7 @@ const todayStr = () => { const d=new Date(); return `${d.getFullYear()}-${String
 const initials = (name="") => name.trim().split(/\s+/).filter(Boolean).slice(0,2).map(w=>w[0]).join("").toUpperCase() || "?";
 
 function showLogin(){ $("#login-screen").classList.remove("hidden"); $("#app").classList.add("hidden"); }
-function showApp(){ $("#login-screen").classList.add("hidden"); $("#app").classList.remove("hidden"); }
+function showApp(){ $("#login-screen").classList.add("hidden"); $("#app").classList.remove("hidden"); if(!gpsIntentado){gpsIntentado=true;activarGps();} }
 function isAdmin(){ return state.profile?.role === "admin"; }
 function notifyError(el,msg){ el.textContent=msg || ""; }
 
@@ -109,7 +109,11 @@ function gotoView(name){
     v.classList.toggle("hidden",!on);
   });
   $("#header-view-label").textContent=viewLabels[name]||name;
-  if(name==="mapa"&&state.map)setTimeout(()=>{state.map.invalidateSize();applyPendingFit();},100);
+  if(name==="mapa")setTimeout(()=>{
+    if(!state.map) renderMap();          // mapa perezoso: se crea al abrir la pestaña
+    else state.map.resize();
+    applyPendingFit();
+  },100);
 }
 $$(".nav-item").forEach(b=>b.addEventListener("click",()=>gotoView(b.dataset.view)));
 
@@ -244,28 +248,66 @@ async function updateMyStatus(activityId,status){
   await loadEventAndActivities();
 }
 
-// ==================== MAPA ====================
+// ==================== MAPA (MapLibre GL + OpenStreetMap) ====================
+// Mismo stack que territorio-gps-movil: MapLibre + estilo OpenFreeMap (positron).
+// Vista INFORMATIVA: muestra los eventos/actividades públicos y dónde estás tú.
+// No gestiona estados de recorrido ni reportes (eso es territorio-gps).
+const MAP_STYLE = "https://tiles.openfreemap.org/styles/positron";
 const coords=(a)=>({lat:Number(a.latitude ?? a.lat),lng:Number(a.longitude ?? a.long ?? a.lng)});
 const conCoords=(a)=>{const c=coords(a);return Number.isFinite(c.lat)&&Number.isFinite(c.lng)&&c.lat!==0&&c.lng!==0;};
+
 function renderMap(){
   renderMapList();
-  if(!window.L)return;
+  if(!window.maplibregl)return;
   if(!state.map){
-    state.map=L.map("map").setView([-33.4489,-70.6693],11);
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:"&copy; OpenStreetMap"}).addTo(state.map);
-    state.markers=L.featureGroup().addTo(state.map);
+    // El mapa solo se instancia con la vista visible (contenedor con tamaño);
+    // si aún no se abrió la pestaña Mapa, solo se deja preparado el fitBounds.
+    if(!$("#view-mapa").classList.contains("active")){ state.pendingFit=markersBounds(); return; }
+    state.map=new maplibregl.Map({
+      container:"map", style:MAP_STYLE, center:[-70.6693,-33.4489], zoom:11,
+      attributionControl:{compact:true}
+    });
+    state.markers=[];
+    state.map.on("load",()=>{
+      state.mapListo=true;
+      renderMarkers();
+      ponerMarcadorUsuario();
+      applyPendingFit();
+    });
   }
-  state.markers.clearLayers(); state.markerById.clear();
+  if(state.mapListo) renderMarkers();
+}
+function renderMarkers(){
+  if(!state.map||!state.mapListo)return;
+  state.markers.forEach(m=>m.remove());
+  state.markers=[]; state.markerById.clear();
   state.activities.filter(conCoords).forEach(a=>{
     const c=coords(a);
-    const m=L.marker([c.lat,c.lng]).addTo(state.markers).bindPopup(`<strong>${esc(a.title)}</strong><br>${esc(a.place||"")}`);
-    m.on("click",()=>selectVenue(a,false));
+    const el=document.createElement("div");
+    el.className="map-pin";
+    el.dataset.est=a.status||"pending";
+    el.innerHTML=`<span class="material-symbols-outlined">${PIN_ICON[a.status]||"event"}</span>`;
+    const popup=new maplibregl.Popup({offset:24,closeButton:true}).setHTML(
+      `<strong>${esc(a.title)}</strong><br>${esc(a.place||"")}`);
+    const m=new maplibregl.Marker({element:el,anchor:"bottom"})
+      .setLngLat([c.lng,c.lat]).setPopup(popup).addTo(state.map);
+    m.getElement().addEventListener("click",()=>selectVenue(a,false));
+    state.markers.push(m);
     state.markerById.set(a.id,m);
   });
   if(state.selectedId && !state.activities.some(a=>a.id===state.selectedId)) resetVenue();
   // fitBounds solo cuando la vista está visible; si no, se aplaza hasta abrir la pestaña Mapa.
-  state.pendingFit=state.markers.getLayers().length?state.markers.getBounds().pad(.18):null;
+  state.pendingFit=markersBounds();
   applyPendingFit();
+}
+// Icono Material por estado de la actividad (pines con color por estado)
+const PIN_ICON = {pending:"event", in_progress:"directions_walk", completed:"check_circle", cancelled:"event_busy"};
+// Bounds [[lngMin,latMin],[lngMax,latMax]] de los marcadores con coordenadas
+function markersBounds(){
+  const cs=state.activities.filter(conCoords).map(coords);
+  if(!cs.length)return null;
+  const lats=cs.map(c=>c.lat), lngs=cs.map(c=>c.lng);
+  return [[Math.min(...lngs),Math.min(...lats)],[Math.max(...lngs),Math.max(...lats)]];
 }
 function renderMapList(){
   const root=$("#map-activity-list"); if(!root) return;
@@ -305,7 +347,22 @@ function selectVenue(a,pan=true){
   else { nav.disabled=true; delete nav.dataset.lat; delete nav.dataset.lng; }
   renderMapList();
   const m=state.markerById.get(a.id);
-  if(m&&state.map&&pan){ state.map.setView(m.getLatLng(),Math.max(state.map.getZoom(),14)); m.openPopup(); }
+  if(m&&state.map&&pan){
+    state.map.flyTo({center:m.getLngLat(),zoom:Math.max(state.map.getZoom(),14),duration:600,offset:offsetPanel()});
+    if(!m.getPopup()?.isOpen?.()) m.togglePopup();
+  }
+}
+// Desplazamiento vertical para que el punto "centrado" caiga en el área
+// visible del mapa (entre la barra de búsqueda y el panel inferior).
+function offsetPanel(){
+  const cont=$("#map")?.getBoundingClientRect();
+  const panel=$("#view-mapa section.absolute.bottom-0")?.getBoundingClientRect();
+  const buscador=$("#map-search")?.parentElement?.getBoundingClientRect();
+  if(!cont)return [0,0];
+  const arriba=buscador?buscador.bottom-cont.top:60;
+  const abajo=panel?panel.top-cont.top:cont.height;
+  const yMedio=(arriba+abajo)/2;
+  return [0,Math.round(yMedio-cont.height/2)];
 }
 $("#venue-nav").addEventListener("click",e=>{
   const b=e.currentTarget; if(b.disabled) return;
@@ -314,13 +371,109 @@ $("#venue-nav").addEventListener("click",e=>{
 $("#venue-go-agenda").addEventListener("click",()=>gotoView("agenda"));
 $("#map-zoom-in").addEventListener("click",()=>state.map?.zoomIn());
 $("#map-zoom-out").addEventListener("click",()=>state.map?.zoomOut());
-$("#map-recenter").addEventListener("click",()=>{ if(state.map&&state.markers?.getLayers().length) state.map.fitBounds(state.markers.getBounds().pad(.18)); });
+// Recentrar en todas las actividades (encuadra el bounds calculado)
+$("#map-recenter").addEventListener("click",()=>{
+  const b=markersBounds(); if(!state.map||!b)return;
+  const p=paddingMapa();
+  state.map.fitBounds(b,{padding:{top:p.top,bottom:p.bottom,left:p.left,right:p.right},duration:600,maxZoom:14});
+});
+// Centrar en mi ubicación (GPS)
+$("#map-locate").addEventListener("click",()=>{
+  if(!gpsPos){ activarGps({centrar:true}); showToast("Buscando tu ubicación…"); return; }
+  state.map?.flyTo({center:[gpsPos.lng,gpsPos.lat],zoom:Math.max(state.map.getZoom(),16),duration:600,offset:offsetPanel()});
+});
+$("#map-satellite").addEventListener("click",alternarSatelite);
 $("#map-search").addEventListener("input",renderMapList);
+// Padding de encuadre: deja libres la barra de búsqueda (arriba) y el panel
+// inferior de sede/lista, para que ningún pín quede tapado.
+function paddingMapa(){
+  const cont=$("#view-mapa .relative.w-full")||$("#map")?.parentElement;
+  const panel=$("#view-mapa section.absolute.bottom-0");
+  const buscador=$("#map-search")?.parentElement;
+  const top=(buscador?buscador.getBoundingClientRect().height+24:70);
+  const bottom=(panel?panel.getBoundingClientRect().height+24:40);
+  return {top:Math.round(top),bottom:Math.round(bottom),left:24,right:24,_cont:cont};
+}
 function applyPendingFit(){
   if(!state.map||!state.pendingFit)return;
-  if(!$("#view-mapa").classList.contains("active"))return; // vista oculta: Leaflet no calcula bien el tamaño
-  state.map.fitBounds(state.pendingFit); state.pendingFit=null;
-  setTimeout(()=>state.map.invalidateSize(),100);
+  if(!$("#view-mapa").classList.contains("active"))return; // vista oculta: el mapa aún no tiene tamaño
+  const b=state.pendingFit;
+  const aplicar=()=>{
+    if(!state.map)return;
+    const p=paddingMapa();
+    state.map.fitBounds(b,{padding:{top:p.top,bottom:p.bottom,left:p.left,right:p.right},duration:0,maxZoom:14});
+  };
+  aplicar();
+  // Re-aplica tras estabilizar el layout (panel y barra con su altura final)
+  setTimeout(aplicar,300);
+  state.pendingFit=null;
+  setTimeout(()=>state.map?.resize(),100);
+}
+
+// ==================== VISTA SATÉLITE (Esri World Imagery) ====================
+// Misma técnica que territorio-gps-movil: la capa satélite se inserta bajo la
+// primera capa de símbolos, para que los rótulos queden legibles encima.
+let sateliteOn=false;
+function alternarSatelite(){
+  const map=state.map, btn=$("#map-satellite");
+  if(!map||!state.mapListo)return;
+  if(sateliteOn){
+    if(map.getLayer("satelite-layer"))map.removeLayer("satelite-layer");
+    if(map.getSource("satelite"))map.removeSource("satelite");
+    sateliteOn=false;
+    btn.classList.remove("bg-primary","text-on-primary");
+    btn.setAttribute("aria-pressed","false");
+    return;
+  }
+  const capas=map.getStyle().layers||[];
+  const simbolo=capas.find(l=>l.type==="symbol");
+  map.addSource("satelite",{type:"raster",
+    tiles:["https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"],
+    tileSize:256,maxzoom:19,attribution:"Esri, Maxar, Earthstar Geographics"});
+  map.addLayer({id:"satelite-layer",type:"raster",source:"satelite",paint:{}}, simbolo?simbolo.id:undefined);
+  sateliteOn=true;
+  btn.classList.add("bg-primary","text-on-primary");
+  btn.setAttribute("aria-pressed","true");
+}
+
+// ==================== GPS DEL DISPOSITIVO (informativo) ====================
+// Pide permiso al entrar: punto azul con tu posición y badge "GPS ACTIVO"
+// en el mapa. Si no se concede: "UBICACIÓN NO DISPONIBLE".
+let gpsPos=null, gpsWatchId=null, gpsEstado="pendiente", gpsMarker=null, gpsIntentado=false;
+function setGpsEstado(e){
+  gpsEstado=e;
+  const dot=$("#gps-dot"), txt=$("#gps-text"), badge=$("#gps-badge");
+  if(!dot||!txt||!badge)return;
+  badge.classList.remove("hidden");
+  dot.className="w-2 h-2 rounded-full "+(e==="activo"?"bg-primary animate-pulse":e==="nodisponible"?"bg-error":"bg-surface-variant");
+  txt.textContent=e==="activo"?"GPS activo":e==="nodisponible"?"Ubicación no disponible":"Buscando ubicación…";
+}
+function activarGps({centrar=false}={}){
+  if(!navigator.geolocation){setGpsEstado("nodisponible");return;}
+  if(gpsWatchId!=null){navigator.geolocation.clearWatch(gpsWatchId);gpsWatchId=null;}
+  setGpsEstado("pendiente");
+  navigator.geolocation.getCurrentPosition(
+    (pos)=>{
+      gpsPos={lat:pos.coords.latitude,lng:pos.coords.longitude};
+      setGpsEstado("activo");
+      ponerMarcadorUsuario();
+      if(centrar)state.map?.flyTo({center:[gpsPos.lng,gpsPos.lat],zoom:Math.max(state.map.getZoom(),16),duration:600,offset:offsetPanel()});
+      gpsWatchId=navigator.geolocation.watchPosition((p)=>{
+        gpsPos={lat:p.coords.latitude,lng:p.coords.longitude};
+        ponerMarcadorUsuario();
+      },()=>{},{enableHighAccuracy:true,maximumAge:15000});
+    },
+    ()=>setGpsEstado("nodisponible"),
+    {enableHighAccuracy:true,timeout:10000,maximumAge:30000}
+  );
+}
+function ponerMarcadorUsuario(){
+  if(!state.mapListo||!state.map||!gpsPos)return;
+  if(!gpsMarker){
+    const el=document.createElement("div");
+    el.className="user-dot";
+    gpsMarker=new maplibregl.Marker({element:el}).setLngLat([gpsPos.lng,gpsPos.lat]).addTo(state.map);
+  } else gpsMarker.setLngLat([gpsPos.lng,gpsPos.lat]);
 }
 
 // ==================== ACTIVIDADES (admin) ====================
