@@ -1,17 +1,16 @@
-# APP SANTIAGO 2026 — frontend inicial
+# APP SANTIAGO 2026 — frontend
 
 Frontend móvil en JavaScript Vanilla + HTML/CSS, preparado para GitHub Pages y Supabase.
 
 ## 1. Publicar en GitHub
-1. Descomprime este proyecto.
-2. Copia el contenido de la carpeta dentro del repositorio `app-santiago-2026`.
-3. Confirma que `index.html` quede en la raíz del repositorio y `src/` como subcarpeta.
-4. En GitHub: **Settings → Pages → Deploy from a branch → main → /(root)**.
-
-La URL del repositorio parece tener un punto adicional al final en el mensaje recibido. Comprueba que el repositorio real sea `https://github.com/franciscolir/app-santiago-2026`.
+1. Confirma que `index.html` quede en la raíz del repositorio y `src/` como subcarpeta.
+2. En GitHub: **Settings → Pages → Deploy from a branch → main → /(root)**.
+3. Repository real: `https://github.com/franciscolir/app-santiago-2026`.
 
 ## 2. Configuración
 Los valores públicos de Supabase ya están puestos en `src/config.js`. La publishable key puede estar en el frontend; nunca pongas la `service_role` key.
+
+Los iconos de la PWA se generaron desde `assets/stgo-2026-logo.png` y viven en `icons/`.
 
 ## 3. Requisitos de base de datos que debe tener el esquema
 Este frontend presupone que `activities` tiene las columnas `latitude` y `longitude`. Si tu SQL inicial creó `lat` y `long`, cambia esos nombres en `src/main.js` o ejecuta:
@@ -30,8 +29,21 @@ Incluye login, recuperación de sesión, navegación inferior, agenda, cambio de
 La asignación desde el formulario utiliza UUID de usuarios separados por coma; es una solución temporal de administración. Todavía faltan la pantalla de administración de usuarios, selección de asignados por nombre, personalización de instrucciones por usuario, gestión de archivos adjuntos y validaciones completas de permisos/fechas. Antes de producción hay que revisar RLS y las políticas de Storage.
 
 ## 6. Prueba local
-Puedes abrirlo con un servidor estático local (no abrir `index.html` directamente). Por ejemplo:
+No abras `index.html` directamente: los módulos ES y el service worker necesitan un servidor HTTP.
+
+Con Node.js:
+```bash
+npx --yes serve@14 . --listen 8080
+```
+
+Alternativa con Python:
 ```bash
 python -m http.server 8080
 ```
+
 Luego entra a `http://localhost:8080`.
+
+## 7. PWA
+- `manifest.webmanifest` incluye iconos de 192/512 px y variante *maskable*.
+- `sw.js` guarda los recursos locales para abrir la interfaz sin conexión.
+- Los datos de Supabase y los recursos externos por CDN todavía requieren conexión.
