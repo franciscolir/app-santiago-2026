@@ -1,0 +1,4 @@
+[out:json][timeout:180];
+area["boundary"="administrative"]["name"="Región Metropolitana de Santiago"]->.rm;
+relation(area.rm)["boundary"="administrative"]["admin_level"="8"];
+out geom;

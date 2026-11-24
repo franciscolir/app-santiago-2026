@@ -584,3 +584,66 @@ la implementación de referencia de `gps/territorio-gps-movil`. Cambios:
 
 Verificado en navegador (`test`/`123456`): 5 pines, selección desde lista y desde pín (popup + panel),
 vista satélite alternando OK, botones visibles, badge GPS, **0 errores de consola**.
+
+## 18. Etapa 2 del mapa: satélite por defecto + límites comunales (2026-11-24)
+
+Implementa `mapas.txt` §3.1 y §3.2 (etapa 2 de su §14). No reemplaza el mapa ni toca Supabase.
+
+**Repo**: renombrado en GitHub a **`app-santiago-2026`** (sin el punto final). El nombre anterior
+(`app-santiago-2026.`) rompía el clon en Windows ("Invalid argument" al crear la carpeta).
+El remoto local ya apunta a `https://github.com/franciscolir/app-santiago-2026.git`.
+
+### Cambios
+
+- **Vista satélite por defecto** (§3.1): `activarSateliteInicial()` se llama en el `load` del mapa y
+  reutiliza `alternarSatelite()`; el botón `#map-satellite` queda `aria-pressed="true"`. Sigue
+  alternando a la vista cartográfica OpenFreeMap `positron`, que aporta los rótulos legibles encima.
+- **Límites comunales** (§3.2): `data/comunas-rm.geojson` — **52 comunas**, 164 KB, 7.113 puntos.
+  - Fuente: **OpenStreetMap vía Overpass API** (§7.1), licencia **ODbL**. Geometrías reales, no dibujadas.
+  - Generación reproducible (§12):
+    1. `scripts/_q_comunas.txt` — consulta Overpass (área RM + `admin_level=8`).
+    2. Descarga: `curl -A "app-santiago-2026/1.0" --data-urlencode "data@scripts/_q_comunas.txt" https://overpass.private.coffee/api/interpreter -o scripts/_overpass_comunas.json`
+       (usar también `maps.mail.ru` como espejo; `overpass-api.de` respondió 502/406).
+    3. `node scripts/importar-comunas.mjs` → ensambla anillos, simplifica (Douglas-Peucker, ~30 m) y escribe el GeoJSON.
+    4. `node scripts/validar-comunas.mjs` → bbox y centroides de control.
+  - El volcado crudo (2,6 MB) está en `.gitignore`.
+- **Capas**: `comunas-fill` (relleno 8 %), `comunas-hover` (resaltado ámbar) y `comunas-line`
+  (borde blanco). Las tres se insertan **por debajo de la primera capa `symbol`** con
+  `insertarBajoSimbolos()` para no tapar los rótulos sobre el satélite.
+- **Nombre de la comuna** (§3.2): popup `#comuna-popup` al pasar el mouse y al tocar (clic) el polígono.
+- **Interruptor de la capa** (§3.2/§10): `#map-comunas` alterna `visibility` de las 3 capas sin
+  recargar el mapa; `[ON]` por defecto una vez cargadas.
+- **Pantalla completa** (§3.1): `#map-fullscreen` sobre el contenedor `.mapa-frame` (nueva clase) con
+  `:fullscreen { height:100vh }` y `map.resize()` en `fullscreenchange`. El botón se oculta si
+  `document.fullscreenEnabled` es falso (p. ej. iOS Safari).
+- **Fila de controles**: ahora `flex-wrap` + `max-w-[calc(100%-2rem)]`, porque son 7 botones y en
+  pantallas angostas deben pasar a 2 filas.
+- **Atribución visible** (§3.1): el control de atribución quedaba **detrás** del panel inferior
+  (medido: top 456 vs panel en 282). Ahora `attributionControl:{compact:false}` (texto completo
+  "Esri, Maxar… | OpenFreeMap © OpenMapTiles Data from OpenStreetMap") y una variable CSS
+  `--mapa-panel-h` calculada con un `ResizeObserver` sobre el panel se usa como `bottom` del
+  `.maplibregl-ctrl-bottom-right`, con 10 px de aire.
+- **Service worker**: `./data/comunas-rm.geojson` agregado a `APP_SHELL` (offline tras la 1ª visita).
+
+### Verificación (2026-11-24, `test`, 0 errores de consola)
+
+Satélite ON por defecto · 52 comunas cargadas · resaltado y nombre al pasar (probado "Santiago") ·
+interruptor comunas ON→OFF→ON · 5 pines de actividades intactos · atribución visible sobre el panel
+(272 ≤ 281.6 px) · app real carga sin errores de módulo.
+
+### Limitaciones conocidas
+
+- **Pantalla completa no verificable en el navegador embebido de pruebas**: `requestFullscreen()`
+  allí devuelve una promesa que nunca se resuelve (ni se rechaza). En Chrome/Edge normal funciona.
+- **Tiles satélite de Esri World Imagery**: sin clave en el frontend, pero revisar sus condiciones de
+  uso y volumen antes de producción (§3.1). La atribución ya se muestra.
+- **Sin diferenciación de color por comuna**: solo borde + resaltado al pasar. Si se quiere un tinte
+  distinto por comuna, hacerlo en la Etapa 4 (panel de capas).
+- **`index-up.html` es el mock viejo** (mapa SVG falso y botón de capas que solo muestra un toast):
+  no usarlo como referencia de implementación.
+
+### Pendiente (Etapas 3+ de `mapas.txt`)
+
+Datos geográficos (Metro/MetroTren, parques, comercio, salud, seguridad, educación, servicios),
+panel completo de capas, tabla `map_points` con RLS, administración de puntos por admin y
+procedimiento de importación masiva.

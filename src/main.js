@@ -302,11 +302,13 @@ function renderMap(){
     if(!$("#view-mapa").classList.contains("active")){ state.pendingFit=markersBounds(); return; }
     state.map=new maplibregl.Map({
       container:"map", style:MAP_STYLE, center:[-70.6693,-33.4489], zoom:11,
-      attributionControl:{compact:true}
+      attributionControl:{compact:false}   // atribución siempre visible (§3.1: Esri + ODbL)
     });
     state.markers=[];
     state.map.on("load",()=>{
       state.mapListo=true;
+      activarSateliteInicial();   // §3.1: la vista satélite es la predeterminada
+      cargarComunas();            // §3.2: límites comunales de la RM (async)
       renderMarkers();
       ponerMarcadorUsuario();
       applyPendingFit();
@@ -431,6 +433,22 @@ function paddingMapa(){
   const bottom=(panel?panel.getBoundingClientRect().height+24:40);
   return {top:Math.round(top),bottom:Math.round(bottom),left:24,right:24,_cont:cont};
 }
+// Atribución visible (mapas.txt §3.1): el control de atribución de MapLibre se
+// dibuja abajo a la derecha y el panel inferior de sede/lista lo tapaba. Se
+// publica la altura real del panel como variable CSS y el CSS la usa como `bottom`.
+(function atribucionSobrePanel(){
+  const panel=$("#view-mapa section.absolute.bottom-0"), cont=$("#map");
+  if(!panel||!cont||!window.ResizeObserver) return;
+  const aplicar=()=>{
+    const p=panel.getBoundingClientRect(), c=cont.getBoundingClientRect();
+    // `bottom` del CSS se mide desde el borde inferior del mapa: altura del panel
+    // = (borde inferior del mapa) − (borde superior del panel) + aire.
+    cont.style.setProperty("--mapa-panel-h",Math.max(0,Math.round(c.bottom-p.top)+10)+"px");
+  };
+  new ResizeObserver(aplicar).observe(panel);
+  aplicar();
+})();
+
 function applyPendingFit(){
   if(!state.map||!state.pendingFit)return;
   if(!$("#view-mapa").classList.contains("active"))return; // vista oculta: el mapa aún no tiene tamaño
@@ -472,6 +490,111 @@ function alternarSatelite(){
   btn.classList.add("bg-primary","text-on-primary");
   btn.setAttribute("aria-pressed","true");
 }
+
+// ==================== VISTA SATÉLITE POR DEFECTO (mapas.txt §3.1) ====================
+// La capa satélite se inserta en el primer "load" para que el mapa abra en
+// satélite; el botón #map-satellite sigue alternando hacia la vista cartográfica.
+function activarSateliteInicial(){
+  if(sateliteOn) return;
+  alternarSatelite();
+}
+
+// ==================== LÍMITES COMUNALES DE LA RM (mapas.txt §3.2) ====================
+// Fuente: data/comunas-rm.geojson — 52 comunas reales de OpenStreetMap (ODbL),
+// generadas con scripts/importar-comunas.mjs desde Overpass. Geometrías reales,
+// NO delimitaciones dibujadas a mano. Se cargan una vez por sesión y se cachean
+// en el service worker (§11: no volver a descargar al cambiar de capa).
+const COMUNAS_URL="./data/comunas-rm.geojson";
+const CAPAS_COMUNAS=["comunas-fill","comunas-hover","comunas-line"];
+let comunasOn=false;            // estado real de la capa (§10: [ON] Límites comunales)
+let comunaPopup=null;
+
+// Inserta una capa POR DEBAJO de los rótulos, para que las etiquetas del estilo
+// sigan leyéndose sobre la cartografía satélite y sobre el relleno de comunas.
+function insertarBajoSimbolos(layer){
+  const map=state.map; if(!map) return;
+  const simbolo=(map.getStyle().layers||[]).find(l=>l.type==="symbol");
+  map.addLayer(layer, simbolo?simbolo.id:undefined);
+}
+
+async function cargarComunas(){
+  const map=state.map;
+  if(!map||!state.mapListo||map.getSource("comunas")) return;
+  try{
+    const res=await fetch(COMUNAS_URL);
+    if(!res.ok) throw new Error("HTTP "+res.status);
+    const geo=await res.json();
+    if(!state.map||!state.map.getSource||state.map.getSource("comunas")) return;
+    map.addSource("comunas",{type:"geojson",data:geo});
+    insertarBajoSimbolos({id:"comunas-fill",type:"fill",source:"comunas",
+      paint:{"fill-color":"#8fd3ff","fill-opacity":0.08}});
+    insertarBajoSimbolos({id:"comunas-hover",type:"fill",source:"comunas",
+      filter:["==",["get","nombre"],""],
+      paint:{"fill-color":"#ffd54f","fill-opacity":0.30}});
+    insertarBajoSimbolos({id:"comunas-line",type:"line",source:"comunas",
+      paint:{"line-color":"#ffffff","line-width":1.2,"line-opacity":0.8}});
+
+    comunaPopup=new maplibregl.Popup({closeButton:false,closeOnClick:false,offset:12,className:"comuna-popup"});
+    const nombreDe=(e)=>e.features?.[0]?.properties?.nombre||"";
+    const mostrarComuna=(e)=>{
+      const nombre=nombreDe(e); if(!nombre) return;
+      map.setFilter("comunas-hover",["==",["get","nombre"],nombre]);
+      comunaPopup.setLngLat(e.lngLat).setHTML(esc(nombre)).addTo(map);
+      map.getCanvas().style.cursor="pointer";
+    };
+    const ocultarComuna=()=>{
+      if(!map.getSource("comunas")) return;
+      map.setFilter("comunas-hover",["==",["get","nombre"],""]);
+      comunaPopup.remove();
+      map.getCanvas().style.cursor="";
+    };
+    map.on("mousemove","comunas-fill",mostrarComuna);
+    map.on("mouseleave","comunas-fill",ocultarComuna);
+    map.on("click","comunas-fill",mostrarComuna);   // táctil: tocar la comuna muestra su nombre
+
+    comunasOn=true;
+    const btn=$("#map-comunas");
+    btn?.classList.add("bg-primary","text-on-primary");
+    btn?.setAttribute("aria-pressed","true");
+  }catch(err){
+    console.warn("cargarComunas: no se pudieron cargar los límites comunales",err);
+  }
+}
+
+// Interruptor de la capa (§3.2/§10): alterna sin recargar el mapa.
+$("#map-comunas").addEventListener("click",()=>{
+  const map=state.map; if(!map||!state.mapListo) return;
+  if(!map.getSource("comunas")){ showToast("Los límites comunales aún se están cargando…"); return; }
+  comunasOn=!comunasOn;
+  const vis=comunasOn?"visible":"none";
+  CAPAS_COMUNAS.forEach(id=>{ if(map.getLayer(id)) map.setLayoutProperty(id,"visibility",vis); });
+  if(!comunasOn) comunaPopup?.remove();
+  const btn=$("#map-comunas");
+  btn.classList.toggle("bg-primary",comunasOn);
+  btn.classList.toggle("text-on-primary",comunasOn);
+  btn.setAttribute("aria-pressed",String(comunasOn));
+});
+
+// ==================== PANTALLA COMPLETA (mapas.txt §3.1) ====================
+const marcoMapa=()=>$("#view-mapa .mapa-frame");
+if(!document.fullscreenEnabled && !document.webkitFullscreenEnabled) $("#map-fullscreen")?.classList.add("hidden");
+$("#map-fullscreen").addEventListener("click",()=>{
+  const el=marcoMapa(); if(!el) return;
+  const activo=document.fullscreenElement||document.webkitFullscreenElement;
+  if(activo){ document.exitFullscreen?.()||document.webkitExitFullscreen?.(); return; }
+  let p=null;
+  if(el.requestFullscreen) p=el.requestFullscreen();
+  else if(el.webkitRequestFullscreen) p=el.webkitRequestFullscreen();
+  if(p&&typeof p.catch==="function") p.catch(()=>showToast("Pantalla completa no disponible en este navegador."));
+});
+["fullscreenchange","webkitfullscreenchange"].forEach(ev=>document.addEventListener(ev,()=>{
+  const activo=!!(document.fullscreenElement||document.webkitFullscreenElement);
+  const btn=$("#map-fullscreen");
+  btn?.setAttribute("aria-pressed",String(activo));
+  const ico=btn?.querySelector(".material-symbols-outlined");
+  if(ico) ico.textContent=activo?"fullscreen_exit":"fullscreen";
+  setTimeout(()=>state.map?.resize(),120);   // MapLibre debe re-medir el contenedor
+}));
 
 // ==================== GPS DEL DISPOSITIVO (informativo) ====================
 // Pide permiso al entrar: punto azul con tu posición y badge "GPS ACTIVO"

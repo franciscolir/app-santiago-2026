@@ -10,7 +10,8 @@ const APP_SHELL = [
   "./src/main.js",
   "./icons/icon-192.png",
   "./icons/icon-512.png",
-  "./icons/icon-maskable-512.png"
+  "./icons/icon-maskable-512.png",
+  "./data/comunas-rm.geojson"
 ];
 
 self.addEventListener("install", (event) => {

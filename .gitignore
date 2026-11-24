@@ -1,0 +1,6 @@
+# Volcados crudos de Overpass (regenerar con scripts/_q_comunas.txt)
+scripts/_overpass_comunas.json
+
+# Dependencias / artefactos locales
+node_modules/
+.DS_Store

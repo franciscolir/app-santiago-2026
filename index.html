@@ -119,6 +119,16 @@ tailwind.config = {
 /* MapLibre GL */
 #map { width: 100%; height: 100%; z-index: 0; }
 .maplibregl-popup-content { border-radius: 12px; font-family: 'Plus Jakarta Sans', sans-serif; }
+/* Etapa 2 (mapas.txt §3.1): la atribución (Esri + ODbL) debe quedar SIEMPRE
+   visible, nunca debajo del panel inferior de sede/lista. La altura del panel
+   se expone como --mapa-panel-h desde src/main.js (ResizeObserver). */
+#map .maplibregl-ctrl-bottom-right { bottom: var(--mapa-panel-h, 0px); }
+#map .maplibregl-ctrl-attrib { background: rgba(255, 255, 255, .82); }
+/* Etapa 2 (mapas.txt §3.1): pantalla completa del marco del mapa */
+.mapa-frame:fullscreen, .mapa-frame:-webkit-full-screen { height: 100vh !important; min-height: 0 !important; }
+.mapa-frame:fullscreen .maplibregl-ctrl-attrib { display: none; }
+/* Etapa 2 (mapas.txt §3.2): nombre de la comuna al pasar por su área */
+.comuna-popup .maplibregl-popup-content { padding: 6px 10px; font-size: 13px; font-weight: 700; color: #004262; }
 /* Diálogo de actividad */
 dialog { border: 0; padding: 0; background: transparent; max-width: 100%; }
 dialog::backdrop { background: rgba(44, 49, 50, .6); backdrop-filter: blur(2px); }
@@ -226,7 +236,7 @@ dialog::backdrop { background: rgba(44, 49, 50, .6); backdrop-filter: blur(2px);
 
     <!-- ==================== VISTA MAPA ==================== -->
     <section id="view-mapa" class="view view-section hidden w-full relative select-none">
-      <div class="relative w-full h-[62vh] min-h-[420px] bg-surface-container-low overflow-hidden">
+      <div class="relative w-full h-[62vh] min-h-[420px] bg-surface-container-low overflow-hidden mapa-frame">
         <!-- MapLibre GL + OpenStreetMap (estilo OpenFreeMap) -->
         <div id="map"></div>
 
@@ -246,8 +256,8 @@ dialog::backdrop { background: rgba(44, 49, 50, .6); backdrop-filter: blur(2px);
           </div>
         </div>
 
-        <!-- Controles (fila horizontal: no invaden el panel inferior) -->
-        <div class="absolute right-4 top-16 flex gap-1.5 z-[1000]">
+        <!-- Controles (fila horizontal con wrap: en pantallas angostas pasan a 2 filas) -->
+        <div class="absolute right-4 top-16 flex flex-wrap justify-end gap-1.5 max-w-[calc(100%-2rem)] z-[1000]">
           <button aria-label="Acercar mapa" id="map-zoom-in" class="w-10 h-10 rounded-full bg-surface-container-lowest/95 backdrop-blur-md text-on-primary-container shadow-md flex items-center justify-center active:scale-95 hover:bg-surface transition-all">
             <span class="material-symbols-outlined text-[20px]">add</span>
           </button>
@@ -262,6 +272,12 @@ dialog::backdrop { background: rgba(44, 49, 50, .6); backdrop-filter: blur(2px);
           </button>
           <button aria-label="Vista satélite" aria-pressed="false" id="map-satellite" class="w-10 h-10 rounded-full bg-surface-container-lowest/95 backdrop-blur-md text-on-primary-container shadow-md flex items-center justify-center active:scale-95 hover:bg-surface transition-all">
             <span class="material-symbols-outlined text-[20px]">satellite_alt</span>
+          </button>
+          <button aria-label="Límites comunales de la Región Metropolitana" aria-pressed="false" id="map-comunas" class="w-10 h-10 rounded-full bg-surface-container-lowest/95 backdrop-blur-md text-on-primary-container shadow-md flex items-center justify-center active:scale-95 hover:bg-surface transition-all">
+            <span class="material-symbols-outlined text-[20px]">layers</span>
+          </button>
+          <button aria-label="Pantalla completa" aria-pressed="false" id="map-fullscreen" class="w-10 h-10 rounded-full bg-surface-container-lowest/95 backdrop-blur-md text-on-primary-container shadow-md flex items-center justify-center active:scale-95 hover:bg-surface transition-all">
+            <span class="material-symbols-outlined text-[20px]">fullscreen</span>
           </button>
         </div>
 
