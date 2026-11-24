@@ -1,0 +1,621 @@
+# INSTRUCCIONES PARA AGENTE DE DESARROLLO
+# Actualización integral del mapa geográfico – App Santiago 2026
+
+## 1. Objetivo general
+
+Actualizar y ampliar el módulo de mapas existente de App Santiago 2026, transformándolo en un mapa geográfico interactivo de la Región Metropolitana de Santiago.
+
+El mapa debe integrar:
+
+- Cartografía satelital.
+- Límites comunales de la Región Metropolitana.
+- Estaciones y líneas de Metro.
+- Parques, plazas y áreas verdes.
+- Centros comerciales y supermercados.
+- Servicios públicos y privados.
+- Infraestructura de salud, seguridad y educación.
+- Actividades y eventos existentes de la aplicación.
+- Puntos geográficos personalizados administrados por administradores.
+
+La información debe estar centralizada, compartida entre los usuarios y organizada mediante capas independientes que se puedan activar y desactivar.
+
+**IMPORTANTE:** Antes de modificar código, revisar la arquitectura actual del proyecto, los componentes del mapa, las tablas de Supabase, las políticas RLS y las funcionalidades existentes. No reemplazar el mapa desde cero ni eliminar funcionalidades que ya estén operativas.
+
+## 2. Mantener arquitectura actual
+
+El proyecto utiliza:
+
+- Frontend: JavaScript Vanilla, HTML y CSS.
+- Despliegue: GitHub Pages.
+- Backend y base de datos: Supabase.
+- Autenticación y permisos: sistema actual de usuarios y roles.
+- Mapa: conservar la biblioteca y tecnología actualmente implementadas, salvo que exista una razón técnica documentada para modificarlas.
+
+No introducir frameworks innecesarios.
+
+No duplicar tablas ni crear estructuras paralelas si ya existen componentes o tablas que puedan ampliarse.
+
+Mantener compatibilidad con las actividades, agenda semanal, usuarios y demás funcionalidades actuales.
+
+## 3. Cartografía y visualización
+
+### 3.1. Mapa satelital
+
+Incorporar una vista satelital como visualización predeterminada.
+
+Debe permitir:
+
+- Zoom.
+- Desplazamiento.
+- Centrado sobre Santiago.
+- Pantalla completa.
+- Visualización de marcadores.
+- Visualización de polígonos y límites comunales.
+- Cambio de escala sin perder legibilidad.
+
+Si la tecnología actual permite otras vistas, mantenerlas como alternativas, pero la vista satelital debe ser la predeterminada.
+
+Revisar previamente las condiciones de uso, atribución y límites de los proveedores de mapas y tiles satelitales.
+
+No utilizar servicios de mapas comerciales que requieran claves privadas expuestas en el frontend.
+
+### 3.2. Región Metropolitana
+
+Incorporar los límites geográficos de las comunas de la Región Metropolitana.
+
+Requisitos:
+
+- Mostrar los límites comunales mediante polígonos.
+- Diferenciar visualmente las comunas.
+- Mostrar el nombre de la comuna al seleccionarla o pasar por su área.
+- Mantener los límites visibles sobre la cartografía satelital.
+- Permitir activar y desactivar esta capa.
+
+Los polígonos deben corresponder a datos geográficos reales, no a delimitaciones dibujadas manualmente.
+
+## 4. Sistema de capas independientes
+
+Implementar un panel de capas con interruptores (ON/OFF).
+
+Cada capa debe poder activarse o desactivarse independientemente.
+
+Propuesta de organización:
+
+### A. Transporte
+
+- Estaciones de Metro.
+- Líneas de Metro.
+- Estaciones de combinación.
+- MetroTren.
+- Estaciones intermodales.
+- Paraderos de transporte público, como capa opcional.
+
+### B. Áreas verdes
+
+- Parques urbanos.
+- Plazas.
+- Jardines públicos.
+- Áreas verdes.
+- Parques metropolitanos.
+- Cerros isla y espacios naturales, cuando existan datos disponibles.
+
+### C. Comercio
+
+- Centros comerciales y malls.
+- Supermercados.
+- Grandes tiendas.
+- Mercados y ferias.
+- Centros comerciales de barrio.
+
+### D. Salud
+
+- Hospitales.
+- Clínicas.
+- CESFAM.
+- SAPU.
+- SAR.
+- Centros médicos.
+- Centros de atención de urgencia.
+
+### E. Seguridad y emergencias
+
+- Comisarías.
+- Tenencias y retenes.
+- Cuarteles de Bomberos.
+- Hospitales de referencia.
+- Puntos de encuentro.
+- Zonas seguras.
+- Puntos de emergencia definidos por administradores.
+
+### F. Educación
+
+- Colegios.
+- Escuelas.
+- Liceos.
+- Jardines infantiles.
+- Universidades.
+- Institutos profesionales.
+
+### G. Servicios públicos
+
+- Municipalidades.
+- Oficinas públicas.
+- Registro Civil.
+- Bancos.
+- Correos.
+- Servicios de atención ciudadana.
+
+### H. Actividades de la aplicación
+
+Mantener la visualización de las actividades existentes en la agenda semanal.
+
+Las actividades deben continuar mostrándose en el mapa según sus coordenadas y fechas.
+
+No modificar su funcionamiento ni sus relaciones actuales con los usuarios.
+
+### I. Puntos personalizados
+
+Capa destinada a puntos geográficos creados manualmente por administradores.
+
+Estos puntos deben ser compartidos por todos los usuarios.
+
+## 5. Diseño visual de los marcadores
+
+Cada categoría debe tener un icono identificable.
+
+Ejemplos:
+
+- Metro: tren.
+- Parques: árbol.
+- Plazas: área verde.
+- Malls: edificio comercial.
+- Supermercados: carrito.
+- Hospitales: cruz médica.
+- CESFAM: cruz médica diferenciada.
+- Carabineros: escudo.
+- Bomberos: camión de bomberos.
+- Colegios: edificio educativo.
+- Actividades: icono de calendario.
+- Emergencias: símbolo de alerta.
+
+Los iconos deben mantener una identidad visual coherente.
+
+Evitar utilizar marcadores grandes que oculten el mapa.
+
+Cuando existan muchos elementos cercanos, implementar agrupación de marcadores (clustering).
+
+Al acercar el zoom, los marcadores agrupados deben separarse progresivamente.
+
+## 6. Información al seleccionar un lugar
+
+Al seleccionar un marcador, abrir una ventana informativa o panel inferior.
+
+Mostrar, cuando los datos estén disponibles:
+
+- Nombre del lugar.
+- Categoría.
+- Dirección.
+- Comuna.
+- Coordenadas.
+- Fuente de información.
+- Fecha de última actualización.
+
+Para Metro, mostrar adicionalmente:
+
+- Nombre de estación.
+- Línea o líneas asociadas.
+- Combinaciones disponibles.
+
+Para actividades, conservar la información que actualmente muestra la aplicación.
+
+No inventar información que no esté disponible en las fuentes.
+
+## 7. Fuentes de información geográfica
+
+Utilizar fuentes abiertas, oficiales y verificables.
+
+No crear coordenadas ficticias ni ubicar establecimientos mediante estimaciones visuales.
+
+### 7.1. OpenStreetMap
+
+Fuente principal recomendada para lugares de interés.
+
+https://www.openstreetmap.org/
+
+Permite obtener información geográfica sobre:
+
+- Parques.
+- Plazas.
+- Centros comerciales.
+- Supermercados.
+- Hospitales.
+- Centros médicos.
+- Comisarías.
+- Bomberos.
+- Colegios.
+- Universidades.
+- Servicios y establecimientos comerciales.
+
+Herramienta de consulta:
+
+https://overpass-turbo.eu/
+
+API y documentación:
+
+https://wiki.openstreetmap.org/wiki/Overpass_API
+
+Utilizar consultas Overpass para obtener datos de la Región Metropolitana.
+
+Se recomienda descargar y procesar los datos previamente, en lugar de ejecutar consultas masivas cada vez que un usuario abre el mapa.
+
+Respetar las condiciones de OpenStreetMap, su licencia ODbL y los requisitos de atribución.
+
+No utilizar los servidores públicos de Overpass como infraestructura de producción para consultas masivas y permanentes.
+
+### 7.2. IDE Chile
+
+Portal oficial de información geográfica del Estado.
+
+https://www.ide.cl/
+
+Geoportal:
+
+https://www.ons.ide.cl/index.php/productos-y-servicios/herramientas/geoportal-de-chile
+
+Utilizar el catálogo para identificar capas oficiales de:
+
+- División político-administrativa.
+- Límites comunales.
+- Equipamiento urbano.
+- Infraestructura.
+- Servicios públicos.
+- Información territorial.
+
+Priorizar servicios geográficos descargables o interoperables, como WFS, WMS y otros servicios OGC, cuando estén disponibles.
+
+### 7.3. MINVU
+
+Catastro de áreas verdes MINVU-INE:
+
+https://ide.minvu.cl/datasets/MINVU::areas-verdes-minvu-ine/about
+
+Utilizar esta fuente para complementar los datos de parques y áreas verdes.
+
+Verificar disponibilidad, cobertura territorial, fecha y condiciones de uso.
+
+### 7.4. INE
+
+Geodatos abiertos:
+
+https://www.ine.gob.cl/herramientas/portal-de-mapas/geodatos-abiertos
+
+Consultar especialmente:
+
+- Catastro de áreas verdes.
+- Información territorial.
+- División territorial.
+- Cartografía y límites geográficos.
+
+Considerar el Catastro de Áreas Verdes 2024 cuando esté disponible en formato descargable.
+
+### 7.5. Transporte público y Metro
+
+Fuente oficial: Directorio de Transporte Público Metropolitano.
+
+https://www.dtpm.cl/index.php/gtfs-vigente
+
+Utilizar GTFS para obtener:
+
+- Paradas y estaciones.
+- Coordenadas geográficas.
+- Identificadores de estaciones.
+- Información de rutas.
+- Servicios asociados.
+
+Consultar especialmente los archivos:
+
+- stops.txt
+- routes.txt
+- trips.txt
+- shapes.txt
+
+Identificar correctamente las estaciones correspondientes a Metro, MetroTren y buses.
+
+No interpretar todos los registros de stops.txt como estaciones de Metro.
+
+Utilizar identificadores y relaciones del feed para distinguir los operadores y servicios.
+
+Como referencia adicional:
+
+https://datascope.citylabbiobio.cl/datasets/estaciones-y-paraderos-santiago-gtfs-2026/
+
+### 7.6. Criterio para utilizar las fuentes
+
+No asumir que todas las fuentes tienen API pública, datos descargables o licencia de redistribución.
+
+Antes de implementar cada integración:
+
+1. Verificar que la fuente exista.
+2. Verificar que los datos estén disponibles.
+3. Comprobar la cobertura de Santiago.
+4. Revisar su fecha de actualización.
+5. Revisar su licencia.
+6. Comprobar el formato de coordenadas.
+7. Documentar cómo se obtuvieron los datos.
+
+Si una fuente no está disponible, buscar una alternativa confiable y documentar la sustitución.
+
+## 8. Base de datos Supabase
+
+Diseñar una estructura centralizada para almacenar los puntos geográficos.
+
+Antes de crear tablas, revisar el esquema actual y reutilizar las estructuras existentes cuando sea posible.
+
+Si no existe una estructura adecuada, implementar una tabla de lugares geográficos con campos equivalentes a:
+
+- id.
+- nombre.
+- categoría.
+- subcategoría.
+- descripción.
+- dirección.
+- comuna.
+- latitud.
+- longitud.
+- geometría, cuando corresponda.
+- icono.
+- fuente.
+- identificador externo.
+- visible.
+- activo.
+- fecha de actualización.
+- fecha de creación.
+
+Los registros deben poder diferenciarse entre:
+
+1. Datos importados desde fuentes externas.
+2. Puntos creados manualmente por administradores.
+3. Actividades existentes de la aplicación.
+
+Evitar duplicados mediante identificadores externos y reglas de coincidencia documentadas.
+
+Si se utiliza PostGIS, aprovechar sus capacidades geográficas y comprobar que la extensión esté disponible en Supabase.
+
+Si no se utiliza PostGIS, mantener coordenadas y geometrías GeoJSON con una estructura consistente.
+
+### Seguridad y permisos
+
+- Los usuarios normales pueden consultar los puntos compartidos.
+- Los usuarios normales no pueden modificar puntos oficiales ni personalizados.
+- Solo administradores pueden crear, editar, activar, desactivar o eliminar puntos personalizados.
+- Los datos importados deben protegerse frente a modificaciones de usuarios normales.
+- Implementar políticas RLS.
+- Las operaciones administrativas deben validarse en el backend y nunca depender únicamente de ocultar botones en el frontend.
+
+## 9. Administración de puntos personalizados
+
+Los administradores deben disponer de una funcionalidad para agregar puntos directamente desde el mapa.
+
+Flujo:
+
+1. El administrador activa el modo de edición.
+2. Selecciona una ubicación en el mapa.
+3. Se obtienen las coordenadas automáticamente.
+4. Completa nombre, categoría y descripción.
+5. Selecciona el icono.
+6. Guarda el punto.
+7. El punto aparece inmediatamente para todos los usuarios.
+
+También debe permitir:
+
+- Editar puntos existentes.
+- Cambiar sus coordenadas.
+- Cambiar categorías.
+- Cambiar iconos.
+- Activar o desactivar su visibilidad.
+- Eliminar puntos.
+
+Los puntos personalizados deben ser independientes de los puntos importados desde fuentes externas.
+
+## 10. Interfaz de capas
+
+Crear un panel de capas accesible desde el mapa.
+
+Diseño propuesto:
+
+**CAPAS DEL MAPA**
+
+Cartografía:
+- [ON] Vista satelital.
+- [ON] Límites comunales.
+
+Transporte:
+- [OFF] Metro.
+- [OFF] Líneas de Metro.
+- [OFF] MetroTren.
+- [OFF] Paraderos.
+
+Áreas verdes:
+- [OFF] Parques.
+- [OFF] Plazas.
+- [OFF] Áreas verdes.
+
+Comercio:
+- [OFF] Centros comerciales.
+- [OFF] Supermercados.
+- [OFF] Mercados y ferias.
+
+Servicios:
+- [OFF] Salud.
+- [OFF] Seguridad.
+- [OFF] Educación.
+- [OFF] Servicios públicos.
+
+Aplicación:
+- [ON] Actividades.
+- [ON] Puntos personalizados.
+
+Los estados anteriores son una propuesta inicial, ajustable al diseño existente.
+
+Requisitos:
+
+- Cada capa tiene su propio interruptor.
+- Los cambios se reflejan inmediatamente.
+- No es necesario recargar el mapa.
+- Se puede activar más de una categoría simultáneamente.
+- El panel debe funcionar correctamente en dispositivos móviles.
+- Los estados de las capas pueden conservarse localmente para cada usuario.
+- La preferencia personal de visibilidad no debe modificar los datos compartidos.
+
+## 11. Rendimiento
+
+La Región Metropolitana puede contener miles de puntos geográficos.
+
+Implementar:
+
+- Carga eficiente de datos.
+- Clustering.
+- Filtrado por categorías.
+- Carga según extensión visible del mapa, si corresponde.
+- Separación entre datos y representación visual.
+- Caché cuando sea apropiado.
+- Consultas optimizadas a Supabase.
+- Evitar volver a descargar todos los datos al cambiar de capa.
+
+No cargar todos los puntos de todas las categorías indiscriminadamente si esto afecta el rendimiento móvil.
+
+Los límites comunales deben cargarse como geometrías y no como miles de marcadores.
+
+## 12. Importación y mantenimiento de datos
+
+Crear un procedimiento reproducible para importar y actualizar las bases geográficas.
+
+Debe permitir:
+
+- Descargar datos de las fuentes.
+- Transformar formatos.
+- Normalizar nombres y categorías.
+- Validar coordenadas.
+- Detectar duplicados.
+- Insertar nuevos registros.
+- Actualizar registros existentes.
+- Identificar registros que dejaron de aparecer en las fuentes.
+- Registrar fecha de importación y fuente original.
+
+No eliminar automáticamente puntos personalizados.
+
+No eliminar puntos importados únicamente porque una fuente temporalmente no los entregue. Utilizar un mecanismo de desactivación controlada y registro de cambios.
+
+La importación masiva debe ejecutarse desde un entorno seguro, no desde el navegador del usuario.
+
+Documentar cómo ejecutar el proceso nuevamente.
+
+## 13. Criterios de aceptación y pruebas
+
+La implementación se considerará terminada cuando se verifique lo siguiente:
+
+1. El mapa abre correctamente con cartografía satelital.
+2. Se muestran correctamente los límites de las comunas de la Región Metropolitana.
+3. Las estaciones de Metro aparecen en sus coordenadas reales.
+4. Las líneas de Metro pueden visualizarse como una capa independiente.
+5. Los parques y plazas aparecen correctamente.
+6. Los centros comerciales y supermercados se visualizan correctamente.
+7. Las categorías de salud, seguridad y educación funcionan.
+8. Cada capa tiene un interruptor independiente.
+9. Activar o desactivar una capa no afecta las otras.
+10. Las actividades existentes siguen apareciendo correctamente.
+11. Los administradores pueden crear puntos personalizados.
+12. Los puntos personalizados se comparten con todos los usuarios.
+13. Los usuarios normales no pueden modificar los puntos compartidos.
+14. La información de los marcadores se muestra correctamente.
+15. No aparecen duplicados evidentes.
+16. El mapa funciona correctamente en dispositivos móviles.
+17. Los tiempos de carga son razonables.
+18. Las políticas RLS impiden modificaciones no autorizadas.
+19. No se exponen claves privadas ni credenciales.
+20. Se mantienen operativas las demás funcionalidades de App Santiago 2026.
+
+## 14. Forma de trabajo del agente
+
+Trabajar por etapas y no realizar una reescritura completa del módulo.
+
+### Etapa 1: Auditoría
+
+Revisar:
+- Implementación actual del mapa.
+- Biblioteca geográfica utilizada.
+- Tablas existentes.
+- Relaciones con actividades.
+- Roles y permisos.
+- Políticas RLS.
+- Configuración de Supabase.
+- Funcionamiento en móvil.
+
+Entregar un diagnóstico breve antes de modificar.
+
+### Etapa 2: Cartografía
+
+Implementar:
+- Vista satelital.
+- Límites comunales.
+- Controles de visualización.
+
+### Etapa 3: Datos geográficos
+
+Incorporar:
+- Metro y MetroTren.
+- Parques y plazas.
+- Centros comerciales.
+- Servicios de salud.
+- Seguridad.
+- Educación.
+- Otros servicios.
+
+### Etapa 4: Capas
+
+Implementar el panel de interruptores y la visualización independiente de cada categoría.
+
+### Etapa 5: Administración
+
+Implementar la creación y administración de puntos personalizados.
+
+### Etapa 6: Pruebas
+
+Verificar:
+- Datos.
+- Coordenadas.
+- Permisos.
+- Rendimiento.
+- Compatibilidad móvil.
+- Funcionalidades anteriores.
+
+### Etapa 7: Documentación
+
+Entregar:
+- Modificaciones realizadas.
+- Tablas nuevas o modificadas.
+- SQL y políticas RLS.
+- Fuentes de datos utilizadas.
+- Procedimiento de importación.
+- Variables de configuración necesarias.
+- Pruebas ejecutadas y resultados.
+- Limitaciones conocidas.
+
+## 15. Restricciones importantes
+
+- No eliminar funcionalidades existentes.
+- No modificar el sistema de autenticación sin necesidad.
+- No reemplazar la agenda semanal.
+- No alterar la relación entre actividades y usuarios.
+- No introducir puntos geográficos ficticios.
+- No utilizar coordenadas aproximadas como si fueran oficiales.
+- No duplicar establecimientos.
+- No exponer credenciales privadas.
+- No realizar cambios destructivos en Supabase sin respaldo y revisión.
+- No modificar producción directamente sin verificar primero los cambios en desarrollo.
+
+**Resultado esperado:**
+
+Un mapa satelital interactivo de Santiago, compartido entre todos los usuarios, con límites comunales, información geográfica real, estaciones de Metro, parques, centros comerciales y servicios relevantes, organizado mediante capas independientes y con capacidad de administración de puntos personalizados.
+
+El sistema debe quedar preparado para incorporar nuevas fuentes geográficas y categorías en el futuro sin tener que reconstruir el mapa.
