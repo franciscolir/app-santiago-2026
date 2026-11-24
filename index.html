@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="theme-color" content="#006492">
 <meta name="description" content="Agenda compartida APP SANTIAGO 2026">
 <title>APP SANTIAGO 2026</title>
@@ -37,7 +37,7 @@ tailwind.config = {
         "on-error": "#ffffff", "primary-container": "#4bb2f2",
         "tertiary-fixed-dim": "#f9bd14", "on-secondary-container": "#34647f",
         "surface-container-high": "#e5e9ea", "on-secondary-fixed": "#001e2d",
-        "outline": "#6f7881", "on-primary-fixed": "#001e2f",
+        "outline": "#5f6871", "on-primary-fixed": "#001e2f",
         "surface-dim": "#d6dbdc", "surface-container-lowest": "#ffffff",
         "error-container": "#ffdad6", "tertiary-container": "#d6a100",
         "secondary": "#33647e", "on-secondary-fixed-variant": "#164c65",
@@ -93,7 +93,7 @@ tailwind.config = {
 .view.active { display: block; }
 .hidden { display: none !important; }
 .error { color: #93000a; font-size: .83rem; min-height: 1em; }
-.muted { color: #6f7881; }
+.muted { color: #5f6871; }
 #event-info h2 { font-size: 1.35rem; font-weight: 800; color: #004262; margin: 0 0 4px; }
 #event-info p { margin: 0; color: #3f4850; font-size: .9rem; }
 /* Estados de actividad (valores reales de la BD) */
@@ -110,7 +110,7 @@ tailwind.config = {
 .filter-tab:hover { color: #181c1d; }
 .filter-tab.active { background: #b1e0ff; color: #004262; font-weight: 700; box-shadow: 0 1px 3px rgba(2, 64, 89, .12); }
 /* Navegación inferior */
-.nav-item { background: transparent; border: 0; cursor: pointer; color: #6f7881; }
+.nav-item { background: transparent; border: 0; cursor: pointer; color: #5f6871; }
 .nav-item:hover { color: #181c1d; }
 .nav-item.active { background: #b1e0ff; color: #006492; font-weight: 700; }
 .nav-item.active .material-symbols-outlined { color: #006492; }
@@ -129,7 +129,7 @@ dialog::backdrop { background: rgba(44, 49, 50, .6); backdrop-filter: blur(2px);
 <!-- ==================== LOGIN ==================== -->
 <section id="login-screen" class="min-h-screen grid place-items-center p-5" style="background: radial-gradient(120% 80% at 50% 0%, #004262 0%, #002538 55%, #001522 100%);">
   <form id="login-form" class="w-full max-w-[410px] bg-surface-container-lowest rounded-lg p-7 shadow-2xl space-y-4">
-    <div class="w-14 h-14 rounded-2xl bg-secondary-container text-on-primary-container grid place-items-center font-extrabold text-lg shadow-sm">AS</div>
+    <img src="./icons/icon-192.png" alt="Logo APP SANTIAGO 2026" width="56" height="56" class="w-14 h-14 rounded-2xl object-cover shadow-sm">
     <div>
       <p class="font-label-sm uppercase tracking-[0.18em] text-primary font-bold">Agenda compartida</p>
       <h1 class="font-headline-xl-mobile text-headline-xl-mobile text-on-primary-container font-extrabold leading-tight">APP SANTIAGO 2026</h1>
@@ -157,7 +157,7 @@ dialog::backdrop { background: rgba(44, 49, 50, .6); backdrop-filter: blur(2px);
   <header class="fixed top-0 inset-x-0 z-50 bg-surface/90 backdrop-blur-xl shadow-[0_1px_8px_rgba(2,64,89,0.06)] pt-safe">
     <div class="h-20 px-margin flex items-center justify-between gap-space-sm">
       <div class="flex items-center gap-space-sm min-w-0 flex-1">
-        <div class="h-8 w-8 flex-shrink-0 rounded-xl bg-secondary-container text-on-primary-container grid place-items-center font-extrabold text-xs">AS</div>
+        <img src="./icons/icon-192.png" alt="APP SANTIAGO 2026" width="32" height="32" class="h-8 w-8 flex-shrink-0 rounded-xl object-cover">
         <div class="flex flex-col min-w-0">
           <div class="flex items-center gap-space-xs">
             <span class="font-headline-sm text-headline-sm text-on-primary-container truncate leading-none tracking-tight">APP SANTIAGO 2026</span>
@@ -199,13 +199,13 @@ dialog::backdrop { background: rgba(44, 49, 50, .6); backdrop-filter: blur(2px);
           </span>
         </div>
         <div id="event-info"></div>
-        <div class="bg-surface-container p-1 rounded-full flex items-center gap-1 shadow-inner" role="tablist">
-          <button class="filter-tab flex-1 py-2 px-3 rounded-full font-label-md text-label-md transition-all duration-200 text-center flex items-center justify-center gap-1.5" id="tab-mine" data-filter="mine" type="button">
-            <span class="material-symbols-outlined text-[18px]">person</span>
+        <div class="bg-surface-container p-1 rounded-full flex items-center gap-1 shadow-inner" role="group" aria-label="Filtrar actividades">
+          <button class="filter-tab flex-1 py-2 px-3 rounded-full font-label-md text-label-md transition-all duration-200 text-center flex items-center justify-center gap-1.5" id="tab-mine" data-filter="mine" type="button" aria-pressed="true">
+            <span class="material-symbols-outlined text-[18px]" aria-hidden="true">person</span>
             <span>Mis Actividades (<span id="count-mine">0</span>)</span>
           </button>
-          <button class="filter-tab flex-1 py-2 px-3 rounded-full font-label-md text-label-md transition-all duration-200 text-center flex items-center justify-center gap-1.5" id="tab-all" data-filter="all" type="button">
-            <span class="material-symbols-outlined text-[18px]">groups</span>
+          <button class="filter-tab flex-1 py-2 px-3 rounded-full font-label-md text-label-md transition-all duration-200 text-center flex items-center justify-center gap-1.5" id="tab-all" data-filter="all" type="button" aria-pressed="false">
+            <span class="material-symbols-outlined text-[18px]" aria-hidden="true">groups</span>
             <span>Todas (<span id="count-all">0</span>)</span>
           </button>
         </div>
@@ -221,7 +221,7 @@ dialog::backdrop { background: rgba(44, 49, 50, .6); backdrop-filter: blur(2px);
         </div>
       </div>
 
-      <div class="space-y-space-sm" id="agenda-list"><div class="text-body-sm text-on-surface-variant px-1">Cargando agenda…</div></div>
+      <div class="space-y-space-sm" id="agenda-list" aria-busy="true" aria-live="polite" aria-relevant="additions text"><div class="text-body-sm text-on-surface-variant px-1">Cargando agenda…</div></div>
     </section>
 
     <!-- ==================== VISTA MAPA ==================== -->
@@ -341,7 +341,7 @@ dialog::backdrop { background: rgba(44, 49, 50, .6); backdrop-filter: blur(2px);
         </div>
       </div>
 
-      <div class="px-margin pb-28 space-y-4" id="wall-posts">
+      <div class="px-margin pb-28 space-y-4" id="wall-posts" aria-live="polite" aria-relevant="additions text">
         <div class="text-body-sm text-on-surface-variant">Cargando publicaciones…</div>
       </div>
 
@@ -354,11 +354,11 @@ dialog::backdrop { background: rgba(44, 49, 50, .6); backdrop-filter: blur(2px);
       </aside>
 
       <!-- Modal de composición -->
-      <div aria-hidden="true" class="fixed inset-0 z-50 flex flex-col justify-end bg-inverse-surface/60 backdrop-blur-sm transition-opacity duration-300 opacity-0 pointer-events-none" id="wall-modal">
+      <div aria-hidden="true" class="fixed inset-0 z-50 flex flex-col justify-end bg-inverse-surface/60 backdrop-blur-sm transition-opacity duration-300 opacity-0 pointer-events-none" id="wall-modal" role="dialog" aria-modal="true" aria-labelledby="wall-modal-title">
         <form id="wall-form" class="bg-surface-container-lowest w-full rounded-t-xl p-space-lg shadow-2xl transform translate-y-full transition-transform duration-300 max-h-[90vh] overflow-y-auto" novalidate>
           <div class="flex items-center justify-between pb-space-sm">
             <div class="flex flex-col">
-              <h3 class="font-headline-md text-headline-md text-on-primary-container">Nueva publicación</h3>
+              <h3 id="wall-modal-title" class="font-headline-md text-headline-md text-on-primary-container">Nueva publicación</h3>
               <p class="font-body-sm text-body-sm text-on-surface-variant">Visible para toda la comunidad</p>
             </div>
             <button class="w-10 h-10 rounded-full flex items-center justify-center bg-surface-container text-on-surface hover:bg-surface-container-high transition-colors active:scale-95" id="close-wall-modal" type="button">
@@ -409,7 +409,7 @@ dialog::backdrop { background: rgba(44, 49, 50, .6); backdrop-filter: blur(2px);
             </span>
             <div class="min-w-0">
               <p class="font-label-sm text-label-sm uppercase tracking-wider text-on-surface-variant font-bold">Estado de red</p>
-              <p class="font-headline-sm text-headline-sm text-on-surface truncate" id="net-status">Comprobando…</p>
+              <p class="font-headline-sm text-headline-sm text-on-surface truncate" id="net-status" role="status">Comprobando…</p>
             </div>
           </div>
         </div>
@@ -443,7 +443,7 @@ dialog::backdrop { background: rgba(44, 49, 50, .6); backdrop-filter: blur(2px);
           <h3 class="font-headline-sm text-headline-sm text-on-surface">Contactos de emergencia</h3>
           <span class="font-label-sm text-label-sm text-on-surface-variant">Red interna</span>
         </div>
-        <div id="emergency-contacts" class="space-y-2.5"></div>
+        <div id="emergency-contacts" class="space-y-2.5" aria-live="polite" aria-relevant="additions text"></div>
       </section>
 
       <!-- Enlace al sitio externo (X-Frame-Options: DENY) -->
@@ -459,32 +459,32 @@ dialog::backdrop { background: rgba(44, 49, 50, .6); backdrop-filter: blur(2px);
     </section>
 
     <!-- Toast -->
-    <div class="fixed bottom-24 left-1/2 -translate-x-1/2 bg-inverse-surface text-inverse-on-surface px-4 py-2.5 rounded-full font-label-md text-label-md shadow-xl transition-all duration-300 opacity-0 pointer-events-none z-50 flex items-center gap-2 max-w-[90vw]" id="toast-msg">
-      <span class="material-symbols-outlined text-[18px] text-primary-container">info</span>
-      <span id="toast-text">Acción completada</span>
+    <div class="fixed bottom-24 left-1/2 -translate-x-1/2 bg-inverse-surface text-inverse-on-surface px-4 py-2.5 rounded-full font-label-md text-label-md shadow-xl transition-all duration-300 opacity-0 pointer-events-none z-50 flex items-center gap-2 max-w-[90vw]" id="toast-msg" role="status" aria-live="polite">
+      <span class="material-symbols-outlined text-[18px] text-primary-container" aria-hidden="true">info</span>
+      <span id="toast-text"></span>
     </div>
   </main>
 
   <!-- Navegación inferior -->
   <nav class="fixed bottom-0 inset-x-0 z-50 pb-[env(safe-area-inset-bottom,0px)] bg-surface-container-lowest/95 backdrop-blur-xl shadow-[0_-4px_20px_rgba(2,64,89,0.08)]" aria-label="Navegación principal">
     <div class="flex justify-around items-center h-16 px-space-sm max-w-lg mx-auto">
-      <button class="nav-item flex flex-col items-center justify-center gap-0.5 px-3 py-1.5 rounded-full transition-all min-w-[64px] min-h-[48px]" data-view="agenda">
-        <span class="material-symbols-outlined text-[24px]">calendar_month</span>
+      <button class="nav-item flex flex-col items-center justify-center gap-0.5 px-3 py-1.5 rounded-full transition-all min-w-[64px] min-h-[48px]" data-view="agenda" aria-current="page">
+        <span class="material-symbols-outlined text-[24px]" aria-hidden="true">calendar_month</span>
         <span class="font-label-sm text-label-sm">Agenda</span>
       </button>
       <button class="nav-item flex flex-col items-center justify-center gap-0.5 px-3 py-1.5 rounded-full transition-all min-w-[64px] min-h-[48px]" data-view="mapa">
-        <span class="material-symbols-outlined text-[24px]">location_on</span>
+        <span class="material-symbols-outlined text-[24px]" aria-hidden="true">location_on</span>
         <span class="font-label-sm text-label-sm">Mapa</span>
       </button>
       <button class="nav-item nav-emergencia flex flex-col items-center justify-center gap-0.5 px-3 py-1.5 rounded-full transition-all min-w-[64px] min-h-[48px] relative" data-view="emergencia">
         <div class="relative flex items-center justify-center">
-          <span class="material-symbols-outlined text-[24px] text-error">emergency</span>
-          <span class="absolute -top-0.5 -right-1 w-2 h-2 rounded-full bg-error ring-2 ring-surface-container-lowest"></span>
+          <span class="material-symbols-outlined text-[24px] text-error" aria-hidden="true">emergency</span>
+          <span class="absolute -top-0.5 -right-1 w-2 h-2 rounded-full bg-error ring-2 ring-surface-container-lowest" aria-hidden="true"></span>
         </div>
         <span class="font-label-sm text-label-sm text-error">Emergencia</span>
       </button>
       <button class="nav-item flex flex-col items-center justify-center gap-0.5 px-3 py-1.5 rounded-full transition-all min-w-[64px] min-h-[48px]" data-view="muro">
-        <span class="material-symbols-outlined text-[24px]">forum</span>
+        <span class="material-symbols-outlined text-[24px]" aria-hidden="true">forum</span>
         <span class="font-label-sm text-label-sm">Muro</span>
       </button>
     </div>
@@ -492,7 +492,7 @@ dialog::backdrop { background: rgba(44, 49, 50, .6); backdrop-filter: blur(2px);
 </div>
 
 <!-- ==================== DIÁLOGO DE ACTIVIDAD (admin) ==================== -->
-<dialog id="activity-dialog">
+<dialog id="activity-dialog" aria-labelledby="activity-dialog-title">
   <form id="activity-form" class="bg-surface-container-lowest rounded-t-xl p-space-lg space-y-space-md max-h-[85vh] overflow-y-auto shadow-2xl w-full max-w-lg mx-auto mt-auto animate-in slide-in-from-bottom">
     <div class="w-12 h-1.5 bg-surface-variant rounded-full mx-auto"></div>
     <div class="flex items-start justify-between">

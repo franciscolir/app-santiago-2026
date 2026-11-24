@@ -1,5 +1,6 @@
 import { supabase } from "./supabase.js";
 import { EMERGENCY_URL } from "./config.js";
+import "./pwa.js";
 
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => document.querySelectorAll(s);
@@ -34,12 +35,12 @@ function showToast(msg){
 function describeError(error,ctx){
   const m=error?.message||"";
   if(error?.code==="42501"||/permission denied/i.test(m))
-    return `Sin permisos para leer ${ctx}: falta un GRANT en la base de datos de Supabase (${m}).`;
+    return `Sin permisos para ${ctx}: revisa los GRANT y las políticas RLS en Supabase (${m}).`;
   if(error?.code==="PGRST204")
-    return `El esquema real no tiene una columna que la app usa (${m}). Revisa sql/01_permisos.sql parte 1c.`;
-  if(error?.code==="PGRST301"||/JWT|token/i.test(m)) return `Sesión expirada o inválida vuelve a ingresar. (${ctx})`;
+    return `El esquema real no tiene una columna que la app usa (${m}). Compara el esquema con sql/01_diagnostico.sql.`;
+  if(error?.code==="PGRST301"||/JWT|token/i.test(m)) return `Sesión expirada o inválida: vuelve a ingresar. (${ctx})`;
   if(m==="Failed to fetch") return `No se pudo conectar con Supabase (red o CORS). (${ctx})`;
-  return `Error al cargar ${ctx}: ${m||error?.code||"desconocido"}`;
+  return `Error al procesar ${ctx}: ${m||error?.code||"desconocido"}`;
 }
 
 async function loadProfile(){
@@ -87,12 +88,24 @@ async function boot(){
 }
 $("#login-form").addEventListener("submit",async e=>{
   e.preventDefault(); const btn=e.submitter; btn.disabled=true; notifyError($("#login-error"),"");
-  try{ await usernameLogin($("#username").value.trim(),$("#password").value); await loadProfile(); showApp(); await refreshAll(); }
+  try{ await usernameLogin($("#username").value.trim(),$("#password").value); await loadProfile(); $("#password").value=""; showApp(); await refreshAll(); }
   catch(err){ console.error("login:",err); notifyError($("#login-error"),err.message || "Usuario o contraseña incorrectos."); }
   finally{btn.disabled=false;}
 });
-$("#logout-btn").addEventListener("click",async()=>{await supabase.auth.signOut();state.user=null;state.profile=null;showLogin();});
-supabase.auth.onAuthStateChange((_event,session)=>{if(!session){state.user=null;state.profile=null;}});
+$("#logout-btn").addEventListener("click",async()=>{
+  await supabase.auth.signOut();
+  state.user=null;
+  state.profile=null;
+  $("#password").value="";
+  showLogin();
+});
+supabase.auth.onAuthStateChange((_event,session)=>{
+  if(!session){
+    state.user=null;
+    state.profile=null;
+    showLogin();
+  }
+});
 
 async function refreshAll(){
   // Cada sección carga de forma independiente: un fallo en una no debe impedir las demás.
@@ -102,7 +115,12 @@ async function refreshAll(){
 
 // ==================== NAVEGACIÓN ====================
 function gotoView(name){
-  $$(".nav-item").forEach(x=>x.classList.toggle("active",x.dataset.view===name));
+  $$(".nav-item").forEach(x=>{
+    const active=x.dataset.view===name;
+    x.classList.toggle("active",active);
+    if(active)x.setAttribute("aria-current","page");
+    else x.removeAttribute("aria-current");
+  });
   $$(".view").forEach(v=>{
     const on=v.id===`view-${name}`;
     v.classList.toggle("active",on);
@@ -119,10 +137,14 @@ $$(".nav-item").forEach(b=>b.addEventListener("click",()=>gotoView(b.dataset.vie
 
 // ==================== AGENDA ====================
 function showAgendaError(msg){
+  const agendaRoot=$("#agenda-list");
   $("#event-info").innerHTML="";
-  $("#agenda-list").innerHTML=`<div class="error">⚠ ${esc(msg)}</div>`;
+  agendaRoot.innerHTML=`<div class="error" role="alert">⚠ ${esc(msg)}</div>`;
+  agendaRoot.setAttribute("aria-busy","false");
 }
 async function loadEventAndActivities(){
+  const agendaRoot=$("#agenda-list");
+  if(agendaRoot)agendaRoot.setAttribute("aria-busy","true");
   const {data:events,error}=await supabase.from("events").select("*").eq("status","published").order("start_date",{ascending:false});
   if(error){ console.error("loadEventAndActivities: events",error); showAgendaError(describeError(error,"events")); throw error; }
   // Elegir el evento vigente: el que contiene hoy; si no, el próximo más cercano; si no, el más reciente.
@@ -130,7 +152,14 @@ async function loadEventAndActivities(){
   state.event=(events||[]).find(e=>e.start_date<=today && today<=e.end_date)
     || (events||[]).filter(e=>e.start_date>today).sort((a,b)=>a.start_date.localeCompare(b.start_date))[0]
     || (events||[])[0] || null;
-  if(!state.event){$("#event-info").innerHTML='<div class="empty">Todavía no hay un evento publicado.</div>';$("#agenda-list").innerHTML="";state.activities=[];renderMap();return;}
+  if(!state.event){
+    $("#event-info").innerHTML='<div class="empty">Todavía no hay un evento publicado.</div>';
+    $("#agenda-list").innerHTML="";
+    $("#agenda-list").setAttribute("aria-busy","false");
+    state.activities=[];
+    renderMap();
+    return;
+  }
   $("#event-info").innerHTML=`<h2>${esc(state.event.name)}</h2><p>${esc(state.event.description||"")}</p>`;
   $("#event-range").textContent=`${dayFmt.format(new Date(state.event.start_date+"T12:00:00"))} – ${dayFmt.format(new Date(state.event.end_date+"T12:00:00"))}, ${state.event.start_date.slice(0,4)}`;
   renderEventBadge();
@@ -140,7 +169,7 @@ async function loadEventAndActivities(){
   const base=()=>{let x=supabase.from("activities").select("*,activity_assignments(user_id,status)").eq("event_id",state.event.id).order("activity_date").order("start_time");return isAdmin()?x:x.neq("status","cancelled");};
   let {data,error:actError}=await base();
   if(actError && actError.code==="PGRST204" && /status/i.test(actError.message||"")){
-    console.warn('La columna "status" no existe en activities; se omite el filtro de canceladas. Ejecuta sql/01_permisos.sql parte 1c para confirmar.');
+    console.warn('La columna "status" no existe en activities; se omite el filtro de canceladas. Compara el esquema con sql/01_diagnostico.sql.');
     state.statusColumnMissing=true;
     ({data,error:actError}=await supabase.from("activities").select("*,activity_assignments(user_id,status)").eq("event_id",state.event.id).order("activity_date").order("start_time"));
   }
@@ -160,9 +189,16 @@ function renderEventBadge(){
   } else el.classList.add("hidden");
 }
 const hasMine = (a)=>(a.activity_assignments||[]).some(x=>x.user_id===state.user?.id);
+function syncFilterControls(){
+  $$(".filter-tab").forEach(x=>{
+    const active=x.dataset.filter===state.filter;
+    x.classList.toggle("active",active);
+    x.setAttribute("aria-pressed",String(active));
+  });
+}
 function setFilter(f){
   state.filter=f; state.filterTouched=true;
-  $$(".filter-tab").forEach(x=>x.classList.toggle("active",x.dataset.filter===f));
+  syncFilterControls();
   renderAgenda();
 }
 $$(".filter-tab").forEach(b=>b.addEventListener("click",()=>setFilter(b.dataset.filter)));
@@ -174,7 +210,8 @@ function renderAgenda(){
   $("#count-all").textContent=state.activities.length;
   // Sin actividades asignadas y el usuario aún no eligió pestaña: mostrar "Todas" para no dejar la agenda vacía.
   if(!state.filterTouched && state.filter==="mine" && !mine.length && state.activities.length) state.filter="all";
-  $$(".filter-tab").forEach(x=>x.classList.toggle("active",x.dataset.filter===state.filter));
+  syncFilterControls();
+  root.setAttribute("aria-busy","false");
   const list=state.filter==="mine"?mine:state.activities;
   if(!list.length){
     root.innerHTML=state.filter==="mine"
@@ -210,7 +247,7 @@ function renderAgenda(){
   root.querySelectorAll("[data-cancel]").forEach(b=>b.addEventListener("click",()=>changeActivityStatus(b.dataset.cancel,"cancelled")));
 }
 async function changeActivityStatus(id,status){
-  if(state.statusColumnMissing){alert("La columna status no existe en activities: no se puede cambiar el estado hasta ejecutar el SQL de migración (sql/01_permisos.sql).");return;}
+  if(state.statusColumnMissing){alert("La columna status no existe en activities: no se puede cambiar el estado. Compara el esquema real con sql/01_diagnostico.sql.");return;}
   const {error}=await supabase.from("activities").update({status}).eq("id",id);
   if(error){console.error("changeActivityStatus",error);if(error.code==="PGRST204")state.statusColumnMissing=true;alert(describeError(error,"activities"));return;}
   showToast(status==="cancelled"?"Actividad cancelada.":"Actividad reabierta.");

@@ -5,14 +5,15 @@ body { margin: 0; }
 button, input, textarea { font: inherit; }
 button { cursor: pointer; }
 a { color: #006492; }
+:where(a, button, input, textarea, select, [tabindex]):focus-visible { outline: 3px solid #F2B705; outline-offset: 2px; }
 
 /* ---- Contenedores de agenda ---- */
 .agenda-day { display: flex; flex-direction: column; gap: .6rem; }
 .day-heading { display: flex; align-items: center; justify-content: space-between; gap: .75rem; padding: .25rem .25rem 0; }
 .day-title { font-size: .8rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: #3f4850; }
 .day-title.is-today { background: #006492; color: #fff; padding: 3px 10px; border-radius: 999px; }
-.day-count { font-size: .75rem; color: #6f7881; }
-.day-progress { display: flex; align-items: center; gap: .5rem; font-size: .72rem; color: #6f7881; }
+.day-count { font-size: .75rem; color: #5f6871; }
+.day-progress { display: flex; align-items: center; gap: .5rem; font-size: .72rem; color: #5f6871; }
 .day-track { width: 70px; height: 6px; border-radius: 999px; background: #dfe3e4; overflow: hidden; }
 .day-bar { height: 100%; background: #006492; border-radius: 999px; }
 
@@ -21,7 +22,7 @@ a { color: #006492; }
 .activity-card.is-cancelled { opacity: .6; }
 .activity-top { display: flex; align-items: flex-start; justify-content: space-between; gap: .6rem; }
 .activity-card h3 { margin: 0; font-size: 1rem; font-weight: 700; color: #004262; line-height: 1.3; }
-.activity-meta { font-size: .8rem; color: #6f7881; margin-top: 2px; }
+.activity-meta { font-size: .8rem; color: #5f6871; margin-top: 2px; }
 .activity-desc { margin: 0; font-size: .87rem; color: #3f4850; line-height: 1.45; }
 .activity-actions { display: flex; flex-wrap: wrap; gap: .45rem; }
 
@@ -32,19 +33,19 @@ a { color: #006492; }
 .secondary.warn { background: #ffdf9d; border-color: #ffdf9d; color: #503b00; }
 .secondary.danger { background: #ffdad6; border-color: #ffdad6; color: #93000a; }
 .secondary.mt-2 { margin-top: .5rem; }
-.icon-btn { display: inline-grid; place-items: center; width: 34px; height: 34px; border-radius: 999px; border: 0; background: transparent; color: #6f7881; flex-shrink: 0; }
+.icon-btn { display: inline-grid; place-items: center; width: 34px; height: 34px; border-radius: 999px; border: 0; background: transparent; color: #5f6871; flex-shrink: 0; }
 .icon-btn:hover { background: #ffdad6; color: #93000a; }
 .icon-btn .material-symbols-outlined { font-size: 19px; }
 
 /* ---- Estados vacíos ---- */
-.empty { text-align: center; padding: 1.6rem 1rem; color: #6f7881; font-size: .87rem; background: #f0f4f5; border-radius: 1rem; }
+.empty { text-align: center; padding: 1.6rem 1rem; color: #5f6871; font-size: .87rem; background: #f0f4f5; border-radius: 1rem; }
 
 /* ---- Lista del mapa ---- */
 .map-item { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; width: 100%; text-align: left; padding: .65rem .8rem; border-radius: .8rem; border: 1px solid #e2edf1; background: #f6fafb; transition: all .15s; }
 .map-item:hover { background: #eaeff0; }
 .map-item.on { background: #b1e0ff; border-color: #006492; }
 .map-item-title { font-size: .88rem; font-weight: 700; color: #004262; }
-.map-item-meta { font-size: .76rem; color: #6f7881; }
+.map-item-meta { font-size: .76rem; color: #5f6871; }
 
 /* ---- Muro ---- */
 .wall-card { background: #fff; border: 1px solid #cee8f2; border-radius: 1rem; padding: .9rem 1rem; box-shadow: 0 2px 10px rgba(2,64,89,.06); display: flex; flex-direction: column; gap: .55rem; }
@@ -60,7 +61,7 @@ a { color: #006492; }
 .contact-avatar { width: 38px; height: 38px; border-radius: 999px; background: #ffdad6; color: #93000a; display: grid; place-items: center; flex-shrink: 0; }
 .contact-avatar .material-symbols-outlined { font-size: 20px; }
 .contact-top strong { display: block; font-size: .92rem; color: #181c1d; }
-.contact-top p { margin: 2px 0 0; font-size: .8rem; color: #6f7881; line-height: 1.4; }
+.contact-top p { margin: 2px 0 0; font-size: .8rem; color: #5f6871; line-height: 1.4; }
 .contact-call { justify-content: center; text-decoration: none; }
 .contact-call .material-symbols-outlined { font-size: 17px; }
 
