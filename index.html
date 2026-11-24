@@ -196,8 +196,8 @@ dialog::backdrop { background: rgba(44, 49, 50, .6); backdrop-filter: blur(2px);
   <main class="flex flex-col relative w-full pt-20 pb-safe bg-surface flex-1">
 
     <!-- ==================== VISTA AGENDA ==================== -->
-    <section id="view-agenda" class="view view-section active flex flex-col w-full px-margin pb-10 space-y-space-md">
-      <!-- Banner del evento + filtro -->
+    <section id="view-agenda" class="view view-section active flex flex-col w-full px-margin pb-safe space-y-space-md">
+      <!-- Header Banner & Event Context -->
       <section class="bg-surface-container-lowest rounded-lg p-space-md shadow-sm space-y-space-sm" style="border: 1px solid rgb(206, 232, 242); box-shadow: rgba(2, 64, 89, 0.06) 0px 2px 10px;">
         <div class="flex items-center justify-between gap-space-xs">
           <div class="flex items-center gap-space-xs min-w-0">
@@ -209,28 +209,89 @@ dialog::backdrop { background: rgba(44, 49, 50, .6); backdrop-filter: blur(2px);
           </span>
         </div>
         <div id="event-info"></div>
-        <div class="bg-surface-container p-1 rounded-full flex items-center gap-1 shadow-inner" role="group" aria-label="Filtrar actividades">
-          <button class="filter-tab flex-1 py-2 px-3 rounded-full font-label-md text-label-md transition-all duration-200 text-center flex items-center justify-center gap-1.5" id="tab-mine" data-filter="mine" type="button" aria-pressed="true">
-            <span class="material-symbols-outlined text-[18px]" aria-hidden="true">person</span>
-            <span>Mis Actividades (<span id="count-mine">0</span>)</span>
-          </button>
-          <button class="filter-tab flex-1 py-2 px-3 rounded-full font-label-md text-label-md transition-all duration-200 text-center flex items-center justify-center gap-1.5" id="tab-all" data-filter="all" type="button" aria-pressed="false">
-            <span class="material-symbols-outlined text-[18px]" aria-hidden="true">groups</span>
-            <span>Todas (<span id="count-all">0</span>)</span>
-          </button>
-        </div>
       </section>
 
+      <!-- Quick Floating Action Strip: Add Activity Trigger (Coordinators) -->
       <div class="flex items-center justify-between px-1">
-        <span class="font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">Cronograma general</span>
+        <span class="font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">Cronograma General</span>
         <div id="admin-create-wrap" class="admin-only hidden">
-          <button id="new-activity-btn" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-full bg-primary-container text-on-primary-container font-label-md text-label-md font-bold shadow-sm active:scale-95 transition-transform">
+          <button id="new-activity-btn" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-full bg-primary-container text-on-primary-container font-label-md text-label-md font-bold shadow-sm active:scale-95 transition-transform" type="button">
             <span class="material-symbols-outlined text-[18px]">add_circle</span>
             <span>Nueva Actividad</span>
           </button>
         </div>
       </div>
 
+      <!-- Segmented Filter Switch -->
+      <div class="bg-surface-container p-1 rounded-full flex items-center gap-1 shadow-inner" role="group" aria-label="Filtrar actividades">
+        <button class="filter-tab flex-1 py-2 px-3 rounded-full font-label-md text-label-md transition-all duration-200 text-center flex items-center justify-center gap-1.5" id="tab-mine" data-filter="mine" type="button" aria-pressed="true">
+          <span class="material-symbols-outlined text-[18px]" aria-hidden="true">person</span>
+          <span>Mis Actividades (<span id="count-mine">0</span>)</span>
+        </button>
+        <button class="filter-tab flex-1 py-2 px-3 rounded-full font-label-md text-label-md transition-all duration-200 text-center flex items-center justify-center gap-1.5" id="tab-all" data-filter="all" type="button" aria-pressed="false">
+          <span class="material-symbols-outlined text-[18px]" aria-hidden="true">groups</span>
+          <span>Todas (<span id="count-all">0</span>)</span>
+        </button>
+      </div>
+
+      <!-- Day Timeline Accordions -->
+      <div class="space-y-space-sm" id="agenda-accordion-group">
+        <!-- Timeline vertical continua (días pasados) -->
+        <div class="relative mb-4">
+          <div class="absolute left-[26px] top-6 bottom-0 w-1 rounded-full pointer-events-none" style="background: linear-gradient(180deg, #CEE8F2 0%, #4bb2f2 100%); z-index: 0;"></div>
+          <div class="relative z-10 space-y-4" id="agenda-past-days"></div>
+        </div>
+
+        <!-- Día activo (tarjeta completa sin línea externa) -->
+        <div class="relative w-full my-4 z-20" id="agenda-active-day">
+          <div class="w-full bg-surface-container-lowest rounded-lg shadow-md overflow-hidden border-2" style="border-color: #4bb2f2;">
+            <div class="p-space-md flex flex-col gap-3" style="background-color: #b1e0ff; border-bottom: 1px solid #CEE8F2;">
+              <div class="flex items-center justify-between gap-3">
+                <div class="flex items-center gap-3 min-w-0">
+                  <div class="w-13 h-13 min-w-[52px] min-h-[52px] rounded-full flex flex-col items-center justify-center shadow-lg ring-4 ring-[#CEE8F2] relative flex-shrink-0" style="background: linear-gradient(135deg, #4bb2f2 0%, #006492 100%); color: #ffffff;">
+                    <span class="text-[22px] font-black leading-none text-white tracking-tight" id="active-day-num">14</span>
+                    <span class="text-[9px] font-extrabold uppercase tracking-widest leading-none mt-0.5 text-white/90" id="active-day-month">OCT</span>
+                    <span class="absolute -bottom-1 w-3 h-3 rounded-full bg-[#f9bd14] ring-2 ring-white animate-pulse"></span>
+                  </div>
+                  <div class="min-w-0 flex flex-col">
+                    <div class="flex items-center gap-2 flex-wrap">
+                      <span class="font-headline-sm text-headline-sm font-extrabold tracking-tight" id="active-day-label">MIÉRCOLES 14</span>
+                      <span class="px-2 py-0.5 rounded-full text-on-primary-container font-label-sm text-label-sm font-bold uppercase shadow-sm inline-flex items-center gap-1" style="background-color: #ffffff; color: #004262;">
+                        <span class="w-2 h-2 rounded-full bg-primary animate-ping"></span>
+                        HOY
+                      </span>
+                    </div>
+                    <p class="text-[13px] font-medium leading-tight mt-0.5 truncate" id="active-day-subtitle">Ceremonia inaugural y fase clasificatoria</p>
+                  </div>
+                </div>
+                <span class="px-2.5 py-1 rounded-full font-label-sm text-label-sm font-bold shadow-sm flex-shrink-0" style="background-color: #ffffff; color: #004262; border: 1px solid #CEE8F2;" id="active-day-count">4 Actividades</span>
+              </div>
+              <!-- Progress Tracker for Today -->
+              <div class="space-y-1">
+                <div class="flex justify-between items-center font-label-sm text-label-sm font-bold" style="color: #004262;">
+                  <span>Progreso de la jornada</span>
+                  <span id="active-day-progress">1 de 4 completada (25%)</span>
+                </div>
+                <div class="w-full h-2 rounded-full overflow-hidden" style="background-color: rgba(255,255,255,0.7);">
+                  <div class="h-full rounded-full transition-all duration-500" id="active-day-progress-bar" style="width: 25%; background-color: #006492;"></div>
+                </div>
+              </div>
+            </div>
+            <!-- Activities List for Today -->
+            <div class="p-space-md space-y-space-md" style="background-color: #f0f4f5;" id="agenda-active-list">
+              <!-- Inyectado por renderAgenda() -->
+            </div>
+          </div>
+        </div>
+
+        <!-- Días próximos (línea continua) -->
+        <div class="relative mt-4">
+          <div class="absolute left-[26px] top-0 bottom-6 w-1 rounded-full pointer-events-none" style="background: linear-gradient(180deg, #4bb2f2 0%, #006492 40%, #bec7d1 100%); z-index: 0;"></div>
+          <div class="relative z-10 space-y-4" id="agenda-upcoming-days"></div>
+        </div>
+      </div>
+
+      <!-- Fallback: lista simple si no hay estructura de días -->
       <div class="space-y-space-sm" id="agenda-list" aria-busy="true" aria-live="polite" aria-relevant="additions text"><div class="text-body-sm text-on-surface-variant px-1">Cargando agenda…</div></div>
     </section>
 
@@ -273,16 +334,129 @@ dialog::backdrop { background: rgba(44, 49, 50, .6); backdrop-filter: blur(2px);
           <button aria-label="Vista satélite" aria-pressed="false" id="map-satellite" class="w-10 h-10 rounded-full bg-surface-container-lowest/95 backdrop-blur-md text-on-primary-container shadow-md flex items-center justify-center active:scale-95 hover:bg-surface transition-all">
             <span class="material-symbols-outlined text-[20px]">satellite_alt</span>
           </button>
-          <button aria-label="Límites comunales de la Región Metropolitana" aria-pressed="false" id="map-comunas" class="w-10 h-10 rounded-full bg-surface-container-lowest/95 backdrop-blur-md text-on-primary-container shadow-md flex items-center justify-center active:scale-95 hover:bg-surface transition-all">
+          <button aria-label="Capas del mapa" aria-expanded="false" id="map-layers" class="w-10 h-10 rounded-full bg-surface-container-lowest/95 backdrop-blur-md text-on-primary-container shadow-md flex items-center justify-center active:scale-95 hover:bg-surface transition-all">
             <span class="material-symbols-outlined text-[20px]">layers</span>
           </button>
           <button aria-label="Pantalla completa" aria-pressed="false" id="map-fullscreen" class="w-10 h-10 rounded-full bg-surface-container-lowest/95 backdrop-blur-md text-on-primary-container shadow-md flex items-center justify-center active:scale-95 hover:bg-surface transition-all">
             <span class="material-symbols-outlined text-[20px]">fullscreen</span>
           </button>
+          <button aria-label="Agregar punto en el mapa" id="map-add-point" class="w-10 h-10 rounded-full bg-surface-container-lowest/95 backdrop-blur-md text-on-primary-container shadow-md flex items-center justify-center active:scale-95 hover:bg-surface transition-all hidden">
+            <span class="material-symbols-outlined text-[20px]">add_location_alt</span>
+          </button>
+        </div>
+
+        <!-- Modo edición: el admin hace clic en el mapa para ubicar el punto (mapas.txt §9) -->
+        <div id="map-point-mode" class="absolute inset-0 z-[1050] hidden pointer-events-none">
+          <div class="absolute inset-x-0 top-3 mx-auto w-fit bg-primary text-on-primary text-label-md label-md font-semibold px-4 py-2 rounded-full shadow-lg">
+            Toca el mapa para ubicar el punto
+          </div>
+        </div>
+
+        <!-- Formulario de punto personalizado (solo admin) -->
+        <div id="point-dialog" class="fixed inset-0 z-[1200] hidden">
+          <div class="absolute inset-0 bg-black/45" id="point-backdrop"></div>
+          <form id="point-form" class="absolute bottom-0 inset-x-0 bg-surface-container-lowest rounded-t-xl shadow-[0_-8px_30px_rgba(2,64,89,0.18)] px-margin pt-3 pb-6 max-h-[88%] overflow-y-auto no-scrollbar">
+            <div class="flex flex-col items-center pb-2">
+              <div class="w-12 h-1.5 rounded-full bg-surface-variant"></div>
+            </div>
+            <div class="flex items-center justify-between gap-3 pb-2">
+              <h3 id="point-dialog-title" class="font-headline-sm text-headline-sm text-on-primary-container font-extrabold">Nuevo punto</h3>
+              <button type="button" aria-label="Cerrar" id="point-close" class="w-9 h-9 rounded-full bg-surface-container-low flex items-center justify-center active:scale-95 transition-all">
+                <span class="material-symbols-outlined text-[20px]">close</span>
+              </button>
+            </div>
+            <input type="hidden" id="point-id">
+            <label class="block pb-2">
+              <span class="font-label-md text-label-md text-on-surface-variant">Nombre</span>
+              <input id="point-name" required maxlength="120" class="mt-1 w-full bg-surface-container-low rounded-lg px-3 py-2.5 font-body-md text-body-md text-on-surface focus:outline-none" type="text" placeholder="Nombre del punto">
+            </label>
+            <label class="block pb-2">
+              <span class="font-label-md text-label-md text-on-surface-variant">Descripción</span>
+              <textarea id="point-description" maxlength="500" rows="2" class="mt-1 w-full bg-surface-container-low rounded-lg px-3 py-2.5 font-body-md text-body-md text-on-surface focus:outline-none" placeholder="Detalle opcional"></textarea>
+            </label>
+            <div class="grid grid-cols-2 gap-3 pb-2">
+              <label class="block">
+                <span class="font-label-md text-label-md text-on-surface-variant">Categoría</span>
+                <select id="point-category" class="mt-1 w-full bg-surface-container-low rounded-lg px-3 py-2.5 font-body-md text-body-md text-on-surface focus:outline-none">
+                  <option value="general">General</option>
+                  <option value="seguridad">Seguridad</option>
+                  <option value="salud">Salud</option>
+                  <option value="educacion">Educación</option>
+                  <option value="transporte">Transporte</option>
+                  <option value="comercio">Comercio</option>
+                  <option value="areas_verdes">Áreas verdes</option>
+                  <option value="otro">Otro</option>
+                </select>
+              </label>
+              <label class="block">
+                <span class="font-label-md text-label-md text-on-surface-variant">Icono</span>
+                <select id="point-icon" class="mt-1 w-full bg-surface-container-low rounded-lg px-3 py-2.5 font-body-md text-body-md text-on-surface focus:outline-none">
+                  <option value="place">Lugar</option>
+                  <option value="warning">Alerta</option>
+                  <option value="health_and_safety">Salud</option>
+                  <option value="school">Educación</option>
+                  <option value="directions_bus">Transporte</option>
+                  <option value="store">Comercio</option>
+                  <option value="park">Parque</option>
+                  <option value="info">Información</option>
+                </select>
+              </label>
+            </div>
+            <!-- Tipo de punto: personal (solo el autor) o general (admin, para todos) (§9) -->
+            <div class="grid grid-cols-2 gap-3 pb-2">
+              <label id="point-tipo-label" class="block hidden">
+                <span class="font-label-md text-label-md text-on-surface-variant">Tipo de punto</span>
+                <select id="point-tipo" class="mt-1 w-full bg-surface-container-low rounded-lg px-3 py-2.5 font-body-md text-body-md text-on-surface focus:outline-none">
+                  <option value="personal">Personal (solo tú lo ves)</option>
+                  <option value="general">General (visible para todos)</option>
+                </select>
+              </label>
+            </div>
+            <div class="grid grid-cols-2 gap-3 pb-2">
+              <label class="block">
+                <span class="font-label-md text-label-md text-on-surface-variant">Latitud</span>
+                <input id="point-lat" required step="any" class="mt-1 w-full bg-surface-container-low rounded-lg px-3 py-2.5 font-body-md text-body-md text-on-surface focus:outline-none" type="number" inputmode="decimal">
+              </label>
+              <label class="block">
+                <span class="font-label-md text-label-md text-on-surface-variant">Longitud</span>
+                <input id="point-lng" required step="any" class="mt-1 w-full bg-surface-container-low rounded-lg px-3 py-2.5 font-body-md text-body-md text-on-surface focus:outline-none" type="number" inputmode="decimal">
+              </label>
+            </div>
+            <label class="flex items-center gap-2 pb-3">
+              <input id="point-visible" type="checkbox" checked class="w-5 h-5 accent-primary">
+              <span class="font-body-md text-body-md text-on-surface">Visible para todos</span>
+            </label>
+            <p id="point-error" class="error pb-2"></p>
+            <div class="flex gap-2">
+              <button type="button" id="point-delete" class="hidden h-11 px-4 rounded-full bg-error-container text-on-error-container font-label-lg label-lg font-bold flex items-center gap-2 active:scale-[0.98] transition-all">
+                <span class="material-symbols-outlined text-[18px]">delete</span>
+                <span>Eliminar</span>
+              </button>
+              <button type="submit" class="h-11 flex-1 rounded-full bg-primary text-on-primary font-label-lg label-lg font-bold shadow-md active:scale-[0.98] transition-all">Guardar punto</button>
+            </div>
+          </form>
+        </div>
+
+        <!-- Panel de capas (mapas.txt §10): interruptores ON/OFF por capa -->
+        <div id="capas-sheet" class="absolute inset-0 z-[1100] hidden">
+          <div class="absolute inset-0 bg-black/35" id="capas-backdrop"></div>
+          <section role="dialog" aria-modal="true" aria-labelledby="capas-title"
+                   class="absolute bottom-0 inset-x-0 bg-surface-container-lowest rounded-t-xl shadow-[0_-8px_30px_rgba(2,64,89,0.18)] px-margin pt-3 pb-6 max-h-[78%] overflow-y-auto no-scrollbar">
+            <div class="flex flex-col items-center pb-2">
+              <div class="w-12 h-1.5 rounded-full bg-surface-variant"></div>
+            </div>
+            <div class="flex items-center justify-between gap-3 pb-1 flex-shrink-0">
+              <h3 id="capas-title" class="font-headline-sm text-headline-sm text-on-primary-container font-extrabold">Capas del mapa</h3>
+              <button aria-label="Cerrar capas" id="capas-close" class="w-9 h-9 rounded-full bg-surface-container-low flex items-center justify-center active:scale-95 transition-all">
+                <span class="material-symbols-outlined text-[20px]">close</span>
+              </button>
+            </div>
+            <div id="capas-lista" class="mt-1"></div>
+          </section>
         </div>
 
         <!-- Panel inferior: sede seleccionada + lista -->
-        <section class="absolute bottom-0 inset-x-0 z-[1000] bg-surface-container-lowest rounded-t-xl shadow-[0_-8px_30px_rgba(2,64,89,0.12)] px-margin pt-3 pb-4 max-h-[52%] overflow-y-auto no-scrollbar flex flex-col">
+        <section id="mapa-panel-inferior" class="absolute bottom-0 inset-x-0 z-[1000] bg-surface-container-lowest rounded-t-xl shadow-[0_-8px_30px_rgba(2,64,89,0.12)] px-margin pt-3 pb-4 max-h-[52%] overflow-y-auto no-scrollbar flex flex-col">
           <div class="w-full flex flex-col items-center pb-2 flex-shrink-0">
             <div class="w-12 h-1.5 rounded-full bg-surface-variant"></div>
           </div>

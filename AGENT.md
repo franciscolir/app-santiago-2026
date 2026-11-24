@@ -647,3 +647,87 @@ interruptor comunas ON→OFF→ON · 5 pines de actividades intactos · atribuci
 Datos geográficos (Metro/MetroTren, parques, comercio, salud, seguridad, educación, servicios),
 panel completo de capas, tabla `map_points` con RLS, administración de puntos por admin y
 procedimiento de importación masiva.
+
+## 19. Etapa 3 del mapa: datos geográficos (2026-11-24)
+
+Implementa `mapas.txt` §4, §7 y §8 (etapa 3 de su §14). No toca la UI de actividades ni autenticación.
+
+### Transporte público (DTPM GTFS oficial, fuente abierta)
+
+- **Fuente**: `https://www.dtpm.cl/index.php/gtfs-vigente` → `GTFS_20261114_v2.zip` (feed vigente desde 14-11-2026).
+- `scripts/importar-transporte.mjs` lee el GTFS descomprimido en `scripts/_gtfs/` y genera:
+  - `data/transporte-estaciones.geojson` — **154 estaciones** (126 Metro + 28 MetroTren), 38 KB.
+  - `data/transporte-lineas.geojson` — **9 líneas** con trazado real (`shapes.txt`), 16 KB.
+  - `data/transporte-paraderos.geojson` — **12.181 paraderos de bus** con líneas asociadas, 3,8 MB.
+- Criterio §7.5: NO todo `stop` es estación de Metro. Se filtra por agencia (M = Metro, MT = EFE/Trenes) y los stops se suben a `parent_station`.
+- Paraderos: se recorren los `stop_times` de todos los viajes de bus para saber qué paradas existen de verdad (no se inventan posiciones).
+- Nombres de estación validados: Baquedano → ["L1","L5"], Tobalaba → ["L1","L4"], Los Héroes → ["L1","L2"].
+
+### Lugares de interés (OpenStreetMap vía Overpass, ODbL)
+
+- `scripts/importar-lugares.mjs` consulta Overpass (espejo `overpass.private.coffee`, con `User-Agent`) y genera archivos **uno por interruptor del panel de capas** (§11: no cargar todas las categorías indiscriminadamente).
+- **Filtros aplicados** (por solicitud del usuario):
+  - Parques: solo parques grandes, cerros parque y zoológicos.
+  - Plazas: solo plazas de armas de las comunas.
+  - Comercio: solo centros comerciales grandes (malls).
+  - Salud: solo hospitales públicos, SAPU y SAR.
+  - Seguridad: bomberos, carabineros, comisarías y tenencias.
+  - Servicios públicos: solo municipalidades.
+  - Sin escuelas ni edificios educacionales. Sin paraderos de bus.
+- Total: ver `data/lugares/*.geojson` tras ejecutar `scripts/importar-lugares.mjs --todo`.
+- Cada feature tiene nombre, subcategoría, dirección (`addr:street`+`addr:housenumber`), comuna (georreferenciados contra `comunas-rm.geojson`), y fecha de la fuente (`osm3s.timestamp_osm_base`).
+- Dedupe por `categoría|nombre|comuna` con prioridad relación > way > nodo (§13.15).
+- `data/lugares.geojson` (acumulado) se conserva pero el frontend lee los archivos por capa.
+
+### Base de datos Supabase (`sql/06_map_points.sql`)
+
+- Tabla `public.map_points` con RLS: id, name, description, category, subcategory, icon, latitude, longitude, address, comuna, source, external_id, active, visible, tipo, created_by, created_at, updated_at.
+- Modelo `tipo`: `personal` (solo el autor lo ve/edita) o `general` (admin lo crea, todos lo ven) — mapas.txt §9.
+- RLS: `Usuarios consultan puntos del mapa` (select autenticados) + `Usuarios gestionan sus puntos personales` (personal del dueño) + `Admin gestiona puntos generales` (general solo admin).
+- GRANT select/insert/update/delete a `authenticated` (barrera real es RLS).
+- **PostGIS NO disponible** (verificado). Coordenadas lat/lon simples.
+
+### Puntos personalizados del mapa (§9, Etapa 5)
+
+- Botón `#map-add-point` (cualquier usuario autenticado): activa modo edición, clic en el mapa para ubicar.
+- Usuarios normales: solo pueden crear puntos **personales** (tipo=personal).
+- Administradores: pueden crear puntos **personales o generales** (selector en el formulario), y editar/eliminar cualquier punto.
+- Guardado/edición/eliminación en Supabase (`map_points`), protegido por RLS.
+- Los puntos son independientes de los importados de fuentes externas.
+
+## 20. Etapa 4 del mapa: panel de capas + puntos personalizados (2026-11-24)
+
+Implementa `mapas.txt` §4, §5, §6, §9 y §10.
+
+### Panel de capas (botón `#map-layers`)
+
+- 14 interruptores (ON/OFF), uno por capa, cambios al instante sin recargar el mapa.
+- Grupos: Cartografía, Transporte, Áreas verdes, Comercio, Servicios, Aplicación.
+- Capas: satélite, límites comunales, estaciones Metro, líneas Metro, MetroTren, parques, plazas de armas, centros comerciales (malls), hospitales públicos/SAPU/SAR, bomberos/Carabineros/comisarías, municipalidades, actividades, puntos personalizados.
+- Estados por defecto: satélite ON, comunas ON, actividades ON, puntos ON, resto OFF.
+- Cada capa de lugares carga su propio archivo `data/lugares/<capa>.geojson` solo la primera vez que se enciende (§11).
+- Preferencias del usuario guardadas en `localStorage` (`app-santiago-2026:capas`) (§10).
+
+### Diseño visual de marcadores (§5)
+
+- Íconos PNG con forma de pin en `/icons/`.
+- Estaciones de Metro: círculo blanco con borde.
+- Lugares de OSM: icono PNG por subcategoría (clustering nativo de MapLibre, `cluster:true`, `clusterMaxZoom:13`).
+- Puntos personalizados: icono PNG por categoría; indicador "personal" o "general" en el popup.
+
+### Información al seleccionar (§6)
+
+- Popup con nombre, subcategoría, dirección, comuna, fuente y fecha de actualización.
+- Metro: nombre de estación, líneas, operador.
+- Lugar OSM: comuna, dirección, licencia ODbL.
+
+### Verificación
+
+- 0 errores de consola en navegador (salvo 404 de `map_points` si no se aplicó `sql/06_map_points.sql` en Supabase).
+- Cluster renderiza según capas encendidas.
+
+### Pendiente (Etapa 5+ de `mapas.txt`)
+
+- Aplicar `sql/06_map_points.sql` en el SQL Editor de Supabase (requiere credenciales del proyecto).
+- CRUD completo de puntos personalizados implementado en frontend, pendiente de tabla en BD.
+- Vista de agenda adaptada de `agenda.html` (timeline por días, nodo activo, accordions).

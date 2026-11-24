@@ -1,6 +1,10 @@
 # Volcados crudos de Overpass (regenerar con scripts/_q_comunas.txt)
 scripts/_overpass_comunas.json
 
+# GTFS del DTPM crudo (regenerar con scripts/importar-transporte.mjs)
+scripts/_gtfs.zip
+scripts/_gtfs/
+
 # Dependencias / artefactos locales
 node_modules/
 .DS_Store

@@ -89,6 +89,19 @@ a { color: #006492; }
   background: #006492; border: 3px solid #fff;
   box-shadow: 0 0 0 8px rgba(0,100,146,.22), 0 2px 6px rgba(0,0,0,.35);
 }
+/* Puntos personalizados del mapa (§9): color por categoría, el admin puede editarlos */
+.map-point {
+  width: 30px; height: 30px; border-radius: 50% 50% 50% 4px;
+  transform: rotate(-45deg);
+  display: flex; align-items: center; justify-content: center;
+  border: 2px solid #fff; box-shadow: 0 3px 9px rgba(2,64,89,.45);
+  cursor: pointer; transition: scale .14s ease;
+}
+.map-point .material-symbols-outlined { transform: rotate(45deg); font-size: 16px; line-height: 1; color: #fff; }
+.map-point:hover, .map-point:active { scale: 1.12; }
+.map-point-admin { outline: 2px dashed rgba(255,255,255,.85); outline-offset: 2px; }
+/* Puntos personalizados con icono PNG: sin rotación de diamante, el icono ya es un pin. */
+.map-point-png { transform: none; width: 34px; height: 34px; border: none; box-shadow: 0 2px 8px rgba(0,0,0,.35); }
 
 /* ---- Diálogo de actividad ---- */
 dialog { border: 0; padding: 0; margin: 0; max-width: 100%; max-height: 100%; width: 100%; height: 100%; background: transparent; }

@@ -1,4 +1,4 @@
-const CACHE_NAME = "app-santiago-2026-v1";
+const CACHE_NAME = "app-santiago-2026-v2";
 const APP_SHELL = [
   "./",
   "./index.html",
@@ -11,7 +11,15 @@ const APP_SHELL = [
   "./icons/icon-192.png",
   "./icons/icon-512.png",
   "./icons/icon-maskable-512.png",
-  "./data/comunas-rm.geojson"
+  "./data/comunas-rm.geojson",
+  // Etapa 3: datos geográficos. Los archivos de transporte son pequeños
+  // y se pre-cachean; los de lugares (data/lugares/*.geojson) NO entran
+  // en el precache: cada capa se cachea en su primer uso vía el handler
+  // de fetch de abajo (§11: se descarga una sola vez y después se sirve
+  // desde caché).
+  "./data/transporte-estaciones.geojson",
+  "./data/transporte-lineas.geojson",
+  "./data/transporte-paraderos.geojson"
 ];
 
 self.addEventListener("install", (event) => {

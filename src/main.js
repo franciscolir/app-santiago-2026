@@ -5,7 +5,8 @@ import "./pwa.js";
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => document.querySelectorAll(s);
 const state = { user:null, profile:null, event:null, activities:[], category:"positive", filter:"mine",
-  map:null, mapListo:false, markers:null, markerById:new Map(), pendingFit:null, selectedId:null, toastTimer:null };
+  map:null, mapListo:false, markers:null, markerById:new Map(), pendingFit:null, selectedId:null, toastTimer:null,
+  mapPoints:[], pointMarkers:new Map(), pointMode:false };
 const statusText = {pending:"Pendiente", in_progress:"En curso", completed:"Completada", cancelled:"Cancelada"};
 const venueStatusText = {pending:"Programada", in_progress:"En curso", completed:"Finalizada", cancelled:"Cancelada"};
 const viewLabels = {agenda:"Agenda", mapa:"Mapa", muro:"Muro", emergencia:"Emergencia"};
@@ -56,6 +57,9 @@ async function loadProfile(){
   $("#user-label").textContent=name;
   $("#user-initials").textContent=initials(name);
   $("#admin-create-wrap").classList.toggle("hidden",!isAdmin());
+  // Botón de alta de puntos en el mapa: solo para administradores (§9).
+  $("#map-add-point")?.classList.toggle("hidden",!isAdmin());
+  if(state.mapListo) renderPuntosMapa();
 }
 async function usernameLogin(username,password){
   const {data,error}=await supabase.functions.invoke("login-username",{body:{username,password}});
@@ -87,10 +91,10 @@ async function boot(){
   showApp(); await refreshAll();
 }
 $("#login-form").addEventListener("submit",async e=>{
-  e.preventDefault(); const btn=e.submitter; btn.disabled=true; notifyError($("#login-error"),"");
+  e.preventDefault(); const btn=e.submitter||$("#login-form button[type=submit]"); if(btn) btn.disabled=true; notifyError($("#login-error"),"");
   try{ await usernameLogin($("#username").value.trim(),$("#password").value); await loadProfile(); $("#password").value=""; showApp(); await refreshAll(); }
   catch(err){ console.error("login:",err); notifyError($("#login-error"),err.message || "Usuario o contraseña incorrectos."); }
-  finally{btn.disabled=false;}
+  finally{ if(btn) btn.disabled=false; }
 });
 $("#logout-btn").addEventListener("click",async()=>{
   await supabase.auth.signOut();
@@ -213,38 +217,125 @@ function renderAgenda(){
   syncFilterControls();
   root.setAttribute("aria-busy","false");
   const list=state.filter==="mine"?mine:state.activities;
+  const today=todayStr();
+
+  // Contenedores de la nueva estructura (diseño agenda.html).
+  const past=$("#agenda-past-days");
+  const activeList=$("#agenda-active-list");
+  const upcoming=$("#agenda-upcoming-days");
+  const useNewLayout=!!(past&&activeList&&upcoming);
+
   if(!list.length){
-    root.innerHTML=state.filter==="mine"
+    if(useNewLayout){ activeList.innerHTML='<div class="empty">No hay actividades registradas.</div>'; }
+    else { root.innerHTML=state.filter==="mine"
       ? '<div class="empty">No tienes actividades asignadas todavía.<br><button class="secondary mt-2" id="goto-all" type="button">Ver todas las actividades</button></div>'
-      : '<div class="empty">No hay actividades registradas.</div>';
+      : '<div class="empty">No hay actividades registradas.</div>'; }
     $("#goto-all")?.addEventListener("click",()=>setFilter("all"));
     return;
   }
+
+  // Agrupar por fecha.
   const byDate=new Map();
   for(const a of list){ if(!byDate.has(a.activity_date))byDate.set(a.activity_date,[]); byDate.get(a.activity_date).push(a); }
-  const today=todayStr();
-  root.innerHTML=[...byDate.entries()].map(([date,items])=>{
-    const dt=new Date(date+"T12:00:00");
-    const isToday=date===today;
-    const mineThatDay=items.filter(hasMine);
-    const done=mineThatDay.filter(a=>(a.activity_assignments||[]).find(x=>x.user_id===state.user.id)?.status==="completed").length;
-    const pct=mineThatDay.length?Math.round(done/mineThatDay.length*100):0;
-    const progress=mineThatDay.length
-      ? `<div class="day-progress"><div class="day-track"><div class="day-bar" style="width:${pct}%"></div></div><span>${done}/${mineThatDay.length} completadas</span></div>`
-      : `<span class="day-count">${items.length} actividad${items.length===1?"":"es"}</span>`;
-    return `<section class="agenda-day">
-      <div class="day-heading">
-        <span class="day-title${isToday?" is-today":""}">${isToday?"HOY":esc(cap(dateFmt.format(dt)))}</span>
-        ${progress}
-      </div>
-      ${items.map(activityCard).join("")}
-    </section>`;
-  }).join("");
-  root.querySelectorAll("[data-status]").forEach(b=>b.addEventListener("click",()=>updateMyStatus(b.dataset.id,b.dataset.status)));
-  root.querySelectorAll("[data-edit]").forEach(b=>b.addEventListener("click",()=>openActivity(state.activities.find(a=>a.id===b.dataset.edit))));
-  root.querySelectorAll("[data-delete]").forEach(b=>b.addEventListener("click",()=>deleteActivity(b.dataset.delete)));
-  root.querySelectorAll("[data-reopen]").forEach(b=>b.addEventListener("click",()=>reopenActivity(b.dataset.reopen)));
-  root.querySelectorAll("[data-cancel]").forEach(b=>b.addEventListener("click",()=>changeActivityStatus(b.dataset.cancel,"cancelled")));
+  const fechas=[...byDate.keys()].sort();
+
+  if(useNewLayout){
+    past.innerHTML=""; activeList.innerHTML=""; upcoming.innerHTML="";
+    for(const date of fechas){
+      const items=byDate.get(date);
+      const dt=new Date(date+"T12:00:00");
+      const isToday=date===today;
+      const mineThatDay=items.filter(hasMine);
+      const done=mineThatDay.filter(a=>(a.activity_assignments||[]).find(x=>x.user_id===state.user.id)?.status==="completed").length;
+      const pct=mineThatDay.length?Math.round(done/mineThatDay.length*100):0;
+      const itemsHtml=items.map(activityCard).join("");
+
+      if(isToday){
+        // Día activo: tarjeta completa con nodo integrado.
+        activeList.innerHTML=itemsHtml;
+        $("#active-day-num").textContent=dt.getDate();
+        $("#active-day-month").textContent=dt.toLocaleDateString("es-CL",{month:"short"}).toUpperCase();
+        $("#active-day-label").textContent=esc(cap(dateFmt.format(dt)));
+        $("#active-day-count").textContent=items.length+" Actividad"+(items.length===1?"":"es");
+        $("#active-day-progress").textContent=done+"/"+mineThatDay.length+" completadas";
+        $("#active-day-progress-bar").style.width=pct+"%";
+        $("#agenda-active-day")?.classList.remove("hidden");
+      } else {
+        const dayNode=dt<today?past:upcoming;
+        const dayId="day-"+date.replace(/-/g,"");
+        const isPast=dt<today;
+        const icon=isPast?"done":"expand_more";
+        const cls=isPast?"border-[#CEE8F2] bg-surface-container":"border-[#b1e0ff] bg-surface-container-lowest";
+        const titleColor=isPast?"#33647e":"#006492";
+        const badgeColor=isPast?"#dfe3e4":"#c9e6ff";
+        const badgeTextColor=isPast?"#34647f":"#004262";
+        dayNode.innerHTML+=`
+          <div class="relative flex items-start gap-3.5 group">
+            <div class="w-13 h-13 min-w-[52px] min-h-[52px] rounded-full flex flex-col items-center justify-center shadow-sm border-2 ${cls} transition-all" style="background-color: ${isPast?"#eaeff0":"#ffffff"};">
+              <span class="text-[20px] font-black leading-none" style="color: ${titleColor};">${dt.getDate()}</span>
+              <span class="text-[9px] font-bold uppercase tracking-wider leading-none mt-0.5" style="color: ${badgeTextColor};">OCT</span>
+            </div>
+            <div class="flex-1 bg-surface-container-lowest rounded-lg p-3 shadow-sm border transition-all duration-200" style="border-color: ${isPast?"#CEE8F2":"#CEE8F2"};">
+              <button class="w-full flex items-center justify-between text-left focus:outline-none" type="button" onclick="toggleDay('${dayId}')">
+                <div class="min-w-0 pr-2">
+                  <div class="flex items-center gap-2 flex-wrap">
+                    <span class="font-headline-sm text-[16px] font-bold uppercase tracking-tight" style="color: ${titleColor};">${esc(cap(dateFmt.format(dt)))}</span>
+                    <span class="px-2 py-0.5 rounded-full font-label-sm text-[11px] font-bold flex items-center gap-1" style="background-color: ${badgeColor}; color: ${badgeTextColor};">
+                      <span class="material-symbols-outlined text-[14px]">${isPast?"done":"calendar_today"}</span>
+                      ${items.length} actividad${items.length===1?"":"es"}
+                    </span>
+                  </div>
+                  <p class="font-body-sm text-[12px] truncate mt-0.5" style="color: #3f4850;">${esc(items[0].description||"")}</p>
+                </div>
+                <span class="material-symbols-outlined text-outline flex-shrink-0 transition-transform duration-200" id="${dayId}-icon">${icon}</span>
+              </button>
+              <div class="hidden mt-2 pt-2 border-t border-slate-100 space-y-1.5" id="${dayId}-content">
+                ${itemsHtml}
+              </div>
+            </div>
+          </div>`;
+      }
+    }
+    // Botones de toggle de días pasados/futuros.
+    past.querySelectorAll("button[type=button]").forEach(b=>{
+      const id=b.getAttribute("onclick")?.match(/toggleDay\('([^']+)'\)/)?.[1];
+      if(id) b.addEventListener("click",()=>toggleDay(id));
+    });
+    upcoming.querySelectorAll("button[type=button]").forEach(b=>{
+      const id=b.getAttribute("onclick")?.match(/toggleDay\('([^']+)'\)/)?.[1];
+      if(id) b.addEventListener("click",()=>toggleDay(id));
+    });
+  } else {
+    // Fallback: lista simple.
+    root.innerHTML=[...byDate.entries()].map(([date,items])=>{
+      const dt=new Date(date+"T12:00:00");
+      const isToday=date===today;
+      const mineThatDay=items.filter(hasMine);
+      const done=mineThatDay.filter(a=>(a.activity_assignments||[]).find(x=>x.user_id===state.user.id)?.status==="completed").length;
+      const pct=mineThatDay.length?Math.round(done/mineThatDay.length*100):0;
+      const progress=mineThatDay.length
+        ? `<div class="day-progress"><div class="day-track"><div class="day-bar" style="width:${pct}%"></div></div><span>${done}/${mineThatDay.length} completadas</span></div>`
+        : `<span class="day-count">${items.length} actividad${items.length===1?"":"es"}</span>`;
+      return `<section class="agenda-day">
+        <div class="day-heading">
+          <span class="day-title${isToday?" is-today":""}">${isToday?"HOY":esc(cap(dateFmt.format(dt)))}</span>
+          ${progress}
+        </div>
+        ${items.map(activityCard).join("")}
+      </section>`;
+    }).join("");
+    root.querySelectorAll("[data-status]").forEach(b=>b.addEventListener("click",()=>updateMyStatus(b.dataset.id,b.dataset.status)));
+    root.querySelectorAll("[data-edit]").forEach(b=>b.addEventListener("click",()=>openActivity(state.activities.find(a=>a.id===b.dataset.edit))));
+    root.querySelectorAll("[data-delete]").forEach(b=>b.addEventListener("click",()=>deleteActivity(b.dataset.delete)));
+    root.querySelectorAll("[data-reopen]").forEach(b=>b.addEventListener("click",()=>reopenActivity(b.dataset.reopen)));
+    root.querySelectorAll("[data-cancel]").forEach(b=>b.addEventListener("click",()=>changeActivityStatus(b.dataset.cancel,"cancelled")));
+  }
+}
+function toggleDay(dayId){
+  const content=document.getElementById(dayId+"-content");
+  const icon=document.getElementById(dayId+"-icon");
+  if(content.classList.contains("hidden")){ content.classList.remove("hidden"); icon.textContent="expand_less"; }
+  else { content.classList.add("hidden"); icon.textContent="expand_more"; }
 }
 async function changeActivityStatus(id,status){
   if(state.statusColumnMissing){alert("La columna status no existe en activities: no se puede cambiar el estado. Compara el esquema real con sql/01_diagnostico.sql.");return;}
@@ -305,13 +396,29 @@ function renderMap(){
       attributionControl:{compact:false}   // atribución siempre visible (§3.1: Esri + ODbL)
     });
     state.markers=[];
+    window.__mapa=state.map;   // enganche de depuración (consola del navegador)
+    state.map.on("click",(e)=>{
+      // Modo edición de puntos (mapas.txt §9): el admin ubica el punto con un clic.
+      if(!state.pointMode) return;
+      desactivarModoPunto();
+      abrirFormPunto(null,e.lngLat.lat,e.lngLat.lng);
+    });
     state.map.on("load",()=>{
       state.mapListo=true;
-      activarSateliteInicial();   // §3.1: la vista satélite es la predeterminada
+      // §10: se respetan las preferencias guardadas del usuario (vista satelital
+      // y límites comunales se encienden según su última elección).
+      if(capasEstado.satelite) activarSateliteInicial();
       cargarComunas();            // §3.2: límites comunales de la RM (async)
+      cargarPuntosMapa();         // §9: puntos personalizados de los admins
       renderMarkers();
       ponerMarcadorUsuario();
       applyPendingFit();
+      // Las capas de lugares que el usuario dejó encendidas se recuperan.
+      CAPAS_DEF.forEach(g=>g.items.forEach(it=>{
+        if(it.capaLugares&&capasEstado[it.id]){
+          cargarLugares(it.capaLugares).catch(err=>console.warn("capa",it.id,err));
+        }
+      }));
     });
   }
   if(state.mapListo) renderMarkers();
@@ -334,6 +441,7 @@ function renderMarkers(){
     state.markers.push(m);
     state.markerById.set(a.id,m);
   });
+  aplicarActividades();   // respeta el interruptor "Actividades" del panel de capas
   if(state.selectedId && !state.activities.some(a=>a.id===state.selectedId)) resetVenue();
   // fitBounds solo cuando la vista está visible; si no, se aplaza hasta abrir la pestaña Mapa.
   state.pendingFit=markersBounds();
@@ -395,7 +503,7 @@ function selectVenue(a,pan=true){
 // visible del mapa (entre la barra de búsqueda y el panel inferior).
 function offsetPanel(){
   const cont=$("#map")?.getBoundingClientRect();
-  const panel=$("#view-mapa section.absolute.bottom-0")?.getBoundingClientRect();
+  const panel=$("#mapa-panel-inferior")?.getBoundingClientRect();
   const buscador=$("#map-search")?.parentElement?.getBoundingClientRect();
   if(!cont)return [0,0];
   const arriba=buscador?buscador.bottom-cont.top:60;
@@ -427,7 +535,7 @@ $("#map-search").addEventListener("input",renderMapList);
 // inferior de sede/lista, para que ningún pín quede tapado.
 function paddingMapa(){
   const cont=$("#view-mapa .relative.w-full")||$("#map")?.parentElement;
-  const panel=$("#view-mapa section.absolute.bottom-0");
+  const panel=$("#mapa-panel-inferior");
   const buscador=$("#map-search")?.parentElement;
   const top=(buscador?buscador.getBoundingClientRect().height+24:70);
   const bottom=(panel?panel.getBoundingClientRect().height+24:40);
@@ -437,7 +545,7 @@ function paddingMapa(){
 // dibuja abajo a la derecha y el panel inferior de sede/lista lo tapaba. Se
 // publica la altura real del panel como variable CSS y el CSS la usa como `bottom`.
 (function atribucionSobrePanel(){
-  const panel=$("#view-mapa section.absolute.bottom-0"), cont=$("#map");
+  const panel=$("#mapa-panel-inferior"), cont=$("#map");
   if(!panel||!cont||!window.ResizeObserver) return;
   const aplicar=()=>{
     const p=panel.getBoundingClientRect(), c=cont.getBoundingClientRect();
@@ -506,7 +614,6 @@ function activarSateliteInicial(){
 // en el service worker (§11: no volver a descargar al cambiar de capa).
 const COMUNAS_URL="./data/comunas-rm.geojson";
 const CAPAS_COMUNAS=["comunas-fill","comunas-hover","comunas-line"];
-let comunasOn=false;            // estado real de la capa (§10: [ON] Límites comunales)
 let comunaPopup=null;
 
 // Inserta una capa POR DEBAJO de los rótulos, para que las etiquetas del estilo
@@ -552,27 +659,524 @@ async function cargarComunas(){
     map.on("mouseleave","comunas-fill",ocultarComuna);
     map.on("click","comunas-fill",mostrarComuna);   // táctil: tocar la comuna muestra su nombre
 
-    comunasOn=true;
-    const btn=$("#map-comunas");
-    btn?.classList.add("bg-primary","text-on-primary");
-    btn?.setAttribute("aria-pressed","true");
+    // §10: la capa nace [ON]; si el usuario ya la apagó antes de que cargara,
+    // se respeta ese estado en vez de forzarla visible.
+    comunasOn=capasEstado.comunas;
+    CAPAS_COMUNAS.forEach(id=>{ if(map.getLayer(id))
+      map.setLayoutProperty(id,"visibility",comunasOn?"visible":"none"); });
   }catch(err){
     console.warn("cargarComunas: no se pudieron cargar los límites comunales",err);
   }
 }
 
-// Interruptor de la capa (§3.2/§10): alterna sin recargar el mapa.
-$("#map-comunas").addEventListener("click",()=>{
+// ==================== PANEL DE CAPAS (mapas.txt §4 y §10) ====================
+// Un interruptor por capa, cambios al instante y sin recargar el mapa.
+// Cada ítem apunta a capas de MapLibre; los datos se cargan UNA sola vez por
+// sesión y quedan en caché (§11: cambiar de capa no vuelve a descargar nada).
+let comunasOn=true;                       // estado real de la capa (§10: [ON])
+let actividadesOn=true;                   // pines de actividades (§10: [ON])
+
+// ---------------------------------------------------------- fuentes/capas --
+// Se cargan perezosamente: transporte al primer uso (38+16 KB) y cada capa de
+// lugares en SU propio archivo (data/lugares/<capa>.geojson), descargado solo
+// cuando el usuario enciende ese interruptor (§11: no cargar todas las
+// categorías indiscriminadamente; evitar volver a descargarlas al cambiarlas).
+const FUENTES_CAPA={
+  transporte:{cargada:false,promesa:null,cargar:cargarTransporte},
+};
+
+// Color y etiqueta de cada capa de lugares (un interruptor = un archivo).
+const CAPAS_LUGARES={
+  "parques":    {color:"#2e9e4f", label:"Parques grandes, cerros y zoológicos"},
+  "plazas":     {color:"#8bc34a", label:"Plazas de Armas"},
+  "comercio":   {color:"#e8590c", label:"Centros comerciales (Malls)"},
+  "salud":      {color:"#e03131", label:"Hospitales públicos, SAPU y SAR"},
+  "seguridad":  {color:"#1c7ed6", label:"Bomberos, Carabineros, Comisarías y Tenencias"},
+  "servicios":  {color:"#0ca678", label:"Municipalidades"},
+};
+
+// Iconos PNG de /icons por capa de lugares (§5: identidad visual coherente).
+const ICONO_LUGAR={
+  parques:"parque.png",plazas:"parque.png",comercio:"mall.png",
+  salud:"urgencias.png",seguridad:"policia.png",servicios:"casa.png",
+};
+
+// Iconos PNG por categoría de punto personalizado (§9).
+const ICONO_PUNTO={
+  general:"casa.png",seguridad:"policia.png",salud:"urgencias.png",educacion:"trebol.png",
+  transporte:"buses.png",comercio:"mall.png",areas_verdes:"parque.png",otro:"casa.png",
+};
+
+// Carga una imagen PNG como icono de MapLibre (solo una vez por sesión).
+const imagenesCargadas=new Set();
+function cargarIcono(nombre){
+  if(imagenesCargadas.has(nombre)) return Promise.resolve();
+  const map=state.map; if(!map) return Promise.reject(new Error("sin mapa"));
+  return new Promise((resolve,reject)=>{
+    map.loadImage(`./icons/${nombre}`,(err,image)=>{
+      if(err){ imagenesCargadas.delete(nombre); reject(err); return; }
+      map.addImage(`icono-${nombre}`,image);
+      imagenesCargadas.add(nombre); resolve();
+    });
+  });
+}
+const lugaresCargados=new Set();   // capas ya descargadas en esta sesión
+
+async function cargarTransporte(){
+  const map=state.map;
+  const [est,lineas]=await Promise.all([
+    fetch("./data/transporte-estaciones.geojson").then(r=>{if(!r.ok)throw new Error("HTTP "+r.status);return r.json();}),
+    fetch("./data/transporte-lineas.geojson").then(r=>{if(!r.ok)throw new Error("HTTP "+r.status);return r.json();}),
+  ]);
+  if(!state.map) return;
+  map.addSource("transporte-estaciones",{type:"geojson",data:est});
+  map.addSource("transporte-lineas",{type:"geojson",data:lineas});
+
+  // Colores referenciales por línea (no son los oficiales del Metro).
+  const COLOR_LINEA={L1:"#e30613",L2:"#0f7fd4",L3:"#8a9b16",L4:"#f08a00",L4A:"#f08a00",L5:"#5ec4e8",L6:"#8b5fbf",MTN:"#00a19a",MTR:"#0079c2"};
+  insertarBajoSimbolos({id:"metro-lineas",type:"line",source:"transporte-lineas",
+    filter:["==",["get","tipo"],"metro"],
+    paint:{"line-color":["match",["get","linea"],...Object.entries(COLOR_LINEA).flatMap(([k,v])=>[k,v]),"#e30613"],
+           "line-width":3,"line-opacity":0.9}});
+  insertarBajoSimbolos({id:"metrotren-lineas",type:"line",source:"transporte-lineas",
+    filter:["==",["get","tipo"],"metrotren"],
+    paint:{"line-color":"#0079c2","line-width":3,"line-opacity":0.9}});
+  insertarBajoSimbolos({id:"metro-estaciones",type:"circle",source:"transporte-estaciones",
+    filter:["==",["get","tipo"],"metro"],
+    paint:{"circle-color":"#ffffff","circle-radius":5,"circle-stroke-color":"#181c1d","circle-stroke-width":1.5}});
+  insertarBajoSimbolos({id:"metro-combo",type:"circle",source:"transporte-estaciones",
+    filter:["all",["==",["get","tipo"],"metro"],["==",["get","combinaciones"],true]],
+    paint:{"circle-color":"#ffd54f","circle-radius":7,"circle-stroke-color":"#181c1d","circle-stroke-width":1.5}});
+  insertarBajoSimbolos({id:"metrotren-estaciones",type:"circle",source:"transporte-estaciones",
+    filter:["==",["get","tipo"],"metrotren"],
+    paint:{"circle-color":"#ffffff","circle-radius":5,"circle-stroke-color":"#0079c2","circle-stroke-width":2}});
+
+  // Rótulos de estación: solo en zoom alto y ENCIMA de las etiquetas base.
+  map.addLayer({id:"metro-nombres",type:"symbol",source:"transporte-estaciones",
+    filter:["==",["get","tipo"],"metro"],minzoom:12.5,
+    layout:{"text-field":["get","nombre"],"text-size":11,"text-offset":[0,0.9],"text-anchor":"top"},
+    paint:{"text-color":"#ffffff","text-halo-color":"#0b2b3d","text-halo-width":1.4}});
+
+  // Popups (§6: nombre, categoría y comuna).
+  const popupLugar=new maplibregl.Popup({closeButton:true,offset:14,maxWidth:"260px"});
+  const abrirPopup=(ids)=>map.on("click",ids,(e)=>{
+    const p=e.features?.[0]?.properties; if(!p) return;
+    // `lineas` puede venir como array o como texto serializado.
+    let lineasP=p.lineas;
+    if(typeof lineasP==="string"){ try{ lineasP=JSON.parse(lineasP); }catch(_){ lineasP=[lineasP]; } }
+    if(!Array.isArray(lineasP)) lineasP=lineasP?[lineasP]:[];
+    comunaPopup?.remove();   // no dejar dos popups superpuestos
+    popupLugar.setLngLat(e.lngLat).setHTML(
+      `<strong>${esc(p.nombre)}</strong>`+
+      (lineasP.length?`<br>${lineasP.map(esc).join(" · ")}`:"")+
+      (p.comuna?`<br><span class="muted">${esc(p.comuna)}</span>`:"")+
+      `<br><span class="muted" style="font-size:11px">${p.tipo==="metrotren"?"EFE Trenes de Chile":"Metro de Santiago"} · DTPM GTFS</span>`
+    ).addTo(map);
+  });
+  abrirPopup(["metro-estaciones","metro-combo","metrotren-estaciones"]);
+  const cursorPuntero=(ids)=>{map.on("mouseenter",ids,()=>map.getCanvas().style.cursor="pointer");
+    map.on("mouseleave",ids,()=>map.getCanvas().style.cursor="");};
+  cursorPuntero(["metro-estaciones","metro-combo","metrotren-estaciones"]);
+}
+
+// Carga UNA capa de lugares: su propio archivo, con clustering nativo de
+
+// Carga UNA capa de lugares: su propio archivo, con clustering nativo de
+// MapLibre (§11: la RM tiene miles de puntos; se agrupan en vez de pintar
+// 10.000 círculos). Al hacer clic en un grupo se hace zoom a su contenido.
+// Los puntos sueltos usan los iconos PNG de /icons (§5: identidad visual).
+async function cargarLugares(capa){
+  const map=state.map;
+  if(!map||lugaresCargados.has(capa)) return;
+  const cfg=CAPAS_LUGARES[capa]; if(!cfg) return;
+  const res=await fetch(`./data/lugares/${capa}.geojson`);
+  if(!res.ok) throw new Error(`HTTP ${res.status} al cargar ${capa}`);
+  const geo=await res.json();
+  if(!state.map||state.map.getSource(`lugares-${capa}`)) return;
+
+  // Icono PNG de esta capa (se descarga una sola vez por sesión).
+  const icono=ICONO_LUGAR[capa]||"casa.png";
+  await cargarIcono(icono);
+
+  const fuente=`lugares-${capa}`;
+  map.addSource(fuente,{type:"geojson",data:geo,cluster:true,clusterMaxZoom:13,clusterRadius:52});
+
+  // Burbujas de grupo: tamaño según la cantidad de puntos.
+  insertarBajoSimbolos({id:`${fuente}-cluster`,type:"circle",source:fuente,
+    filter:["has","point_count"],
+    paint:{"circle-color":["step",["get","point_count"],cfg.color,50,cfg.color,200,"#e8590c",750,"#c2255c"],
+           "circle-radius":["step",["get","point_count"],16,50,20,200,25,750,31],
+           "circle-stroke-color":"#ffffff","circle-stroke-width":1.5,"circle-opacity":0.92}});
+  // Número de puntos dentro del grupo.
+  insertarBajoSimbolos({id:`${fuente}-cluster-count`,type:"symbol",source:fuente,
+    filter:["has","point_count"],
+    layout:{"text-field":["get","point_count_abbreviated"],"text-size":12,"text-font":["Noto Sans Regular"]},
+    paint:{"text-color":"#ffffff"}});
+  // Puntos sueltos: icono PNG en vez de círculo de color.
+  insertarBajoSimbolos({id:`${fuente}-puntos`,type:"symbol",source:fuente,
+    filter:["!",["has","point_count"]],
+    layout:{"icon-image":`icono-${icono}`,"icon-size":0.5,"icon-allow-overlap":true,"icon-ignore-placement":true}});
+
+  // Popup con nombre, subcategoría, dirección, comuna, fuente y fecha (§6).
+  const popup=new maplibregl.Popup({closeButton:true,offset:[0,-14],maxWidth:"260px"});
+  map.on("click",`${fuente}-puntos`,(e)=>{
+    const p=e.features?.[0]?.properties; if(!p) return;
+    comunaPopup?.remove();   // no dejar dos popups superpuestos
+    const fecha=p.actualizado?`${p.actualizado.slice(0,10)}`:"";
+    popup.setLngLat(e.lngLat).setHTML(
+      `<strong>${esc(p.nombre)}</strong>`+
+      (p.subcategoria?`<br>${esc(p.subcategoria)}`:"")+
+      (p.direccion?`<br><span class="muted">${esc(p.direccion)}</span>`:"")+
+      (p.comuna?`<br><span class="muted">${esc(p.comuna)}</span>`:"")+
+      (fecha?`<br><span class="muted" style="font-size:11px">OSM · ODbL · ${fecha}</span>`:"<br><span class="muted" style="font-size:11px">OpenStreetMap · ODbL</span>")
+    ).addTo(map);
+  });
+  map.on("mouseenter",`${fuente}-puntos`,()=>map.getCanvas().style.cursor="pointer");
+  map.on("mouseleave",`${fuente}-puntos`,()=>map.getCanvas().style.cursor="");
+
+  // Clic en un grupo → zoom a su contenido.
+  map.on("click",`${fuente}-cluster`,async(e)=>{
+    const f=e.features?.[0]; if(!f) return;
+    const zoom=await map.getSource(fuente).getClusterExpansionZoom(f.properties.cluster_id);
+    map.easeTo({center:f.geometry.coordinates,zoom,offset:offsetPanel(),duration:500});
+  });
+  map.on("mouseenter",`${fuente}-cluster`,()=>map.getCanvas().style.cursor="pointer");
+  map.on("mouseleave",`${fuente}-cluster`,()=>map.getCanvas().style.cursor="");
+
+  lugaresCargados.add(capa);
+  aplicarCapas();
+}
+
+async function asegurarFuente(nombre){
+  const f=FUENTES_CAPA[nombre]; if(!f) return;
+  if(f.cargada) return;
+  if(!f.promesa){
+    f.promesa=f.cargar().then(()=>{f.cargada=true;})
+      .catch(err=>{f.promesa=null;throw err;});
+  }
+  await f.promesa;
+}
+
+// Espera a que el mapa termine de cargar (máx. 15 s).
+function esperarMapaListo(){
+  return new Promise(resolve=>{
+    if(state.mapListo) return resolve();
+    const t0=Date.now();
+    const iv=setInterval(()=>{
+      if(state.mapListo||Date.now()-t0>15000){ clearInterval(iv); resolve(); }
+    },120);
+  });
+}
+
+// ------------------------------------------------------------- definición --
+// `capas` = ids de capas MapLibre; `custom` = lógica especial.
+const CAPAS_DEF=[
+  {grupo:"Cartografía",items:[
+    {id:"satelite",nombre:"Vista satelital",defecto:true,custom:"satelite"},
+    {id:"comunas",nombre:"Límites comunales",defecto:true,custom:"comunas"},
+  ]},
+  {grupo:"Transporte",items:[
+    {id:"metro-estaciones",nombre:"Estaciones de Metro",requiere:"transporte",capas:["metro-estaciones","metro-combo","metro-nombres"]},
+    {id:"metro-lineas",nombre:"Líneas de Metro",requiere:"transporte",capas:["metro-lineas"]},
+    {id:"metrotren",nombre:"MetroTren",requiere:"transporte",capas:["metrotren-estaciones","metrotren-lineas"]},
+  ]},
+  {grupo:"Áreas verdes",items:[
+    {id:"parques",nombre:"Parques grandes, cerros y zoológicos",capaLugares:"parques"},
+    {id:"plazas",nombre:"Plazas de Armas",capaLugares:"plazas"},
+  ]},
+  {grupo:"Comercio",items:[
+    {id:"comercio",nombre:"Centros comerciales (Malls)",capaLugares:"comercio"},
+  ]},
+  {grupo:"Servicios",items:[
+    {id:"salud",nombre:"Hospitales públicos, SAPU y SAR",capaLugares:"salud"},
+    {id:"seguridad",nombre:"Bomberos, Carabineros, Comisarías y Tenencias",capaLugares:"seguridad"},
+    {id:"servicios",nombre:"Municipalidades",capaLugares:"servicios"},
+  ]},
+  {grupo:"Aplicación",items:[
+    {id:"actividades",nombre:"Actividades",defecto:true,custom:"actividades"},
+    {id:"puntos",nombre:"Puntos personalizados",defecto:true,custom:"puntos"},
+  ]},
+];
+const capasEstado={};
+CAPAS_DEF.forEach(g=>g.items.forEach(it=>{capasEstado[it.id]=!!it.defecto;}));
+
+// §10: "Los estados de las capas pueden conservarse localmente para cada
+// usuario". Se guardan en localStorage (no en Supabase): la preferencia es
+// personal y no modifica los datos compartidos.
+const LLAVE_CAPAS="app-santiago-2026:capas";
+function cargarPreferenciasCapas(){
+  try{
+    const raw=localStorage.getItem(LLAVE_CAPAS); if(!raw) return;
+    const prefs=JSON.parse(raw);
+    if(!prefs||typeof prefs!=="object") return;
+    CAPAS_DEF.forEach(g=>g.items.forEach(it=>{
+      if(typeof prefs[it.id]==="boolean") capasEstado[it.id]=prefs[it.id];
+    }));
+  }catch(err){ console.warn("No se pudieron leer las preferencias de capas:",err); }
+}
+function guardarPreferenciasCapas(){
+  try{ localStorage.setItem(LLAVE_CAPAS,JSON.stringify(capasEstado)); }
+  catch(err){ console.warn("No se pudieron guardar las preferencias de capas:",err); }
+}
+cargarPreferenciasCapas();
+
+function aplicarCapas(){
   const map=state.map; if(!map||!state.mapListo) return;
-  if(!map.getSource("comunas")){ showToast("Los límites comunales aún se están cargando…"); return; }
-  comunasOn=!comunasOn;
-  const vis=comunasOn?"visible":"none";
-  CAPAS_COMUNAS.forEach(id=>{ if(map.getLayer(id)) map.setLayoutProperty(id,"visibility",vis); });
-  if(!comunasOn) comunaPopup?.remove();
-  const btn=$("#map-comunas");
-  btn.classList.toggle("bg-primary",comunasOn);
-  btn.classList.toggle("text-on-primary",comunasOn);
-  btn.setAttribute("aria-pressed",String(comunasOn));
+  CAPAS_DEF.forEach(g=>g.items.forEach(it=>{
+    const vis=capasEstado[it.id]?"visible":"none";
+    if(it.capas) it.capas.forEach(id=>{ if(map.getLayer(id)) map.setLayoutProperty(id,"visibility",vis); });
+    if(it.capaLugares){
+      const f=`lugares-${it.capaLugares}`;
+      [`${f}-cluster`,`${f}-cluster-count`,`${f}-puntos`].forEach(id=>{
+        if(map.getLayer(id)) map.setLayoutProperty(id,"visibility",vis);
+      });
+    }
+  }));
+}
+
+// Alterna una capa: refleja el estado al instante y carga la fuente si toca.
+async function alternarCapa(it,on){
+  const map=state.map;
+  if(!map){ showToast("Abre el mapa para cambiar las capas."); return; }
+  // Si el mapa todavía está cargando, se espera en vez de fallar (§10).
+  if(!state.mapListo) await esperarMapaListo();
+  if(!state.map||!state.mapListo){ showToast("El mapa aún no está listo."); return; }
+  capasEstado[it.id]=on;
+  pintarInterruptor(it);
+  guardarPreferenciasCapas();
+
+  if(it.custom==="satelite"){ if(on!==sateliteOn) alternarSatelite(); return; }
+  if(it.custom==="comunas"){
+    if(!map.getSource("comunas")){ showToast("Los límites comunales aún se están cargando…"); }
+    CAPAS_COMUNAS.forEach(id=>{ if(map.getLayer(id)) map.setLayoutProperty(id,"visibility",on?"visible":"none"); });
+    if(!on) comunaPopup?.remove();
+    comunasOn=on; return;
+  }
+  if(it.custom==="actividades"){ aplicarActividades(); return; }
+  if(it.custom==="puntos"){
+    // Los marcadores de punto son elementos DOM: se ocultan, no se ocultan capas.
+    state.pointMarkers.forEach(m=>m.getElement().classList.toggle("hidden",!on));
+    return;
+  }
+
+  if(on&&it.requiere){
+    try{ await asegurarFuente(it.requiere); }
+    catch(err){
+      console.warn("No se pudo cargar la fuente de la capa",it.requiere,err);
+      capasEstado[it.id]=false; pintarInterruptor(it); guardarPreferenciasCapas();
+      showToast("No se pudo cargar esa capa. Revisa tu conexión.");
+      return;
+    }
+  }
+  // Capa de lugares: su propio archivo se descarga la primera vez que se enciende.
+  if(on&&it.capaLugares){
+    try{ await cargarLugares(it.capaLugares); }
+    catch(err){
+      console.warn("No se pudo cargar la capa",it.capaLugares,err);
+      capasEstado[it.id]=false; pintarInterruptor(it); guardarPreferenciasCapas();
+      showToast("No se pudo cargar esa capa. Revisa tu conexión.");
+      return;
+    }
+  }
+  aplicarCapas();
+}
+
+function aplicarActividades(){
+  (state.markers||[]).forEach(m=>m.getElement().classList.toggle("hidden",!actividadesOn));
+}
+
+// ------------------------------------------------------------- pintado UI --
+function pintarInterruptor(it){
+  const fila=$(`#capas-lista [data-capa="${it.id}"]`); if(!fila) return;
+  const on=capasEstado[it.id];
+  fila.setAttribute("aria-pressed",String(on));
+  const sw=fila.querySelector(".capa-switch");
+  sw.classList.toggle("bg-primary",on);
+  sw.classList.toggle("bg-surface-variant",!on);
+  fila.querySelector(".capa-switch-dot").classList.toggle("translate-x-[22px]",on);
+  fila.classList.toggle("opacity-50",!!it.pendiente);
+}
+
+function pintarPanelCapas(){
+  const root=$("#capas-lista"); if(!root) return;
+  root.innerHTML=CAPAS_DEF.map(g=>`
+    <div class="mt-3 first:mt-0">
+      <p class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wide mb-1.5">${g.grupo}</p>
+      <div class="space-y-1">
+        ${g.items.map(it=>{
+          const on=capasEstado[it.id];
+          return `<button type="button" data-capa="${it.id}" aria-pressed="${on}"
+            class="w-full flex items-center justify-between gap-3 px-3 py-2.5 rounded-full bg-surface-container-low active:scale-[0.99] transition-all ${it.pendiente?"opacity-50":""}">
+            <span class="text-body-md text-on-surface text-left">${it.nombre}${it.pendiente?' <span class="text-label-sm text-on-surface-variant">· pronto</span>':""}</span>
+            <span class="capa-switch relative shrink-0 w-11 h-6 rounded-full transition-colors ${on?"bg-primary":"bg-surface-variant"}">
+              <span class="capa-switch-dot absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${on?"translate-x-[22px]":""}"></span>
+            </span>
+          </button>`;}).join("")}
+      </div>
+    </div>`).join("");
+}
+
+// ------------------------------------------------------------- apertura UI --
+function abrirPanelCapas(){
+  pintarPanelCapas();
+  $("#capas-sheet")?.classList.remove("hidden");
+  $("#map-layers")?.setAttribute("aria-expanded","true");
+}
+function cerrarPanelCapas(){
+  $("#capas-sheet")?.classList.add("hidden");
+  $("#map-layers")?.setAttribute("aria-expanded","false");
+}
+$("#map-layers").addEventListener("click",abrirPanelCapas);
+$("#capas-close").addEventListener("click",cerrarPanelCapas);
+$("#capas-backdrop").addEventListener("click",cerrarPanelCapas);
+document.addEventListener("keydown",(e)=>{ if(e.key==="Escape") cerrarPanelCapas(); });
+$("#capas-lista").addEventListener("click",(e)=>{
+  const fila=e.target.closest("[data-capa]"); if(!fila) return;
+  const it=CAPAS_DEF.flatMap(g=>g.items).find(x=>x.id===fila.dataset.capa);
+  if(!it) return;
+  if(it.pendiente){ showToast("Capa disponible en una próxima etapa."); return; }
+  alternarCapa(it,!capasEstado[it.id]);
+});
+
+// ==================== PUNTOS PERSONALIZADOS (mapas.txt §9, Etapa 5) =========
+// Tabla `map_points` en Supabase. Solo los ADMINISTRADORES escriben (RLS con
+// is_admin()); todos los autenticados los leen para verlos en el mapa.
+// Los puntos importados de OSM/GTFS (data/*.geojson) son solo lectura y NO
+// se mezclan con estos: son independientes por diseño (§9).
+const CATEGORIA_PUNTO={general:"General",seguridad:"Seguridad",salud:"Salud",educacion:"Educación",
+  transporte:"Transporte",comercio:"Comercio",areas_verdes:"Áreas verdes",otro:"Otro"};
+const COLOR_PUNTO={general:"#006492",seguridad:"#c92a2a",salud:"#e03131",educacion:"#7048e8",
+  transporte:"#0f7fd4",comercio:"#e8590c",areas_verdes:"#2e9e4f",otro:"#5f6871"};
+
+// --- carga desde Supabase ---------------------------------------------------
+async function cargarPuntosMapa(){
+  if(!state.user) return;
+  const {data,error}=await supabase.from("map_points").select("*").order("created_at",{ascending:true});
+  if(error){
+    // La tabla puede no existir todavía (falta ejecutar sql/06_map_points.sql).
+    console.warn("cargarPuntosMapa:",error.message);
+    state.mapPoints=[]; renderPuntosMapa(); return;
+  }
+  state.mapPoints=data||[];
+  renderPuntosMapa();
+}
+
+// --- render (marcadores propios, independientes de las actividades) ---------
+function renderPuntosMapa(){
+  state.pointMarkers.forEach(m=>m.remove());
+  state.pointMarkers.clear();
+  const map=state.map; if(!map||!state.mapListo) return;
+  const visibles=state.mapPoints.filter(p=>p.visible||isAdmin());  // el admin ve también los ocultos
+  visibles.forEach(p=>{
+    const el=document.createElement("div");
+    el.className="map-point map-point-png";
+    const ico=ICONO_PUNTO[p.category]||ICONO_PUNTO.general;
+    el.style.backgroundImage=`url('./icons/${ico}')`;
+    el.style.backgroundSize="contain";
+    el.style.backgroundRepeat="no-repeat";
+    el.style.backgroundPosition="center";
+    el.title=p.name;
+    const tipoTag=p.tipo==="personal"?"<span class=\"muted\" style=\"font-size:10px\">· personal</span>":"<span class=\"muted\" style=\"font-size:10px\">· general</span>";
+    const popup=new maplibregl.Popup({offset:22,closeButton:true}).setHTML(
+      `<strong>${esc(p.name)}</strong>${tipoTag}`+
+      (p.description?`<br>${esc(p.description)}`:"")+
+      (p.comuna?`<br><span class="muted">${esc(p.comuna)}</span>`:"")+
+      `<br><span class="muted">${esc(CATEGORIA_PUNTO[p.category]||p.category)}</span>`);
+    const m=new maplibregl.Marker({element:el,anchor:"bottom"})
+      .setLngLat([p.longitude,p.latitude]).setPopup(popup).addTo(map);
+    if(isAdmin()){
+      el.classList.add("map-point-admin");
+      el.addEventListener("click",()=>abrirFormPunto(p));
+    }
+    state.pointMarkers.set(p.id,m);
+  });
+  aplicarCapas();   // la capa "Puntos personalizados" puede estar apagada
+  // Respeta el interruptor del panel para los marcadores de punto.
+  state.pointMarkers.forEach(m=>m.getElement().classList.toggle("hidden",!capasEstado.puntos));
+}
+
+// --- modo edición: clic en el mapa para ubicar el punto --------------------
+// Cualquier usuario autenticado puede agregar puntos personales (§9).
+// Solo el admin puede crear puntos GENERALES (visibles para todos).
+function activarModoPunto(){
+  if(!state.user){ showToast("Inicia sesión para agregar puntos."); return; }
+  state.pointMode=true;
+  $("#map-point-mode")?.classList.remove("hidden");
+  showToast(isAdmin()?"Toca el mapa para ubicar un punto (general o personal).":"Toca el mapa para ubicar un punto personal.");
+}
+function desactivarModoPunto(){
+  state.pointMode=false;
+  $("#map-point-mode")?.classList.add("hidden");
+}
+$("#map-add-point")?.addEventListener("click",activarModoPunto);
+
+// --- formulario -------------------------------------------------------------
+function abrirFormPunto(p=null,lat=null,lng=null){
+  if(!state.user) return;
+  $("#point-dialog-title").textContent=p?"Editar punto":"Nuevo punto";
+  $("#point-id").value=p?.id||"";
+  $("#point-name").value=p?.name||"";
+  $("#point-description").value=p?.description||"";
+  $("#point-category").value=p?.category||"general";
+  $("#point-icon").value=p?.icon||"place";
+  $("#point-lat").value=p?p.latitude:(lat??"");
+  $("#point-lng").value=p?p.longitude:(lng??"");
+  $("#point-visible").checked=p?!!p.visible:true;
+  // Tipo de punto: admin puede crear general o personal; usuarios solo personal.
+  const tipoSel=$("#point-tipo"); const tipoLab=$("#point-tipo-label");
+  if(isAdmin()){
+    tipoLab?.classList.remove("hidden");
+    tipoSel.value=p?.tipo||"general";
+  } else {
+    tipoLab?.classList.add("hidden");
+    tipoSel.value="personal";
+  }
+  $("#point-delete")?.classList.toggle("hidden",!p||!isAdmin());
+  notifyError($("#point-error"),"");
+  $("#point-dialog")?.classList.remove("hidden");
+}
+function cerrarFormPunto(){
+  $("#point-dialog")?.classList.add("hidden");
+  notifyError($("#point-error"),"");
+}
+$("#point-close")?.addEventListener("click",cerrarFormPunto);
+$("#point-backdrop")?.addEventListener("click",cerrarFormPunto);
+
+// --- guardar / eliminar -----------------------------------------------------
+$("#point-form")?.addEventListener("submit",async e=>{
+  e.preventDefault();
+  if(!state.user){ notifyError($("#point-error"),"Inicia sesión para guardar puntos."); return; }
+  const id=$("#point-id").value;
+  const name=$("#point-name").value.trim();
+  const lat=Number($("#point-lat").value), lng=Number($("#point-lng").value);
+  if(!name){ notifyError($("#point-error"),"El nombre es obligatorio."); return; }
+  if(!Number.isFinite(lat)||!Number.isFinite(lng)){ notifyError($("#point-error"),"Coordenadas inválidas."); return; }
+  // Rango de la Región Metropolitana (mismo check que la tabla en SQL).
+  if(lat<-34.5||lat>-32.7||lng<-72||lng>-69.5){
+    notifyError($("#point-error"),"Las coordenadas deben estar dentro de la Región Metropolitana."); return; }
+  const tipo=isAdmin()?$("#point-tipo").value:"personal";
+  const payload={name,description:$("#point-description").value.trim(),
+    category:$("#point-category").value,icon:$("#point-icon").value,
+    latitude:lat,longitude:lng,visible:$("#point-visible").checked,tipo};
+  const res=id
+    ? await supabase.from("map_points").update(payload).eq("id",id).select("id")
+    : await supabase.from("map_points").insert({...payload,created_by:state.user.id}).select("id");
+  if(res.error){
+    console.error("point-form: guardar",res.error);
+    notifyError($("#point-error"),describeError(res.error,"puntos del mapa")); return;
+  }
+  cerrarFormPunto();
+  await cargarPuntosMapa();
+  showToast(id?"Punto actualizado.":"Punto creado y visible para todos.");
+});
+$("#point-delete")?.addEventListener("click",async()=>{
+  const id=$("#point-id").value; if(!id) return;
+  if(!confirm("¿Eliminar este punto del mapa?")) return;
+  const {error}=await supabase.from("map_points").delete().eq("id",id);
+  if(error){ console.error("point delete",error); notifyError($("#point-error"),describeError(error,"puntos del mapa")); return; }
+  cerrarFormPunto();
+  await cargarPuntosMapa();
+  showToast("Punto eliminado.");
 });
 
 // ==================== PANTALLA COMPLETA (mapas.txt §3.1) ====================

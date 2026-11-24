@@ -84,17 +84,14 @@ Propuesta de organización:
 ### A. Transporte
 
 - Estaciones de Metro.
-- Líneas de Metro.
 - Estaciones de combinación.
 - MetroTren.
 - Estaciones intermodales.
-- Paraderos de transporte público, como capa opcional.
+- Terminal de buses
 
 ### B. Áreas verdes
 
 - Parques urbanos.
-- Plazas.
-- Jardines públicos.
 - Áreas verdes.
 - Parques metropolitanos.
 - Cerros isla y espacios naturales, cuando existan datos disponibles.
@@ -102,19 +99,13 @@ Propuesta de organización:
 ### C. Comercio
 
 - Centros comerciales y malls.
-- Supermercados.
-- Grandes tiendas.
-- Mercados y ferias.
-- Centros comerciales de barrio.
+
 
 ### D. Salud
 
 - Hospitales.
-- Clínicas.
-- CESFAM.
 - SAPU.
 - SAR.
-- Centros médicos.
 - Centros de atención de urgencia.
 
 ### E. Seguridad y emergencias
@@ -122,28 +113,13 @@ Propuesta de organización:
 - Comisarías.
 - Tenencias y retenes.
 - Cuarteles de Bomberos.
-- Hospitales de referencia.
-- Puntos de encuentro.
-- Zonas seguras.
-- Puntos de emergencia definidos por administradores.
 
-### F. Educación
 
-- Colegios.
-- Escuelas.
-- Liceos.
-- Jardines infantiles.
-- Universidades.
-- Institutos profesionales.
 
 ### G. Servicios públicos
 
 - Municipalidades.
-- Oficinas públicas.
-- Registro Civil.
-- Bancos.
-- Correos.
-- Servicios de atención ciudadana.
+
 
 ### H. Actividades de la aplicación
 
@@ -167,14 +143,12 @@ Ejemplos:
 
 - Metro: tren.
 - Parques: árbol.
-- Plazas: área verde.
 - Malls: edificio comercial.
 - Supermercados: carrito.
 - Hospitales: cruz médica.
 - CESFAM: cruz médica diferenciada.
 - Carabineros: escudo.
 - Bomberos: camión de bomberos.
-- Colegios: edificio educativo.
 - Actividades: icono de calendario.
 - Emergencias: símbolo de alerta.
 
@@ -225,16 +199,11 @@ https://www.openstreetmap.org/
 Permite obtener información geográfica sobre:
 
 - Parques.
-- Plazas.
 - Centros comerciales.
-- Supermercados.
 - Hospitales.
-- Centros médicos.
 - Comisarías.
 - Bomberos.
-- Colegios.
-- Universidades.
-- Servicios y establecimientos comerciales.
+- Cdentros comerciales.
 
 Herramienta de consulta:
 
@@ -309,7 +278,6 @@ Utilizar GTFS para obtener:
 - Paradas y estaciones.
 - Coordenadas geográficas.
 - Identificadores de estaciones.
-- Información de rutas.
 - Servicios asociados.
 
 Consultar especialmente los archivos:
@@ -433,7 +401,7 @@ Transporte:
 - [OFF] Metro.
 - [OFF] Líneas de Metro.
 - [OFF] MetroTren.
-- [OFF] Paraderos.
+- [OFF] Terminal de Buses.
 
 Áreas verdes:
 - [OFF] Parques.
@@ -442,13 +410,10 @@ Transporte:
 
 Comercio:
 - [OFF] Centros comerciales.
-- [OFF] Supermercados.
-- [OFF] Mercados y ferias.
 
 Servicios:
 - [OFF] Salud.
 - [OFF] Seguridad.
-- [OFF] Educación.
 - [OFF] Servicios públicos.
 
 Aplicación:
@@ -564,11 +529,11 @@ Implementar:
 
 Incorporar:
 - Metro y MetroTren.
-- Parques y plazas.
+- Terminal de Buses
+- Parques.
 - Centros comerciales.
 - Servicios de salud.
 - Seguridad.
-- Educación.
 - Otros servicios.
 
 ### Etapa 4: Capas
