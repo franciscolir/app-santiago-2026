@@ -15,6 +15,12 @@ const dayFmt = new Intl.DateTimeFormat("es-CL",{day:"numeric",month:"short"});
 const timeFmt = (v) => v ? v.slice(0,5) : "";
 const esc = (v="") => String(v).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const cap = (s) => s ? s[0].toUpperCase()+s.slice(1) : s;
+// Coordenadas legibles para los popups (§6). Formato chileno: -33,45450.
+const coordTexto = (c) => {
+  const lon=Number(c?.[0]), lat=Number(c?.[1]);
+  if(!Number.isFinite(lat)||!Number.isFinite(lon)) return "";
+  return `${lat.toFixed(5).replace(".", ",")} · ${lon.toFixed(5).replace(".", ",")}`;
+};
 const todayStr = () => { const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; };
 const initials = (name="") => name.trim().split(/\s+/).filter(Boolean).slice(0,2).map(w=>w[0]).join("").toUpperCase() || "?";
 
@@ -402,7 +408,16 @@ function renderMap(){
       desactivarModoPunto();
       abrirFormPunto(null,e.lngLat.lat,e.lngLat.lng);
     });
-    state.map.on("load",()=>{
+    // El mapa se da por "listo" con el evento `load` (estilo aplicado y fuentes
+    // del estilo cargadas). Antes de eso, en `style.load`, se elimina la fuente
+    // ráster "ne2_shaded" del estilo OpenFreeMap: NINGUNA capa la usa (la base
+    // es el satélite) y, si su carga se demora, MapLibre nunca termina de
+    // "cargar" el estilo → el mapa se queda en blanco y las capas propias
+    // (comunas, lugares) no se añaden.
+    let mapaIniciado=false;
+    const iniciarMapa=()=>{
+      if(mapaIniciado) return;
+      mapaIniciado=true;
       state.mapListo=true;
       // §10: se respetan las preferencias guardadas del usuario (vista satelital
       // y límites comunales se encienden según su última elección).
@@ -418,7 +433,22 @@ function renderMap(){
           cargarLugares(it.capaLugares).catch(err=>console.warn("capa",it.id,err));
         }
       }));
-    });
+    };
+    const quitarRelieveNaturalEarth=()=>{
+      try{
+        if(state.map.getLayer("ne2_shaded")) state.map.removeLayer("ne2_shaded");
+        if(state.map.getSource("ne2_shaded")) state.map.removeSource("ne2_shaded");
+      }catch(_){ /* si no existe, nada que hacer */ }
+    };
+    state.map.on("style.load",quitarRelieveNaturalEarth);
+    state.map.on("load",iniciarMapa);
+    // Red de seguridad: si alguna fuente del estilo se demora, se reintenta cada
+    // segundo. No se añaden sources antes de que el estilo esté listo: hacerlo
+    // con el estilo a medio cargar puede dejar el mapa sin dibujar.
+    const vigilante=setInterval(()=>{
+      if(!state.map||state.map.isStyleLoaded()){ clearInterval(vigilante); iniciarMapa(); }
+    },1000);
+    setTimeout(()=>clearInterval(vigilante),30000);
   }
   if(state.mapListo) renderMarkers();
 }
@@ -799,10 +829,11 @@ async function cargarTransporte(){
     layout:{"text-field":["get","nombre"],"text-size":11,"text-offset":[0,0.9],"text-anchor":"top"},
     paint:{"text-color":"#ffffff","text-halo-color":"#0b2b3d","text-halo-width":1.4}});
 
-  // Popups (§6: nombre, categoría y comuna).
+  // Popups (§6: nombre, categoría, dirección, comuna, coordenadas, fuente, fecha).
   const popupLugar=new maplibregl.Popup({closeButton:true,offset:14,maxWidth:"260px"});
   const abrirPopup=(ids)=>map.on("click",ids,(e)=>{
-    const p=e.features?.[0]?.properties; if(!p) return;
+    const f=e.features?.[0]; if(!f) return;
+    const p=f.properties;
     // `lineas` puede venir como array o como texto serializado.
     let lineasP=p.lineas;
     if(typeof lineasP==="string"){ try{ lineasP=JSON.parse(lineasP); }catch(_){ lineasP=[lineasP]; } }
@@ -811,7 +842,9 @@ async function cargarTransporte(){
     popupLugar.setLngLat(e.lngLat).setHTML(
       `<strong>${esc(p.nombre)}</strong>`+
       (lineasP.length?`<br>${lineasP.map(esc).join(" · ")}`:"")+
+      (p.combinaciones?`<br><span class="muted">Estación de combinación</span>`:"")+
       (p.comuna?`<br><span class="muted">${esc(p.comuna)}</span>`:"")+
+      `<br><span class="muted" style="font-size:11px">${coordTexto(f.geometry?.coordinates||[e.lngLat.lng,e.lngLat.lat])}</span>`+
       `<br><span class="muted" style="font-size:11px">${p.tipo==="metrotren"?"EFE Trenes de Chile":"Metro de Santiago"} · DTPM GTFS</span>`
     ).addTo(map);
   });
@@ -859,17 +892,21 @@ async function cargarLugares(capa){
     filter:["!",["has","point_count"]],
     layout:{"icon-image":`icono-${icono}`,"icon-size":0.5,"icon-allow-overlap":true,"icon-ignore-placement":true}});
 
-  // Popup con nombre, subcategoría, dirección, comuna, fuente y fecha (§6).
+  // Popup con nombre, categoría, dirección, comuna, coordenadas, fuente y fecha (§6).
   const popup=new maplibregl.Popup({closeButton:true,offset:[0,-14],maxWidth:"260px"});
   map.on("click",`${fuente}-puntos`,(e)=>{
-    const p=e.features?.[0]?.properties; if(!p) return;
+    const f=e.features?.[0]; if(!f) return;
+    const p=f.properties;
     comunaPopup?.remove();   // no dejar dos popups superpuestos
     const fecha=p.actualizado?`${p.actualizado.slice(0,10)}`:"";
     popup.setLngLat(e.lngLat).setHTML(
       `<strong>${esc(p.nombre)}</strong>`+
       (p.subcategoria?`<br>${esc(p.subcategoria)}`:"")+
+      (p.categoria_label?`<br><span class="muted">${esc(p.categoria_label)}</span>`:"")+
       (p.direccion?`<br><span class="muted">${esc(p.direccion)}</span>`:"")+
       (p.comuna?`<br><span class="muted">${esc(p.comuna)}</span>`:"")+
+      (p.area_m2?`<br><span class="muted">${Math.round(p.area_m2).toLocaleString("es-CL")} m²</span>`:"")+
+      `<br><span class="muted" style="font-size:11px">${coordTexto(f.geometry?.coordinates||[e.lngLat.lng,e.lngLat.lat])}</span>`+
       (fecha?`<br><span class="muted" style="font-size:11px">OSM · ODbL · ${fecha}</span>`:`<br><span class="muted" style="font-size:11px">OpenStreetMap · ODbL</span>`)
     ).addTo(map);
   });

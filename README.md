@@ -47,3 +47,13 @@ Luego entra a `http://localhost:8080`.
 - `manifest.webmanifest` incluye iconos de 192/512 px y variante *maskable*.
 - `sw.js` guarda los recursos locales para abrir la interfaz sin conexión.
 - Los datos de Supabase y los recursos externos por CDN todavía requieren conexión.
+
+## 8. Módulo de mapa
+
+- Implementación, fuentes, SQL y procedimiento de importación: **`DOCUMENTACION-MAPA.md`**.
+- Plan y resultados de pruebas: **`PRUEBAS.md`**.
+- Verificación automática (datos, coordenadas, duplicados, referencias, RLS y claves privadas):
+
+```bash
+node scripts/verificar-mapa.mjs
+```

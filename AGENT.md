@@ -793,6 +793,65 @@ Errores reportados por el usuario al abrir la app publicada + ajustes derivados.
 
 ### Pendiente
 
-- **Etapas 6 (pruebas) y 7 (documentación)** de `mapas.txt`.
+- **Etapas 6 (pruebas) y 7 (documentación)** de `mapas.txt`: entregadas el 2026-11-25
+  (`scripts/verificar-mapa.mjs`, `PRUEBAS.md` y `DOCUMENTACION-MAPA.md`).
 - Ejecutar en Supabase (SQL Editor, en este orden): `sql/06_map_points.sql` → `sql/07_terminales.sql`.
 - Si `map_points` aún no existe, el frontend registra el aviso `cargarPuntosMapa:` y sigue funcionando.
+
+## 22. Datos con los filtros estrictos + Etapas 6 y 7 (2026-11-25)
+
+### Datos reimportados con los filtros reales del usuario
+
+Los archivos `parques`, `comercio` y `salud` estaban generados con una versión anterior del
+importador y **no cumplían** los filtros pedidos (contenían plazas pequeñas, supermercados,
+mercados y clínicas privadas). Se reescribió `scripts/importar-lugares.mjs` y se regeneró todo:
+
+| Capa | Antes | Ahora | Regla aplicada |
+|---|---|---|---|
+| Parques | 2.244 (plazas, áreas recreativas, playgrounds) | **380** | `leisure=park` con área ≥ **1 ha**, o nombre de cerro, o `tourism=zoo` |
+| Plazas | 42 | **42** | `place=square` (plaza de armas) |
+| Comercio | 708 (supermercados, mercados) | **131** | solo `shop=mall` |
+| Salud | 513 (clínicas privadas) | **269** | solo SAPU/SAR/CESFAM/CECOSF/consultorios/centros de salud/postas u operador público |
+| Seguridad | 345 | 345 | bomberos, Carabineros, comisarías y tenencias |
+| Servicios | 61 | 61 | solo municipalidades |
+
+- El importador ahora usa `out geom`: calcula el **área real** (shoelace) y el **centroide**
+  de cada elemento OSM, y guarda `area_m2` en las propiedades (visible en el popup).
+- Se descartan los elementos fuera del bbox de la RM (el área de Overpass arrastraba volcanes
+  que están en Argentina).
+- `place=square` NO lleva filtro de área: en OSM la plaza suele ser un nodo (centroide) y el
+  área real un way sin tag; filtrar por área las hacía desaparecer.
+
+### Se eliminó la fuente `ne2_shaded` del estilo OpenFreeMap
+
+- El estilo `positron` declara la fuente ráster `ne2_shaded` (relieve Natural Earth) pero
+  **ninguna capa la usa**. Si su carga se demora, MapLibre nunca termina de "cargar" el estilo:
+  el mapa queda en blanco y las capas propias (comunas, lugares) no se añaden nunca.
+- Ahora, en `style.load`, se elimina esa fuente y en `load` se añaden las capas propias, con
+  un vigilante que reintenta cada segundo hasta que el estilo esté listo.
+- Resultado medido: `isStyleLoaded() = true`, 11.216 features renderizadas y las 6 capas de
+  lugares con sus clusters.
+
+### Popups completos (§6)
+
+- Lugares: nombre, subcategoría, **categoría**, dirección, comuna, **área (m²)**,
+  **coordenadas**, fuente y fecha. Metro: nombre, líneas, **estación de combinación**, comuna,
+  **coordenadas** y fuente.
+
+### Iconos de los puntos personalizados
+
+- El icono elegido en el formulario (`#point-icon`) ahora manda sobre el de la categoría; al
+  cambiar la categoría se propone el equivalente (`ICONO_POR_CATEGORIA`).
+
+### Etapa 6 — Pruebas
+
+- `scripts/verificar-mapa.mjs`: **88 pruebas automáticas, 0 fallos, 2 avisos** (datos,
+  coordenadas, duplicados, subcategorías filtradas, referencias del frontend, precache,
+  credenciales privadas y políticas RLS de los SQL).
+- `PRUEBAS.md`: plan completo con 20 pruebas manuales (17 ✅, 3 ⏳ pendientes de Supabase).
+
+### Etapa 7 — Documentación
+
+- `DOCUMENTACION-MAPA.md`: modificaciones, tablas, SQL/RLS, fuentes, procedimiento de
+  importación, variables de configuración, pruebas y limitaciones conocidas.
+- `README.md`: enlaza la documentación y el comando de verificación.
