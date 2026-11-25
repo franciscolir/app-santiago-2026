@@ -899,9 +899,67 @@ mercados y clínicas privadas). Se reescribió `scripts/importar-lugares.mjs` y 
 - **Quitar la fuente después de crear el mapa no sirve**: MapLibre recarga el estilo entero y
   **borra las capas propias** ya añadidas (se vio en la prueba: las fuentes `comunas` y
   `lugares-*` desaparecieron).
-- **Solución**: `obtenerEstiloBase()` descarga el JSON del estilo, le quita `ne2_shaded`
-  (fuente y capas que la usen) y se lo pasa a MapLibre **como objeto**. El arranque del mapa
-  se hace en `style.load` con reintentos (el vigilante llama a `iniciarMapa()` cada segundo
-  hasta que `addSource` deja de lanzar).
+- **Solución (versión inicial, corregida en §24)**: `obtenerEstiloBase()` descargaba el JSON
+  del estilo, le quitaba `ne2_shaded` (fuente y capas que la usen) y se lo pasaba a MapLibre
+  **como objeto**. El arranque del mapa se hace en `style.load` con reintentos (el vigilante
+  llama a `iniciarMapa()` cada segundo hasta que `addSource` deja de lanzar).
 - Medido: `isStyleLoaded=true`, `loaded=true`, fuentes `openmaptiles, satelite, comunas,
   lugares-*`, 26 features de lugares renderizadas, 0 errores de consola.
+
+---
+
+## 24. Vista de mapa a pantalla completa + puntos que se achican (2026-11-25)
+
+### Lo pedido
+
+1. El mapa debe usar **el máximo espacio posible** y, solo en esa vista, **sin el header**.
+2. El **panel inferior de actividades** colapsable.
+3. Los **botones del mapa a la derecha**, en **fila horizontal**, **colapsables** en un único
+   **botón superior derecho con flecha hacia abajo**.
+4. **Iconos al acercar / punto de color al alejar**: el punto se achica hasta desaparecer.
+   Todos los puntos menos los marcados como **fijos**. Al agregar un punto debe existir la
+   opción de vista fija.
+5. **Lupa colapsable arriba a la izquierda** que abre un input de búsqueda.
+
+### Lo implementado
+
+| Requisito | Implementación |
+|---|---|
+| Máximo espacio | `body.vista-mapa` (se activa en `gotoView("mapa")`): oculta `#app > header` y fija `#view-mapa` en `calc(100dvh - 4rem - safe-area)`; el marco pasó de `h-[62vh]` a `h-full` |
+| Panel inferior colapsable | `#mapa-panel-toggle` (asa + flecha) pliega `#mapa-panel-cuerpo` (269 px → 58 px); `colapsarPanelMapa()` reabre el panel al seleccionar una actividad |
+| Controles a la derecha y colapsables | `#map-controls-row` (8 botones en una fila horizontal de 362 px) + `#map-controls-toggle` con `keyboard_arrow_down` que rota 180° al desplegar |
+| Lupa colapsable | `#map-search-toggle` (lupa) → `#map-search-wrap` con foco automático; `#map-search-close` limpia el filtro |
+| Icono ↔ punto de color | `ZOOM_PUNTO_MIN=7`, `ZOOM_ICONO=12.5`, `RADIO_PUNTO_MAX=7`. Capas de lugares: `circle` `${capa}-puntos-mini` (`minzoom:7`, `maxzoom:12.5`, radio interpolado) + `symbol` `${capa}-puntos` (`minzoom:12.5`). Puntos propios: `actualizarPuntosSegunZoom()` en el evento `zoom` con las clases `.map-point-punto` / `.map-point-oculto` |
+| Vista fija | Columna `fijo` (`sql/06` y `sql/08_puntos_fijos.sql`), casilla `#point-fijo` en el formulario y `dataset.fijo` en el marcador: el icono se conserva a cualquier zoom |
+| Atribución | `--mapa-panel-h` se recalcula con `ResizeObserver` sobre el panel **y** el mapa (antes quedaba desfasada: 279 px con el panel plegado) |
+
+### Bug real encontrado: el estilo pasado como objeto no carga en MapLibre 4.7.1
+
+- La solución anterior (`obtenerEstiloBase()` → `new Map({style: objeto})`) **no funciona**:
+  en MapLibre 4.7.1 `Style.loadJSON()` aplaza la carga a un `requestAnimationFrame`
+  (`browser.frameAsync`) → si la pestaña no pinta, **el mapa queda en blanco**.
+  Comprobado en el navegador de pruebas: con el objeto, `stylesheet=false` y 0 capas; con la
+  URL, 55 capas.
+- **Solución definitiva**: el mapa se crea con la **URL** del estilo (`style: MAP_STYLE`) y la
+  fuente inútil `ne2_shaded` se quita en `limpiarEstiloBase()` dentro del evento `style.load`
+  y **antes** de añadir las capas propias (verificado: las capas propias sobreviven y no se
+  recarga el estilo).
+- De paso, `clusterMaxZoom` bajó de 13 a 12 para que el punto de color y el icono encadenen
+  sin huecos, y el radio máximo del icono se ajustó a 128 px (se veía muy grande).
+
+### Limitación del entorno de pruebas
+
+- El navegador embebido de pruebas **no dispara `requestAnimationFrame`**: MapLibre no
+  repinta (`map.loaded()` queda en `false` y `queryRenderedFeatures()` devuelve 0). No es un
+  fallo de la app. Se verificó por otra vía: `style.load` dispara, `ne2_shaded` se elimina,
+  las 67 capas quedan creadas (`comunas-*`, `lugares-*-puntos`, `lugares-*-puntos-mini`,
+  `satelite-layer`) y las 5 actividades tienen su marcador.
+
+### Verificación
+
+- `node scripts/verificar-mapa.mjs` → **138 pruebas · 0 fallos · 2 avisos** (bloque nuevo
+  `[6] Vista de mapa`: espacio, controles, zoom, vista fija, SQL y regresión del estilo).
+- Navegador: header `display:none`, mapa 614 px en una ventana de 678 px, lupa (12,12),
+  controles (856,12) con 8 botones en fila, panel 269 → 58 px con `--mapa-panel-h` = 68 px,
+  formulario con la casilla “Vista fija”, **0 errores de consola**.
+- `sw.js` subido a `CACHE_NAME` **v5** (renueva la precache del app shell con el rediseño).

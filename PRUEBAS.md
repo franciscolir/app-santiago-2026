@@ -20,6 +20,7 @@ Sin dependencias: solo Node.js ≥ 18. Comprueba:
 | 3. Lugares | Un archivo por capa, solo geometrías `Point`, dentro de la RM, campos §8 completos, sin duplicados (categoría+nombre+comuna), subcategorías dentro de la lista permitida por capa (filtros estrictos del usuario) |
 | 4. Frontend | Catálogo de iconos SVG completo (archivo, `viewBox` y tamaño), PNG de respaldo de cada icono, existe el GeoJSON de cada capa del panel, todos los recursos del precache existen, los paraderos no están en el precache, `CACHE_NAME` versionado, sin `onclick` inline (los módulos no exponen globales), sin hooks de depuración, iconos rasterizados sin `map.loadImage`, selector visual de iconos presente |
 | 5. Seguridad y SQL | Sin `service_role` en el frontend (se ignoran los comentarios), `config.js` con publishable key, políticas RLS de `sql/06`, `sql/07` con las 4 terminales y sus `external_id` OSM, `ON CONFLICT` con el predicado del índice parcial (regresión del error 42P10) |
+| 6. Vista de mapa (2026-11-25) | El header se oculta en la vista mapa y el mapa usa `100dvh`; lupa del buscador arriba a la izquierda; controles colapsables arriba a la derecha con flecha hacia abajo y fila horizontal; panel inferior colapsable; umbrales de zoom y capa de punto de color (`-puntos-mini`) con radio interpolado; puntos con marca de "vista fija"; casilla `#point-fijo` y columna `fijo` en `sql/06`/`sql/08`; el mapa se crea con la **URL** del estilo (no con el objeto, que depende de `requestAnimationFrame`) y quita `ne2_shaded` en `style.load` |
 
 ---
 
@@ -50,19 +51,35 @@ Sin dependencias: solo Node.js ≥ 18. Comprueba:
 | 22 | Icono elegido por el usuario | Al elegir un icono queda marcado y al cambiar la categoría se propone el equivalente | ✅ |
 | 23 | `sql/07_terminales.sql` | Se ejecuta sin error **42P10** y deja las 4 terminales con `tipo='general'` | ⏳ requiere aplicar en Supabase |
 | 24 | Iconos offline | Los iconos SVG ya descargados se sirven desde caché (cache-first del service worker) | ✅ |
+| 25 | Vista mapa a pantalla completa | Al abrir la pestaña **Mapa** desaparece el header y el mapa ocupa todo el alto disponible (614 px de 678 px, descontando la barra de navegación de 64 px) | ✅ |
+| 26 | Buscador colapsable | Arriba a la izquierda hay una **lupa**; al presionarla se abre el input con el foco puesto y al cerrarlo se limpia el filtro | ✅ |
+| 27 | Controles del mapa | Colapsados solo se ve el **botón con flecha hacia abajo** arriba a la derecha; al presionarlo se despliega la fila horizontal de 8 botones a su izquierda y la flecha rota 180° | ✅ |
+| 28 | Panel inferior de actividades | Se pliega a 58 px con la flecha hacia arriba y se despliega de nuevo; al elegir una actividad se reabre | ✅ |
+| 29 | Iconos al acercar / punto al alejar | Cerca (zoom ≥ 12,5) se ve el icono; al alejar aparece el punto del color del pin y se achica hasta desaparecer (zoom 7) | ✅ (capas y CSS verificados) |
+| 30 | Vista fija | El formulario de punto tiene la casilla **“Vista fija (mostrar siempre el icono)”**; ese punto conserva su icono a cualquier zoom | ✅ (frontend) |
+| 31 | Atribución sobre el panel | El control de atribución de MapLibre se reposa sobre el panel (`--mapa-panel-h`: 279 px con el panel abierto, 68 px plegado) | ✅ |
+| 32 | Estilo sin `ne2_shaded` | La fuente inútil se elimina en `style.load` y **las capas propias siguen vivas** (`comunas-*`, `lugares-*`, `satelite-layer`) | ✅ |
 
 ---
 
 ## 3. Resultados de la corrida automática
 
-- **2026-11-25**: **101 pruebas · 0 fallos · 2 avisos**.
+- **2026-11-25 (vista de mapa)**: **138 pruebas · 0 fallos · 2 avisos**.
   - Los dos avisos son nombres que contienen palabras educativas: dos “Granja Educativa”
     (etiquetadas como zoológico en OSM) y “Cerro Escuela La Cantera” (cerro parque), más
     un consultorio de la Universidad Finis Terrae. **No hay establecimientos educacionales**
     en el mapa: la verificación lo comprueba en cada capa.
+- **2026-11-25 (iconos SVG + fix 42P10)**: **101 pruebas · 0 fallos · 2 avisos**.
 - Avisos no bloqueantes del navegador: Tailwind CDN (aviso conocido de producción) y 3 avisos
   de MapLibre (`Expected value to be of type number, but found null instead`) que provienen del
   estilo OpenFreeMap, no del código de la app.
+- El service worker quedó en `app-santiago-2026-v5` (precache renovada tras el rediseño de la
+  vista de mapa; los iconos SVG siguen en cache-first).
+- **Limitación del navegador embebido de pruebas**: no dispara `requestAnimationFrame`, por lo
+  que MapLibre no repinta (`map.loaded()` queda en `false` y `queryRenderedFeatures()` devuelve
+  0). Se verificó por otra vía que el estilo se aplica, que `ne2_shaded` se elimina y que las
+  capas propias se crean (`comunas-fill`, `lugares-*-puntos`, `lugares-*-puntos-mini`,
+  `satelite-layer`, 67 capas en total). En un navegador normal el mapa se ve con normalidad.
 
 ---
 
@@ -76,6 +93,8 @@ Requiere credenciales del proyecto Supabase (no hay `service_role` en el entorno
      ON CONFLICT specification`), significa que el índice único de `external_id` es parcial:
      hay que usar `on conflict (external_id) where external_id is not null`. La versión
      actual de `sql/07_terminales.sql` ya lo trae corregido.
-3. Repetir las pruebas 11–15 y 23 con dos cuentas: una `admin` y otra normal.
-4. Verificar que el usuario normal recibe error al intentar insertar un punto `tipo='general'`
+3. (Opcional) Ejecutar `sql/08_puntos_fijos.sql` si la tabla `map_points` ya existía antes
+   de esta versión: agrega la columna `fijo` (vista fija). `sql/06` ya la incluye.
+4. Repetir las pruebas 11–15 y 23 con dos cuentas: una `admin` y otra normal.
+5. Verificar que el usuario normal recibe error al intentar insertar un punto `tipo='general'`
    (la política `Admin gestiona puntos generales` debe rechazarlo).

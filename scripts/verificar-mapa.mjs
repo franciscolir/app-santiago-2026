@@ -247,6 +247,86 @@ console.log("[5] Credenciales y SQL");
     "sql/06: índice único parcial de external_id", "no coincide con el índice parcial esperado");
 }
 
+// --------------------------------------------- 6. vista mapa (2026-11-25) -----
+console.log("[6] Vista de mapa: espacio, controles y comportamiento de los puntos");
+{
+  const main = leerTexto("src/main.js") || "";
+  const html = leerTexto("index.html") || "";
+  const css = leerTexto("styles.css") || "";
+
+  // --- el mapa usa todo el espacio y oculta el header -----------------------
+  check(/body\.vista-mapa #app > header\s*\{[^}]*display:\s*none/i.test(css),
+    "vista mapa: oculta el header de la app", "falta la regla del header en styles.css");
+  check(/body\.vista-mapa #view-mapa/.test(css) && /100dvh/.test(css),
+    "vista mapa: altura completa (100dvh)", "no se calcula la altura con dvh");
+  check(/classList\.toggle\("vista-mapa",\s*name\s*===\s*"mapa"\)/.test(main),
+    "vista mapa: la clase se activa al abrir la pestaña", "no se alterna body.vista-mapa");
+  check(/h-full/.test(html) && !/h-\[62vh\]/.test(html),
+    "vista mapa: el marco ocupa el alto disponible", "sigue con una altura fija (62vh)");
+
+  // --- buscador colapsable (lupa arriba a la izquierda) ----------------------
+  check(/id="map-search-toggle"/.test(html), "buscador: botón lupa", "falta #map-search-toggle");
+  check(/id="map-search-wrap"/.test(html), "buscador: contenedor del input", "falta #map-search-wrap");
+  check(/id="map-search-close"/.test(html), "buscador: botón cerrar", "falta #map-search-close");
+  check(/function abrirBuscador|const abrirBuscador/.test(main), "buscador: función de apertura", "no abre el buscador");
+
+  // --- controles del mapa a la derecha, colapsables con flecha hacia abajo ---
+  check(/id="map-controls-toggle"/.test(html), "controles: botón colapsable", "falta #map-controls-toggle");
+  check(/id="map-controls-row"/.test(html), "controles: fila horizontal", "falta #map-controls-row");
+  check(/keyboard_arrow_down/.test(html), "controles: flecha hacia abajo", "el botón no usa keyboard_arrow_down");
+  check(/rotate-180/.test(main), "controles: la flecha rota al desplegar", "no rota la flecha");
+  const bloqueControles = (html.match(/<div id="map-controls"[^>]*>/) || [""])[0];
+  check(/absolute right-3 top-3/.test(bloqueControles), "controles: anclados arriba a la derecha", "no están a la derecha");
+
+  // --- panel inferior de actividades colapsable ------------------------------
+  check(/id="mapa-panel-toggle"/.test(html), "panel inferior: botón de colapso", "falta #mapa-panel-toggle");
+  check(/id="mapa-panel-cuerpo"/.test(html), "panel inferior: cuerpo colapsable", "falta #mapa-panel-cuerpo");
+  check(/const colapsarPanelMapa/.test(main), "panel inferior: función de colapso", "no colapsa el panel");
+
+  // --- iconos al acercar / punto de color al alejar -------------------------
+  check(/const ZOOM_PUNTO_MIN\s*=/.test(main) && /const ZOOM_ICONO\s*=/.test(main),
+    "puntos: umbrales de zoom definidos", "faltan ZOOM_PUNTO_MIN / ZOOM_ICONO");
+  check(/-puntos-mini/.test(main), "puntos: capa de punto de color", "falta la capa -puntos-mini");
+  check(/circle-radius.*interpolate/s.test(main), "puntos: el radio se interpola con el zoom", "el radio no depende del zoom");
+  check(/function actualizarPuntosSegunZoom/.test(main), "puntos: función de actualización por zoom", "no existe actualizarPuntosSegunZoom");
+  check(/map\.on\("zoom",actualizarPuntosSegunZoom\)/.test(main), "puntos: se actualiza al hacer zoom", "no escucha el evento zoom");
+  check(/dataset\.fijo/.test(main), "puntos: marca de vista fija por punto", "no guarda dataset.fijo");
+  check(/\.map-point-punto/.test(css) && /\.map-point-oculto/.test(css),
+    "puntos: estilos de punto y de ocultamiento", "faltan las clases CSS de los puntos");
+  check(/\.map-pin\.modo-punto/.test(css), "pines de actividad: modo punto", "falta .map-pin.modo-punto");
+
+  // --- opción "vista fija" al agregar un punto ------------------------------
+  check(/id="point-fijo"/.test(html), "formulario: opción vista fija", "falta #point-fijo");
+  check(/type="checkbox"[^>]*id="point-fijo"|id="point-fijo"[^>]*type="checkbox"/.test(html),
+    "formulario: la vista fija es un checkbox", "#point-fijo no es un checkbox");
+  check(/fijo\s*:\s*\$\("#point-fijo"\)\.checked/.test(main), "formulario: se guarda el valor fijo", "no se envía fijo");
+
+  // --- SQL de la columna fijo -----------------------------------------------
+  const sql06 = leerTexto("sql/06_map_points.sql") || "";
+  check(/add column if not exists fijo boolean not null default false/i.test(sql06),
+    "sql/06: columna fijo", "falta la columna fijo");
+  const sql08 = leerTexto("sql/08_puntos_fijos.sql") || "";
+  check(!!sql08, "sql/08_puntos_fijos.sql existe", "falta el archivo");
+  check(/add column if not exists fijo boolean not null default false/i.test(sql08),
+    "sql/08: crea la columna fijo", "no crea la columna fijo");
+
+  // --- estilo base: URL (no objeto) y limpieza de ne2_shaded ----------------
+  // Regresión: en MapLibre 4.7.1 `Style.loadJSON()` aplaza la carga a un
+  // requestAnimationFrame; si la pestaña no pinta, el mapa queda en blanco.
+  check(/style:\s*MAP_STYLE/.test(main), "estilo: el mapa se crea con la URL del estilo",
+    "no usa style: MAP_STYLE (el objeto depende de requestAnimationFrame)");
+  check(!/obtenerEstiloBase/.test(main), "estilo: sin estilo como objeto", "quedó obtenerEstiloBase (rompe en segundo plano)");
+  check(/function limpiarEstiloBase/.test(main), "estilo: función de limpieza", "falta limpiarEstiloBase");
+  check(/removeSource\("ne2_shaded"\)/.test(main), "estilo: quita la fuente ne2_shaded", "no quita ne2_shaded");
+  check(/map\.on\("style\.load",\(\)\s*=>\s*\{\s*limpiarEstiloBase\(\);/.test(main),
+    "estilo: limpia ne2_shaded antes de añadir capas propias", "la limpieza no ocurre en style.load");
+
+  // --- la atribución se reposa sobre el panel --------------------------------
+  check(/actualizarAlturaPanelMapa/.test(main), "atribución: altura del panel actualizada", "falta actualizarAlturaPanelMapa");
+  check(/--mapa-panel-h/.test(main) && /--mapa-panel-h/.test(html),
+    "atribución: variable CSS --mapa-panel-h", "no se publica la altura del panel");
+}
+
 // ---------------------------------------------------------------- resumen ----
 console.log("\n" + detalle.join("\n"));
 console.log(`\n=== ${pruebas} pruebas · ${fallos} fallos · ${avisos} avisos ===\n`);

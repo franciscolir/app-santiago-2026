@@ -64,4 +64,5 @@ node scripts/verificar-mapa.mjs
 node scripts/optimizar-iconos.mjs
 ```
 
-- En Supabase (SQL Editor, en este orden): `sql/06_map_points.sql` → `sql/07_terminales.sql`.
+- En Supabase (SQL Editor, en este orden): `sql/06_map_points.sql` → `sql/07_terminales.sql`
+  (opcional `sql/08_puntos_fijos.sql` si la tabla ya existía antes de la columna `fijo`).

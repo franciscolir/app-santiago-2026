@@ -14,15 +14,20 @@ cambio día a día está en `AGENT.md`; el plan de pruebas está en `PRUEBAS.md`
 
 - **Vista satelital por defecto**: fuente ráster Esri World Imagery (`satelite`) + estilo
   OpenFreeMap `positron` superpuesto para los rótulos legibles.
-- El estilo base se descarga y se **limpia antes** de crear el mapa: se elimina la fuente
-  ráster `ne2_shaded` (relieve de Natural Earth) porque **ninguna capa la usa** y, si se
-  demora, MapLibre nunca termina de "cargar" el estilo → el mapa queda en blanco.
-  Quitarla *después* de crear el mapa no sirve (MapLibre recarga el estilo y borra las
-  capas propias), por eso se hace en `obtenerEstiloBase()` (`src/main.js`).
+- El estilo base declara una fuente ráster `ne2_shaded` (relieve de Natural Earth) que
+  **ninguna capa usa**: si esa fuente se demora o falla, MapLibre nunca termina de "cargar"
+  el estilo → el mapa queda en blanco. Se elimina en `limpiarEstiloBase()` (`src/main.js`),
+  en el evento `style.load` y **antes** de añadir las capas propias (quitarla después
+  recarga el estilo y borra lo ya añadido).
+- **El mapa se crea con la URL del estilo, no con el objeto JSON**: en MapLibre 4.7.1
+  `Style.loadJSON()` aplaza la carga a un `requestAnimationFrame`; si la pestaña está en
+  segundo plano (o el navegador no pinta) ese frame nunca llega y el mapa queda en blanco.
+  La ruta por URL no depende de `requestAnimationFrame` y funciona siempre.
 - **Límites comunales**: `data/comunas-rm.geojson` (52 comunas, OSM/ODbL) con capas de
   relleno, resaltado al pasar y borde. Popup con el nombre de la comuna.
 - **Pantalla completa** del mapa y **atribución siempre visible** (control desplazado
-  sobre el panel inferior mediante la variable CSS `--mapa-panel-h`).
+  sobre el panel inferior mediante la variable CSS `--mapa-panel-h`, que se recalcula con
+  un `ResizeObserver` sobre el panel y el contenedor del mapa).
 
 ### 1.2 Datos geográficos (`mapas.txt` §4, §7)
 
@@ -57,11 +62,12 @@ cambio día a día está en `AGENT.md`; el plan de pruebas está en `PRUEBAS.md`
   urgencias, policía, municipalidad, buses, metro, hospital, planetario, evento, salón,
   predicción, betel, casa, información) y clustering nativo de MapLibre.
 - MapLibre solo pinta imágenes rasterizadas: el SVG se descarga con `fetch`, se dibuja en
-  un `<canvas>` (máx. 256 px) y se añade con `map.addImage`. Si el SVG no se puede
+  un `<canvas>` (máx. 128 px) y se añade con `map.addImage`. Si el SVG no se puede
   decodificar se usa el PNG de respaldo de `icons/png/` y, en último caso, un pin de color.
   **No** se usa `map.loadImage` (en este entorno nunca resolvía y dejaba la capa sin añadir).
-- El servicio worker sirve los iconos SVG con **cache-first** (`app-santiago-2026-v4`):
-  se descargan una sola vez.
+- El servicio worker sirve los iconos SVG con **cache-first** (`app-santiago-2026-v5`):
+  se descargan una sola vez. El resto de recursos se sirven **network-first**, y la
+  precache (app shell) se renueva con cada versión del service worker.
 - Popups con **nombre, categoría, dirección, comuna, coordenadas, fuente y fecha**
   (§6). En Metro además líneas y estación de combinación.
 - **Selector visual de iconos** en el formulario de punto: grilla con las miniaturas SVG
@@ -74,10 +80,46 @@ cambio día a día está en `AGENT.md`; el plan de pruebas está en `PRUEBAS.md`
 
 - Botón `#map-add-point`: cualquier usuario autenticado marca un punto en el mapa.
 - **Tipo**: `personal` (solo su autor) o `general` (visible para todos; solo admin).
-- Formulario con nombre, descripción, categoría, **icono elegido**, lat/lon y visibilidad.
+- Formulario con nombre, descripción, categoría, **icono elegido**, lat/lon, visibilidad y
+  **vista fija** (`#point-fijo`).
 - CRUD completo contra Supabase, protegido por RLS.
 
-### 1.6 Agenda y funcionalidades existentes
+### 1.6 Vista de mapa a pantalla completa (2026-11-25)
+
+- **Máximo espacio**: al abrir la pestaña Mapa se añade la clase `body.vista-mapa`, que
+  oculta el **header de la app** (`display:none`) y deja el mapa con
+  `height: calc(100dvh - 4rem - safe-area)`: ocupa toda la pantalla salvo la barra de
+  navegación inferior.
+- **Buscador colapsable**: arriba a la izquierda hay un botón con forma de **lupa**
+  (`#map-search-toggle`); al presionarlo se despliega el input (`#map-search-wrap`) con el
+  foco puesto y, al cerrarlo, se limpia el filtro de la lista de actividades.
+- **Controles del mapa a la derecha, en fila horizontal y colapsables**: quedan agrupados
+  en `#map-controls-row` (acercar, alejar, centrar, GPS, satélite, capas, pantalla completa,
+  agregar punto). Colapsados solo se ve el **botón superior derecho con flecha hacia abajo**
+  (`#map-controls-toggle`, `keyboard_arrow_down`); al presionarlo se despliega la fila a su
+  izquierda y la flecha rota 180° (`rotate-180`).
+- **Panel inferior de actividades colapsable**: `#mapa-panel-toggle` (asa + flecha) pliega
+  la sede seleccionada y la lista de actividades; el panel queda reducido a 58 px y la
+  atribución se reposa sobre él (`--mapa-panel-h`). Al seleccionar una actividad el panel
+  se reabre automáticamente.
+
+### 1.7 Comportamiento de los puntos según el zoom (2026-11-25)
+
+- **Al acercar** (zoom ≥ 12,5) cada punto muestra su **icono**.
+- **Al alejar** el icono se transforma en un **punto del color del pin** y ese punto se
+  **achica a medida que se aleja hasta desaparecer** (radio interpolado entre zoom 12,5 y
+  zoom 7; por debajo de 7 no se dibuja).
+  - Capa de lugares (GeoJSON): capa `circle` `${capa}-puntos-mini` (`minzoom: 7`,
+    `maxzoom: 12,5`, `circle-radius` interpolado) + capa `symbol` `${capa}-puntos`
+    (`minzoom: 12,5`).
+  - Puntos personalizados: la misma lógica en CSS (`actualizarPuntosSegunZoom()` al evento
+    `zoom`): `.map-point-punto` (círculo de color) y `.map-point-oculto` (desaparecido).
+- **Vista fija**: los puntos marcados como fijos (`fijo = true`, opción `#point-fijo` del
+  formulario) **conservan siempre su icono**, a cualquier zoom.
+- Los pines de **actividad** también se reducen a un punto de color, pero con un **tamaño
+  mínimo** (12 px): no desaparecen nunca, para que la sede siempre sea seleccionable.
+
+### 1.8 Agenda y funcionalidades existentes
 
 - La agenda de `agenda.html` quedó integrada en `index.html` (timeline por días, nodo
   activo, acordeones) **sin reemplazar** la agenda semanal ni la relación actividades↔usuarios.
@@ -101,6 +143,7 @@ cambio día a día está en `AGENT.md`; el plan de pruebas está en `PRUEBAS.md`
 | `address`, `comuna`, `source`, `external_id` | `text` | procedencia del dato |
 | `active`, `visible` | `boolean` | flags de publicación |
 | `tipo` | `text` | `personal` \| `general` |
+| `fijo` | `boolean` | vista fija: el punto muestra siempre su icono (por defecto `false`) |
 | `created_by` | `uuid` | FK a `profiles(id)` |
 | `created_at`, `updated_at` | `timestamptz` | trigger `set_map_points_updated_at()` |
 
@@ -122,7 +165,13 @@ Aplicar en el **SQL Editor de Supabase**, en este orden:
 
 -- 2) Semilla de las 4 terminales de bus (puntos generales)
 \i sql/07_terminales.sql
+
+-- 3) (opcional, solo si ya existía la tabla) columna "vista fija"
+\i sql/08_puntos_fijos.sql
 ```
+
+> `sql/06` ya incluye la columna `fijo`; `sql/08_puntos_fijos.sql` sirve para agregarla
+> a una tabla que se creó antes de esta versión (es idempotente).
 
 > **Error 42P10** (`there is no unique or exclusion constraint matching the ON CONFLICT
 > specification`): el índice único de `external_id` es **parcial**
@@ -224,13 +273,21 @@ No hay variables de entorno ni claves de mapas私 embebidas en el repositorio: e
 
 Detalle en `PRUEBAS.md`.
 
-- `node scripts/verificar-mapa.mjs` → **101 pruebas, 0 fallos, 2 avisos** (datos, coordenadas,
-  duplicados, iconos SVG, referencias del frontend, RLS en los SQL y ausencia de claves privadas).
+- `node scripts/verificar-mapa.mjs` → **138 pruebas, 0 fallos, 2 avisos** (datos, coordenadas,
+  duplicados, iconos SVG, vista de mapa a pantalla completa, controles colapsables,
+  comportamiento de los puntos según el zoom, vista fija, referencias del frontend, RLS en
+  los SQL y ausencia de claves privadas).
 - Navegador (2026-11-25): **0 errores de consola**; el mapa abre con satélite + comunas,
   las 6 capas de lugares se encienden/apagan de forma independiente, los iconos **SVG** se
   rasterizan y pintan (17/17 miniaturas del selector cargan), los popups muestran todos
   los campos de §6 y el acordeón de la agenda funciona.
-- El service worker quedó en `app-santiago-2026-v4` (los iconos SVG se sirven cache-first).
+- Vista de mapa (2026-11-25): header oculto (`display:none`), mapa de 614 px en una
+  ventana de 678 px (nav de 64 px), lupa arriba a la izquierda, controles colapsados en el
+  botón con flecha arriba a la derecha (8 botones en una fila horizontal de 362 px),
+  panel inferior plegable (269 px → 58 px, con `--mapa-panel-h` = 68 px) y formulario de
+  punto con la casilla **“Vista fija (mostrar siempre el icono)”**.
+- El service worker quedó en `app-santiago-2026-v5` (los iconos SVG se sirven cache-first y la
+  precache se renovó con el rediseño de la vista de mapa).
 
 ---
 
@@ -249,5 +306,10 @@ Detalle en `PRUEBAS.md`.
   el filtro de área deja fuera los parques de menos de 1 ha (por pedido explícito).
 - **La vista de pantalla completa** no se puede verificar en el navegador embebido de
   pruebas (`requestFullscreen()` nunca resuelve allí); funciona en Chrome/Edge normal.
-- **RLS y las 4 terminales** requieren que el administrador ejecute `sql/06` y `sql/07` en
-  Supabase: hasta entonces el frontend funciona y solo avisa por consola.
+- **El navegador embebido de pruebas no dispara `requestAnimationFrame`**: por eso el mapa
+  no se repinta ahí y `map.loaded()` queda en `false`. No es un fallo de la app (en un
+  navegador normal sí se pinta); se verificó que el estilo, las fuentes y las capas propias
+  se crean correctamente (`style.load` → `ne2_shaded` eliminada → capas añadidas).
+- **RLS y las 4 terminales** requieren que el administrador ejecute `sql/06`, `sql/07` y
+  (opcionalmente) `sql/08` en Supabase: hasta entonces el frontend funciona y solo avisa
+  por consola.

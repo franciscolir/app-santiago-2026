@@ -39,6 +39,9 @@ create table if not exists public.map_points (
   visible     boolean     not null default true,
   tipo        text        not null default 'personal'
               check (tipo in ('personal','general')),
+  -- Vista fija: el punto muestra siempre su icono, sin convertirse en un
+  -- punto de color al alejar el mapa (2026-11-25).
+  fijo        boolean     not null default false,
   created_by  uuid        references public.profiles(id) on delete set null,
   created_at  timestamptz not null default now(),
   updated_at  timestamptz not null default now()
@@ -59,6 +62,7 @@ alter table public.map_points add column if not exists active boolean default tr
 alter table public.map_points add column if not exists visible boolean default true;
 alter table public.map_points add column if not exists tipo text default 'personal'
               check (tipo in ('personal','general'));
+alter table public.map_points add column if not exists fijo boolean not null default false;
 
 -- ----------------------------------------------------------------------------
 -- 3) Índices

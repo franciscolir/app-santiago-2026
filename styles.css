@@ -89,6 +89,18 @@ a { color: #006492; }
   background: #006492; border: 3px solid #fff;
   box-shadow: 0 0 0 8px rgba(0,100,146,.22), 0 2px 6px rgba(0,0,0,.35);
 }
+/* ---- Vista mapa a pantalla completa ----
+   En la pestaña Mapa se oculta el header de la app y el mapa ocupa todo el
+   espacio disponible (por encima de la navegación inferior). */
+body.vista-mapa #app > header { display: none; }
+body.vista-mapa main { padding-top: 0 !important; padding-bottom: 0 !important; }
+body.vista-mapa #view-mapa {
+  flex: none;
+  height: calc(100vh - 4rem - env(safe-area-inset-bottom,0px));
+  height: calc(100dvh - 4rem - env(safe-area-inset-bottom,0px));
+}
+body.vista-mapa .mapa-frame { height: 100% !important; min-height: 0 !important; }
+
 /* Puntos personalizados del mapa (§9): color por categoría, el admin puede editarlos */
 .map-point {
   width: 30px; height: 30px; border-radius: 50% 50% 50% 4px;
@@ -102,6 +114,25 @@ a { color: #006492; }
 .map-point-admin { outline: 2px dashed rgba(255,255,255,.85); outline-offset: 2px; }
 /* Puntos personalizados con icono SVG: sin rotación de diamante, el icono ya es un pin. */
 .map-point-icono { transform: none; width: 34px; height: 34px; border: none; box-shadow: 0 2px 8px rgba(0,0,0,.35); }
+
+/* Al alejar el mapa el icono se transforma en un punto de color que se achica
+   hasta desaparecer. Los puntos con "vista fija" no cambian nunca. */
+.map-point-punto {
+  width: var(--punto-tam, 10px) !important;
+  height: var(--punto-tam, 10px) !important;
+  border-radius: 999px !important;
+  background-color: var(--punto-color, #006492) !important;
+  background-image: none !important;
+  border: 1.5px solid #fff !important;
+  box-shadow: 0 1px 4px rgba(0,0,0,.35);
+}
+.map-point-oculto { display: none !important; }
+
+/* Pines de actividad: al alejar se reducen a un punto de color (no desaparecen:
+   siempre se deben poder seleccionar). */
+.map-pin.modo-punto { border-radius: 999px; transform: none; }
+.map-pin.modo-punto .material-symbols-outlined { display: none; }
+.map-pin.modo-punto { width: var(--pin-tam, 16px); height: var(--pin-tam, 16px); border-width: 1.5px; }
 
 /* Selector visual de iconos del punto (§9): miniaturas SVG del mapa. */
 .icono-selector {

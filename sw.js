@@ -1,4 +1,7 @@
-const CACHE_NAME = "app-santiago-2026-v4";
+// v5: se renueva la precache tras el rediseño de la vista de mapa
+// (index.html, styles.css y src/main.js cambiaron) y se aplica la columna
+// "fijo" (vista fija) de los puntos.
+const CACHE_NAME = "app-santiago-2026-v5";
 const APP_SHELL = [
   "./",
   "./index.html",

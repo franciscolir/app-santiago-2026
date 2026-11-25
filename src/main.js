@@ -137,10 +137,14 @@ function gotoView(name){
     v.classList.toggle("hidden",!on);
   });
   $("#header-view-label").textContent=viewLabels[name]||name;
+  // En la vista Mapa se oculta el header de la app para que el mapa use
+  // todo el espacio de la pantalla.
+  document.body.classList.toggle("vista-mapa",name==="mapa");
   if(name==="mapa")setTimeout(()=>{
     if(!state.map) renderMap();          // mapa perezoso: se crea al abrir la pestaña
     else state.map.resize();
     applyPendingFit();
+    actualizarAlturaPanelMapa();         // la atribución se reposa sobre el panel
   },100);
 }
 $$(".nav-item").forEach(b=>b.addEventListener("click",()=>gotoView(b.dataset.view)));
@@ -391,23 +395,24 @@ const conCoords=(a)=>{const c=coords(a);return Number.isFinite(c.lat)&&Number.is
 
 // El estilo "positron" de OpenFreeMap declara la fuente ráster "ne2_shaded"
 // (relieve de Natural Earth) pero NINGUNA capa la usa: la base de la app es la
-// vista satelital (§3.1). Si esa fuente se demora, MapLibre nunca termina de
-// "cargar" el estilo → el mapa se queda en blanco.
-//quitarla DESPUÉS de crear el mapa no sirve: al quitarla, MapLibre recarga el
-// estilo entero y BORRA las capas propias que ya se habían añadido.
-// Por eso el estilo se descarga aquí, se limpia y se le pasa a MapLibre como
-// objeto: así el estilo carga limpio y una sola vez.
-async function obtenerEstiloBase(){
+// vista satelital (§3.1). Si esa fuente se demora o falla, MapLibre nunca
+// termina de "cargar" el estilo → el mapa se queda en blanco.
+// En MapLibre 4.7.1 el estilo NO se puede pasar como OBJETO al constructor:
+// `Style.loadJSON()` aplaza la carga a un `requestAnimationFrame` y, si la
+// pestaña está en segundo plano (o el navegador no pinta), ese frame nunca
+// llega: el mapa quedaría en blanco. Por eso el mapa se crea con la URL del
+// estilo (ruta que no depende de rAF) y la fuente inútil se elimina en el
+// evento `style.load`, ANTES de añadir las capas propias: quitarla después
+// recargaba el estilo entero y borraba lo ya añadido.
+function limpiarEstiloBase(){
+  const map=state.map; if(!map) return;
   try{
-    const res=await fetch(MAP_STYLE);
-    if(!res.ok) return MAP_STYLE;
-    const estilo=await res.json();
-    if(estilo.sources?.ne2_shaded) delete estilo.sources.ne2_shaded;
-    if(Array.isArray(estilo.layers)) estilo.layers=estilo.layers.filter(l=>l.source!=="ne2_shaded");
-    return estilo;
+    if(!map.getSource?.("ne2_shaded")) return;
+    const capas=(map.getStyle()?.layers||[]).filter(l=>l.source==="ne2_shaded").map(l=>l.id);
+    capas.forEach(id=>{ try{ map.removeLayer(id); }catch(_){/* se ignora */} });
+    map.removeSource("ne2_shaded");
   }catch(err){
-    console.warn("mapa: no se pudo preparar el estilo base:",err.message);
-    return MAP_STYLE;
+    console.warn("mapa: no se pudo quitar la fuente ne2_shaded:",err.message);
   }
 }
 
@@ -418,58 +423,58 @@ function renderMap(){
     // El mapa solo se instancia con la vista visible (contenedor con tamaño);
     // si aún no se abrió la pestaña Mapa, solo se deja preparado el fitBounds.
     if(!$("#view-mapa").classList.contains("active")){ state.pendingFit=markersBounds(); return; }
-    // El estilo se carga antes de crear el mapa (ver obtenerEstiloBase).
-    obtenerEstiloBase().then(estilo=>{
-      if(state.map) return;
-      state.map=new maplibregl.Map({
-        container:"map", style:estilo, center:[-70.6693,-33.4489], zoom:11,
-        attributionControl:{compact:false}   // atribución siempre visible (§3.1: Esri + ODbL)
-      });
-      state.markers=[];
-      window.__mapa=state.map;   // enganche de depuración (consola del navegador)
-      state.map.on("click",(e)=>{
-        // Modo edición de puntos (mapas.txt §9): el admin ubica el punto con un clic.
-        if(!state.pointMode) return;
-        desactivarModoPunto();
-        abrirFormPunto(null,e.lngLat.lat,e.lngLat.lng);
-      });
-      // El arranque se hace con `style.load` (el estilo ya está aplicado y se
-      // pueden añadir sources/layers). Si alguna fuente del estilo se demora,
-      // el vigilante reintenta: `addSource` lanza si el estilo no está listo.
-      let mapaIniciado=false, iniciando=false;
-      const iniciarMapa=()=>{
-        if(mapaIniciado||iniciando) return;
-        iniciando=true;
-        try{
-          state.mapListo=true;
-          // §10: se respetan las preferencias guardadas del usuario (vista
-          // satelital y límites comunales se encienden según su última elección).
-          if(capasEstado.satelite) activarSateliteInicial();
-          cargarComunas().catch(err=>console.warn("comunas:",err));   // §3.2 (async)
-          cargarPuntosMapa().catch(err=>console.warn("puntos:",err)); // §9 (async)
-          renderMarkers();
-          ponerMarcadorUsuario();
-          applyPendingFit();
-          // Las capas de lugares que el usuario dejó encendidas se recuperan.
-          CAPAS_DEF.forEach(g=>g.items.forEach(it=>{
-            if(it.capaLugares&&capasEstado[it.id]){
-              cargarLugares(it.capaLugares).catch(err=>console.warn("capa",it.id,err));
-            }
-          }));
-          mapaIniciado=true;
-        }catch(err){
-          // El estilo todavía no está listo: se reintenta en el siguiente tick.
-          console.warn("mapa: aún no se puede iniciar",err.message);
-        }finally{ iniciando=false; }
-      };
-      state.map.on("style.load",iniciarMapa);
-      state.map.on("load",iniciarMapa);
-      const vigilante=setInterval(()=>{
-        if(mapaIniciado){ clearInterval(vigilante); return; }
-        iniciarMapa();
-      },1000);
-      setTimeout(()=>clearInterval(vigilante),30000);
+    state.map=new maplibregl.Map({
+      container:"map", style:MAP_STYLE, center:[-70.6693,-33.4489], zoom:11,
+      attributionControl:{compact:false}   // atribución siempre visible (§3.1: Esri + ODbL)
     });
+    state.markers=[];
+    window.__mapa=state.map;   // enganche de depuración (consola del navegador)
+    state.map.on("click",(e)=>{
+      // Modo edición de puntos (mapas.txt §9): el admin ubica el punto con un clic.
+      if(!state.pointMode) return;
+      desactivarModoPunto();
+      abrirFormPunto(null,e.lngLat.lat,e.lngLat.lng);
+    });
+    // Al cambiar el zoom, los iconos se convierten en puntos de color (§5).
+    state.map.on("zoom",actualizarPuntosSegunZoom);
+    // El arranque se hace con `style.load` (el estilo ya está aplicado y se
+    // pueden añadir sources/layers). Si alguna fuente del estilo se demora,
+    // el vigilante reintenta: `addSource` lanza si el estilo no está listo.
+    let mapaIniciado=false, iniciando=false;
+    const iniciarMapa=()=>{
+      if(mapaIniciado||iniciando) return;
+      iniciando=true;
+      try{
+        state.mapListo=true;
+        // §10: se respetan las preferencias guardadas del usuario (vista
+        // satelital y límites comunales se encienden según su última elección).
+        if(capasEstado.satelite) activarSateliteInicial();
+        cargarComunas().catch(err=>console.warn("comunas:",err));   // §3.2 (async)
+        cargarPuntosMapa().catch(err=>console.warn("puntos:",err)); // §9 (async)
+        renderMarkers();
+        ponerMarcadorUsuario();
+        applyPendingFit();
+        // Las capas de lugares que el usuario dejó encendidas se recuperan.
+        CAPAS_DEF.forEach(g=>g.items.forEach(it=>{
+          if(it.capaLugares&&capasEstado[it.id]){
+            cargarLugares(it.capaLugares).catch(err=>console.warn("capa",it.id,err));
+          }
+        }));
+        mapaIniciado=true;
+      }catch(err){
+        // El estilo todavía no está listo: se reintenta en el siguiente tick.
+        console.warn("mapa: aún no se puede iniciar",err.message);
+      }finally{ iniciando=false; }
+    };
+    // Al cargar el estilo se quita la fuente inútil y, solo después, se añaden
+    // las capas propias: así el estilo puede terminar de cargar y el mapa pinta.
+    state.map.on("style.load",()=>{ limpiarEstiloBase(); iniciarMapa(); });
+    state.map.on("load",iniciarMapa);
+    const vigilante=setInterval(()=>{
+      if(mapaIniciado){ clearInterval(vigilante); return; }
+      iniciarMapa();
+    },1000);
+    setTimeout(()=>clearInterval(vigilante),30000);
   }
   if(state.mapListo) renderMarkers();
 }
@@ -491,6 +496,7 @@ function renderMarkers(){
     state.markers.push(m);
     state.markerById.set(a.id,m);
   });
+  actualizarPuntosSegunZoom();   // los pines de actividad también se reducen al alejar
   aplicarActividades();   // respeta el interruptor "Actividades" del panel de capas
   if(state.selectedId && !state.activities.some(a=>a.id===state.selectedId)) resetVenue();
   // fitBounds solo cuando la vista está visible; si no, se aplaza hasta abrir la pestaña Mapa.
@@ -534,6 +540,8 @@ function resetVenue(){
 function selectVenue(a,pan=true){
   if(!a) return;
   state.selectedId=a.id;
+  // Si el panel inferior está colapsado, se abre para mostrar el detalle.
+  if($("#mapa-panel-cuerpo")?.classList.contains("hidden")) colapsarPanelMapa(false);
   $("#venue-status").textContent=venueStatusText[a.status]||"Programada";
   $("#venue-title").textContent=a.title;
   $("#venue-time").textContent=`${dayFmt.format(new Date(a.activity_date+"T12:00:00"))} · ${timeFmt(a.start_time)||"Hora por definir"}${a.end_time?" – "+timeFmt(a.end_time):""}`;
@@ -554,9 +562,9 @@ function selectVenue(a,pan=true){
 function offsetPanel(){
   const cont=$("#map")?.getBoundingClientRect();
   const panel=$("#mapa-panel-inferior")?.getBoundingClientRect();
-  const buscador=$("#map-search")?.parentElement?.getBoundingClientRect();
+  const buscador=$("#map-search-wrap")?.getBoundingClientRect();
   if(!cont)return [0,0];
-  const arriba=buscador?buscador.bottom-cont.top:60;
+  const arriba=(buscador&&buscador.height)?buscador.bottom-cont.top:60;
   const abajo=panel?panel.top-cont.top:cont.height;
   const yMedio=(arriba+abajo)/2;
   return [0,Math.round(yMedio-cont.height/2)];
@@ -581,30 +589,84 @@ $("#map-locate").addEventListener("click",()=>{
 });
 $("#map-satellite").addEventListener("click",alternarSatelite);
 $("#map-search").addEventListener("input",renderMapList);
+
+// --- Buscador colapsable (lupa arriba a la izquierda) ------------------------
+const abrirBuscador=()=>{
+  const wrap=$("#map-search-wrap"); if(!wrap) return;
+  wrap.classList.remove("hidden");
+  $("#map-search-toggle")?.setAttribute("aria-expanded","true");
+  $("#map-search")?.focus();
+};
+const cerrarBuscador=()=>{
+  const wrap=$("#map-search-wrap"); if(!wrap) return;
+  wrap.classList.add("hidden");
+  $("#map-search-toggle")?.setAttribute("aria-expanded","false");
+  if($("#map-search")) $("#map-search").value="";
+  renderMapList();
+};
+$("#map-search-toggle")?.addEventListener("click",()=>{
+  const wrap=$("#map-search-wrap");
+  if(wrap?.classList.contains("hidden")) abrirBuscador(); else cerrarBuscador();
+});
+$("#map-search-close")?.addEventListener("click",cerrarBuscador);
+
+// --- Controles del mapa colapsables (botón con flecha hacia abajo) ----------
+$("#map-controls-toggle")?.addEventListener("click",()=>{
+  const fila=$("#map-controls-row"); if(!fila) return;
+  const abierto=fila.classList.contains("hidden");
+  fila.classList.toggle("hidden",!abierto);
+  $("#map-controls-toggle")?.setAttribute("aria-expanded",String(abierto));
+  // El botón es una flecha hacia abajo; al desplegarse rota 180° (apunta arriba).
+  $("#map-controls-icon")?.classList.toggle("rotate-180",abierto);
+});
+
+// --- Panel inferior de actividades colapsable -------------------------------
+const colapsarPanelMapa=(colapsado)=>{
+  const cuerpo=$("#mapa-panel-cuerpo"); if(!cuerpo) return;
+  cuerpo.classList.toggle("hidden",colapsado);
+  $("#mapa-panel-toggle")?.setAttribute("aria-expanded",String(!colapsado));
+  const ico=$("#mapa-panel-icon");
+  if(ico) ico.textContent=colapsado?"keyboard_arrow_up":"keyboard_arrow_down";
+  // El mapa debe re-medirse: el panel deja de tapar la parte inferior.
+  setTimeout(()=>{ state.map?.resize(); actualizarAlturaPanelMapa(); },60);
+};
+$("#mapa-panel-toggle")?.addEventListener("click",()=>{
+  colapsarPanelMapa(!$("#mapa-panel-cuerpo")?.classList.contains("hidden"));
+});
+
 // Padding de encuadre: deja libres la barra de búsqueda (arriba) y el panel
 // inferior de sede/lista, para que ningún pín quede tapado.
 function paddingMapa(){
   const cont=$("#view-mapa .relative.w-full")||$("#map")?.parentElement;
   const panel=$("#mapa-panel-inferior");
-  const buscador=$("#map-search")?.parentElement;
-  const top=(buscador?buscador.getBoundingClientRect().height+24:70);
+  const buscador=$("#map-search-wrap");
+  const altoBuscador=buscador?buscador.getBoundingClientRect().height:0;
+  const top=(altoBuscador?altoBuscador+24:70);
   const bottom=(panel?panel.getBoundingClientRect().height+24:40);
   return {top:Math.round(top),bottom:Math.round(bottom),left:24,right:24,_cont:cont};
 }
 // Atribución visible (mapas.txt §3.1): el control de atribución de MapLibre se
 // dibuja abajo a la derecha y el panel inferior de sede/lista lo tapaba. Se
 // publica la altura real del panel como variable CSS y el CSS la usa como `bottom`.
+// Se observan el panel Y el contenedor del mapa: el valor cambia al colapsar el
+// panel y también al entrar en la vista Mapa (antes el mapa no tenía tamaño).
+function actualizarAlturaPanelMapa(){
+  const panel=$("#mapa-panel-inferior"), cont=$("#map");
+  if(!panel||!cont) return;
+  const p=panel.getBoundingClientRect(), c=cont.getBoundingClientRect();
+  if(!c.height) return;                       // la vista aún no está visible
+  // `bottom` del CSS se mide desde el borde inferior del mapa: altura del panel
+  // = (borde inferior del mapa) − (borde superior del panel) + aire.
+  cont.style.setProperty("--mapa-panel-h",Math.max(0,Math.round(c.bottom-p.top)+10)+"px");
+}
 (function atribucionSobrePanel(){
   const panel=$("#mapa-panel-inferior"), cont=$("#map");
-  if(!panel||!cont||!window.ResizeObserver) return;
-  const aplicar=()=>{
-    const p=panel.getBoundingClientRect(), c=cont.getBoundingClientRect();
-    // `bottom` del CSS se mide desde el borde inferior del mapa: altura del panel
-    // = (borde inferior del mapa) − (borde superior del panel) + aire.
-    cont.style.setProperty("--mapa-panel-h",Math.max(0,Math.round(c.bottom-p.top)+10)+"px");
-  };
-  new ResizeObserver(aplicar).observe(panel);
-  aplicar();
+  if(!panel||!cont) return;
+  if(window.ResizeObserver){
+    const ro=new ResizeObserver(()=>actualizarAlturaPanelMapa());
+    ro.observe(panel); ro.observe(cont);
+  }
+  actualizarAlturaPanelMapa();
 })();
 
 function applyPendingFit(){
@@ -745,6 +807,12 @@ const CAPAS_LUGARES={
   "servicios":  {color:"#0ca678", label:"Municipalidades"},
 };
 
+// Zoom de los iconos: al alejar, cada lugar se dibuja como un punto de color
+// que se achica hasta desaparecer; al acercar aparece el icono.
+const ZOOM_PUNTO_MIN=7;      // zoom en el que el punto de color desaparece
+const ZOOM_ICONO=12.5;       // zoom a partir del cual se dibuja el icono
+const RADIO_PUNTO_MAX=7;     // radio (px) del punto de color justo antes del icono
+
 // =============================================================================
 // ICONOS DEL MAPA (SVG) — §5
 // Catálogo: clave -> archivo SVG en /icons. El PNG original de cada icono queda
@@ -793,7 +861,7 @@ const ICONO_PUNTO={
 // usa. `addImage` LANZA si la id ya existe: se comprueba con `hasImage`.
 const imagenesCargadas=new Set();
 const TIMEOUT_ICONO_MS=12000;
-const LADO_ICONO_MAX=256;   // px del icono rasterizado (en el mapa se ve a ~64 px)
+const LADO_ICONO_MAX=128;   // px del icono rasterizado (en el mapa se ve a ~32 px)
 function conTimeout(ms,generador){
   return Promise.race([
     generador(),
@@ -830,6 +898,7 @@ async function rasterizarSVG(texto,ladoMax=LADO_ICONO_MAX){
 }
 
 // Descarga el icono: primero el SVG; si falla, el PNG de respaldo.
+// Ambos se reducen al mismo lado máximo para que el mapa los pinte igual.
 async function cargarImagenIcono(svg){
   try{
     const res=await fetch(`./icons/${svg}`,{cache:"force-cache"});
@@ -838,7 +907,12 @@ async function cargarImagenIcono(svg){
   const png=svg.replace(/\.svg$/i,".png");
   const res=await fetch(`./icons/png/${png}`,{cache:"force-cache"});
   if(!res.ok) throw new Error(`no se encontró ${svg} ni su PNG de respaldo`);
-  return await createImageBitmap(await res.blob());
+  const bmp=await createImageBitmap(await res.blob());
+  const escala=Math.min(1,LADO_ICONO_MAX/Math.max(bmp.width,bmp.height));
+  const w=Math.max(1,Math.round(bmp.width*escala)), h=Math.max(1,Math.round(bmp.height*escala));
+  const c=document.createElement("canvas"); c.width=w; c.height=h;
+  c.getContext("2d").drawImage(bmp,0,0,w,h);
+  return c.getContext("2d").getImageData(0,0,w,h);
 }
 
 // Devuelve la id de imagen de MapLibre del icono (p. ej. "icono-parque.svg").
@@ -939,11 +1013,9 @@ async function cargarTransporte(){
 }
 
 // Carga UNA capa de lugares: su propio archivo, con clustering nativo de
-
-// Carga UNA capa de lugares: su propio archivo, con clustering nativo de
 // MapLibre (§11: la RM tiene miles de puntos; se agrupan en vez de pintar
 // 10.000 círculos). Al hacer clic en un grupo se hace zoom a su contenido.
-// Los puntos sueltos usan los iconos PNG de /icons (§5: identidad visual).
+// Los puntos sueltos usan los iconos SVG de /icons (§5: identidad visual).
 async function cargarLugares(capa){
   const map=state.map;
   if(!map||lugaresCargados.has(capa)) return;
@@ -958,7 +1030,9 @@ async function cargarLugares(capa){
   const idIcono=await asegurarIcono(claveIcono,cfg.color);
 
   const fuente=`lugares-${capa}`;
-  map.addSource(fuente,{type:"geojson",data:geo,cluster:true,clusterMaxZoom:13,clusterRadius:52});
+  // `clusterMaxZoom: 12`: desde el zoom 12 los puntos ya no se agrupan, así el
+  // punto de color (hasta zoom 12,5) y luego el icono encadenan sin huecos.
+  map.addSource(fuente,{type:"geojson",data:geo,cluster:true,clusterMaxZoom:12,clusterRadius:52});
 
   // Burbujas de grupo: tamaño según la cantidad de puntos.
   insertarBajoSimbolos({id:`${fuente}-cluster`,type:"circle",source:fuente,
@@ -972,9 +1046,17 @@ async function cargarLugares(capa){
     layout:{"text-field":["get","point_count_abbreviated"],"text-size":12,"text-font":["Noto Sans Regular"]},
     paint:{"text-color":"#ffffff"}});
   // Puntos sueltos: icono SVG en vez de círculo de color.
+  // - Cerca (zoom >= ZOOM_ICONO): se ve el icono.
+  // - Lejos (zoom < ZOOM_ICONO): punto de color que se achica con el zoom.
   insertarBajoSimbolos({id:`${fuente}-puntos`,type:"symbol",source:fuente,
-    filter:["!",["has","point_count"]],
+    filter:["!",["has","point_count"]],minzoom:ZOOM_ICONO,
     layout:{"icon-image":idIcono,"icon-size":0.5,"icon-allow-overlap":true,"icon-ignore-placement":true}});
+  insertarBajoSimbolos({id:`${fuente}-puntos-mini`,type:"circle",source:fuente,
+    filter:["!",["has","point_count"]],minzoom:ZOOM_PUNTO_MIN,maxzoom:ZOOM_ICONO,
+    paint:{"circle-color":cfg.color,
+            "circle-radius":["interpolate",["linear"],["zoom"],ZOOM_PUNTO_MIN,0,ZOOM_ICONO,RADIO_PUNTO_MAX],
+            "circle-opacity":0.92,
+            "circle-stroke-color":"#ffffff","circle-stroke-width":1}});
 
   // Popup con nombre, categoría, dirección, comuna, coordenadas, fuente y fecha (§6).
   const popup=new maplibregl.Popup({closeButton:true,offset:[0,-14],maxWidth:"260px"});
@@ -996,6 +1078,25 @@ async function cargarLugares(capa){
   });
   map.on("mouseenter",`${fuente}-puntos`,()=>map.getCanvas().style.cursor="pointer");
   map.on("mouseleave",`${fuente}-puntos`,()=>map.getCanvas().style.cursor="");
+  // El punto de color (alejado) también abre el popup y muestra el cursor.
+  map.on("click",`${fuente}-puntos-mini`,(e)=>{
+    const f=e.features?.[0]; if(!f) return;
+    const p=f.properties;
+    comunaPopup?.remove();
+    const fecha=p.actualizado?`${p.actualizado.slice(0,10)}`:"";
+    popup.setLngLat(e.lngLat).setHTML(
+      `<strong>${esc(p.nombre)}</strong>`+
+      (p.subcategoria?`<br>${esc(p.subcategoria)}`:"")+
+      (p.categoria_label?`<br><span class="muted">${esc(p.categoria_label)}</span>`:"")+
+      (p.direccion?`<br><span class="muted">${esc(p.direccion)}</span>`:"")+
+      (p.comuna?`<br><span class="muted">${esc(p.comuna)}</span>`:"")+
+      (p.area_m2?`<br><span class="muted">${Math.round(p.area_m2).toLocaleString("es-CL")} m²</span>`:"")+
+      `<br><span class="muted" style="font-size:11px">${coordTexto(f.geometry?.coordinates||[e.lngLat.lng,e.lngLat.lat])}</span>`+
+      (fecha?`<br><span class="muted" style="font-size:11px">OSM · ODbL · ${fecha}</span>`:`<br><span class="muted" style="font-size:11px">OpenStreetMap · ODbL</span>`)
+    ).addTo(map);
+  });
+  map.on("mouseenter",`${fuente}-puntos-mini`,()=>map.getCanvas().style.cursor="pointer");
+  map.on("mouseleave",`${fuente}-puntos-mini`,()=>map.getCanvas().style.cursor="");
 
   // Clic en un grupo → zoom a su contenido.
   map.on("click",`${fuente}-cluster`,async(e)=>{
@@ -1090,7 +1191,7 @@ function aplicarCapas(){
     if(it.capas) it.capas.forEach(id=>{ if(map.getLayer(id)) map.setLayoutProperty(id,"visibility",vis); });
     if(it.capaLugares){
       const f=`lugares-${it.capaLugares}`;
-      [`${f}-cluster`,`${f}-cluster-count`,`${f}-puntos`].forEach(id=>{
+      [`${f}-cluster`,`${f}-cluster-count`,`${f}-puntos`,`${f}-puntos-mini`].forEach(id=>{
         if(map.getLayer(id)) map.setLayoutProperty(id,"visibility",vis);
       });
     }
@@ -1145,7 +1246,9 @@ async function alternarCapa(it,on){
 }
 
 function aplicarActividades(){
-  (state.markers||[]).forEach(m=>m.getElement().classList.toggle("hidden",!actividadesOn));
+  // Se usa `display` en línea (y no la clase `hidden` de Tailwind) para que el
+  // interruptor siga funcionando aunque el CDN de Tailwind no cargue.
+  (state.markers||[]).forEach(m=>m.getElement().style.display=actividadesOn?"":"none");
 }
 
 // ------------------------------------------------------------- pintado UI --
@@ -1224,6 +1327,42 @@ async function cargarPuntosMapa(){
   renderPuntosMapa();
 }
 
+// Comportamiento de los marcadores según el zoom:
+//   - Al ACERCAR, los puntos muestran su icono.
+//   - Al ALEJAR, el icono se transforma en un punto del color del pin y ese
+//     punto se achica a medida que se aleja, hasta desaparecer.
+//   - Los puntos marcados como "vista fija" (columna `fijo`) conservan siempre
+//     su icono.
+// Los pines de actividad también se reducen a un punto de color, pero con un
+// tamaño mínimo: siempre se deben poder seleccionar.
+function actualizarPuntosSegunZoom(){
+  const map=state.map; if(!map) return;
+  const z=map.getZoom();
+  const t=Math.max(0,Math.min(1,(z-ZOOM_PUNTO_MIN)/(ZOOM_ICONO-ZOOM_PUNTO_MIN)));
+  state.pointMarkers.forEach(m=>{
+    const el=m.getElement&&m.getElement(); if(!el) return;
+    if(el.dataset.fijo==="1"||z>=ZOOM_ICONO){
+      el.classList.remove("map-point-punto","map-point-oculto");
+      el.style.removeProperty("--punto-tam");
+      return;
+    }
+    if(z<=ZOOM_PUNTO_MIN){
+      el.classList.add("map-point-oculto");
+      el.classList.remove("map-point-punto");
+      return;
+    }
+    el.classList.remove("map-point-oculto");
+    el.classList.add("map-point-punto");
+    el.style.setProperty("--punto-tam",(3+t*9).toFixed(1)+"px");
+  });
+  const tam=Math.max(12,Math.min(30,Math.round(10+t*20)));
+  state.markers.forEach(m=>{
+    const el=m.getElement&&m.getElement(); if(!el) return;
+    el.classList.toggle("modo-punto",z<ZOOM_ICONO);
+    el.style.setProperty("--pin-tam",tam+"px");
+  });
+}
+
 // --- render (marcadores propios, independientes de las actividades) ---------
 function renderPuntosMapa(){
   state.pointMarkers.forEach(m=>m.remove());
@@ -1238,6 +1377,10 @@ function renderPuntosMapa(){
     // El SVG se muestra directo como fondo CSS (es vectorial: se ve nítido en
     // cualquier zoom y no necesita rasterizarse).
     el.style.backgroundImage=`url('./icons/${defIcono.svg}')`;
+    // Color del punto cuando el mapa se aleja y el icono se transforma en punto.
+    el.style.setProperty("--punto-color",COLOR_PUNTO[p.category]||"#006492");
+    // "Vista fija": el icono se muestra siempre, a cualquier zoom.
+    el.dataset.fijo=p.fijo?"1":"0";
     el.style.backgroundSize="contain";
     el.style.backgroundRepeat="no-repeat";
     el.style.backgroundPosition="center";
@@ -1256,9 +1399,11 @@ function renderPuntosMapa(){
     }
     state.pointMarkers.set(p.id,m);
   });
+  actualizarPuntosSegunZoom();   // icono ⇄ punto según el zoom actual
   aplicarCapas();   // la capa "Puntos personalizados" puede estar apagada
-  // Respeta el interruptor del panel para los marcadores de punto.
-  state.pointMarkers.forEach(m=>m.getElement().classList.toggle("hidden",!capasEstado.puntos));
+  // Respeta el interruptor del panel para los marcadores de punto
+  // (`display` en línea: no depende de las utilidades de Tailwind).
+  state.pointMarkers.forEach(m=>m.getElement().style.display=capasEstado.puntos?"":"none");
 }
 
 // --- modo edición: clic en el mapa para ubicar el punto --------------------
@@ -1315,6 +1460,7 @@ function abrirFormPunto(p=null,lat=null,lng=null){
   $("#point-lat").value=p?p.latitude:(lat??"");
   $("#point-lng").value=p?p.longitude:(lng??"");
   $("#point-visible").checked=p?!!p.visible:true;
+  $("#point-fijo").checked=p?!!p.fijo:false;
   // Tipo de punto: admin puede crear general o personal; usuarios solo personal.
   const tipoSel=$("#point-tipo"); const tipoLab=$("#point-tipo-label");
   if(isAdmin()){
@@ -1359,10 +1505,19 @@ $("#point-form")?.addEventListener("submit",async e=>{
   const tipo=isAdmin()?$("#point-tipo").value:"personal";
   const payload={name,description:$("#point-description").value.trim(),
     category:$("#point-category").value,icon:$("#point-icon").value,
-    latitude:lat,longitude:lng,visible:$("#point-visible").checked,tipo};
-  const res=id
-    ? await supabase.from("map_points").update(payload).eq("id",id).select("id")
-    : await supabase.from("map_points").insert({...payload,created_by:state.user.id}).select("id");
+    latitude:lat,longitude:lng,visible:$("#point-visible").checked,tipo,
+    fijo:$("#point-fijo").checked};
+  const guardar=async p=>id
+    ? await supabase.from("map_points").update(p).eq("id",id).select("id")
+    : await supabase.from("map_points").insert({...p,created_by:state.user.id}).select("id");
+  let res=await guardar(payload);
+  // Si la columna `fijo` todavía no existe en Supabase (falta aplicar
+  // sql/08_puntos_fijos.sql), se guarda el punto sin ella y se avisa.
+  if(res.error&&/fijo/i.test(res.error.message||"")){
+    const {fijo,...resto}=payload;
+    res=await guardar(resto);
+    if(!res.error) showToast("Punto guardado. Para usar la vista falta aplicar sql/08_puntos_fijos.sql.");
+  }
   if(res.error){
     console.error("point-form: guardar",res.error);
     notifyError($("#point-error"),describeError(res.error,"puntos del mapa")); return;
