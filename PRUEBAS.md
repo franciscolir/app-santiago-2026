@@ -20,7 +20,8 @@ Sin dependencias: solo Node.js ≥ 18. Comprueba:
 | 3. Lugares | Un archivo por capa, solo geometrías `Point`, dentro de la RM, campos §8 completos, sin duplicados (categoría+nombre+comuna), subcategorías dentro de la lista permitida por capa (filtros estrictos del usuario) |
 | 4. Frontend | Catálogo de iconos SVG completo (archivo, `viewBox` y tamaño), PNG de respaldo de cada icono, existe el GeoJSON de cada capa del panel, todos los recursos del precache existen, los paraderos no están en el precache, `CACHE_NAME` versionado, sin `onclick` inline (los módulos no exponen globales), sin hooks de depuración, iconos rasterizados sin `map.loadImage`, selector visual de iconos presente |
 | 5. Seguridad y SQL | Sin `service_role` en el frontend (se ignoran los comentarios), `config.js` con publishable key, políticas RLS de `sql/06`, `sql/07` con las 4 terminales y sus `external_id` OSM, `ON CONFLICT` con el predicado del índice parcial (regresión del error 42P10) |
-| 6. Vista de mapa (2026-11-25) | El header se oculta en la vista mapa y el mapa usa `100dvh`; lupa del buscador arriba a la izquierda; controles colapsables arriba a la derecha con flecha hacia abajo y fila horizontal; panel inferior colapsable; umbrales de zoom y capa de punto de color (`-puntos-mini`) con radio interpolado; puntos con marca de "vista fija"; casilla `#point-fijo` y columna `fijo` en `sql/06`/`sql/08`; el mapa se crea con la **URL** del estilo (no con el objeto, que depende de `requestAnimationFrame`) y quita `ne2_shaded` en `style.load` |
+| 6. Vista de mapa (2026-11-25) | El header se oculta en la vista mapa y el mapa usa `100dvh`; lupa del buscador arriba a la izquierda; controles colapsables arriba a la derecha con flecha hacia abajo y fila horizontal; **panel inferior eliminado** y detalles en el cuadro de mensaje (`#toast-msg`, `mostrarMensaje`); umbrales de zoom y capa de punto de color (`-puntos-mini`) con radio interpolado; puntos con marca de "vista fija"; casilla `#point-fijo` y columna `fijo` en `sql/06`/`sql/08`; el mapa se crea con la **URL** del estilo (no con el objeto, que depende de `requestAnimationFrame`) y quita `ne2_shaded` en `style.load` |
+| 7. UX del 2026-11-25 | Rampa de zoom en 3 momentos (5 umbrales, radio con meseta e `icon-size` que nunca llega a ser grande); puntos fijos **sin** contorno punteado; **metro unificado** (un interruptor con estaciones + líneas) y rótulo con el nombre bajo el icono; **bomberos en capa propia** (el archivo existe, la seguridad ya no tiene cuarteles y el icono es distinto); etiqueta `.map-point-nombre` bajo el icono; **gestión de puntos del admin** (botón, hoja por tipo, renombrar, mostrar/ocultar, borrar y Guardar) + `sql/09`; **muro naranja** con el botón blanco y letras naranjas; **agenda sin scroll lateral** (`overflow-x: clip`) |
 
 ---
 
@@ -59,11 +60,28 @@ Sin dependencias: solo Node.js ≥ 18. Comprueba:
 | 30 | Vista fija | El formulario de punto tiene la casilla **“Vista fija (mostrar siempre el icono)”**; ese punto conserva su icono a cualquier zoom | ✅ (frontend) |
 | 31 | Atribución sobre el panel | El control de atribución de MapLibre se reposa sobre el panel (`--mapa-panel-h`: 279 px con el panel abierto, 68 px plegado) | ✅ |
 | 32 | Estilo sin `ne2_shaded` | La fuente inútil se elimina en `style.load` y **las capas propias siguen vivas** (`comunas-*`, `lugares-*`, `satelite-layer`) | ✅ |
+| 33 | Rampa de zoom en 3 momentos | Muy alejado: punto diminuto (zoom 6 → oculto, 9 → 5,2 px) · acercándose: crece poco y mantiene su meseta (zoom 11 → 12 px) · icono: aparece pequeño (zoom 12,5 → 22 px) y crece apenas (14 → 29,2 px · 16 → 34 px) | ✅ (marcadores HTML verificados; capas GeoJSON con `minzoom`/`icon-size` interpolados) |
+| 34 | Puntos de vista fija | Se ven **exactamente igual** que los demás: sin contorno punteado ni ningún distintivo; solo cambian al no achicarse al alejar | ✅ |
+| 35 | Metro unificado | Un solo interruptor **“Metro (estaciones y líneas)”**: al encenderlo aparecen líneas, estaciones, iconos y rótulos | ✅ (`metro-lineas`, `metro-estaciones`, `metro-combo`, `metro-estaciones-icono`, `metro-combo-icono`, `metro-nombres`) |
+| 36 | Nombre de la estación | Aparece **debajo del icono** al acercarse (zoom ≥ 12,5), sin presionarla | ✅ (`metro-nombres`, `text-anchor: top`) |
+| 37 | Bomberos separados | La capa **Cuarteles de bomberos** es independiente de **Policía, Comisarías y Tenencias**; 178 cuarteles y 167 puntos de seguridad | ✅ (archivos + interruptores + iconos propios) |
+| 38 | Nombre del terminal y de los puntos | Bajo el icono del punto aparece su nombre (p. ej. “Terminal San Borja”) al acercar el mapa | ✅ (`.map-point-nombre`) |
+| 39 | Sin panel inferior | Ya no existe la vista inferior colapsable; la ficha de un evento y los resultados de búsqueda aparecen en el **cuadro de mensaje** (con título, acciones y botón de cerrar) | ✅ |
+| 40 | Gestión de puntos (admin) | Botón en la fila de controles → hoja con la lista por tipo; cada fila permite renombrar, mostrar/desmostrar y borrar; un botón **Guardar** aplica los cambios | ✅ (5 puntos generales listados; escritura verificada por código, requiere `sql/09` para moderar puntos de otros usuarios) |
+| 41 | Muro “Descárgate” | Al presionarlo el fondo se pone naranja (como el botón Publicar) y el botón queda blanco con letras naranjas | ✅ (`linear-gradient(#f25050,#d6a100)`, botón `#fff` / `#d96a00`) |
+| 42 | Agenda sin scroll lateral | A 390 px de ancho la agenda no tiene scroll horizontal (solo vertical) | ✅ (`scrollWidth = clientWidth = 390` en un iframe de 390 px) |
+| 43 | Iconos optimizados | Los 17 SVG del mapa pesan 415 KB en total (antes 3,2 MB) y ninguno supera 400 KB | ✅ (revisión visual de los 17 iconos) |
 
 ---
 
 ## 3. Resultados de la corrida automática
 
+- **2026-11-25 (lote de UX)**: **191 pruebas · 0 fallos · 2 avisos**.
+  - Nuevo bloque `[7]`: rampa de zoom en 3 momentos, puntos fijos sin contorno, metro
+    unificado con rótulo, bomberos en capa propia, etiquetas bajo el icono, gestión de
+    puntos del admin (con `sql/09`), muro naranja y agenda sin scroll lateral.
+  - El bloque `[6]` se actualizó: el panel inferior ya no debe existir y los detalles van
+    al cuadro de mensaje.
 - **2026-11-25 (fix 42703 en sql/08)**: **141 pruebas · 0 fallos · 2 avisos**.
   - Nueva regresión: las consultas `select … from public.map_points` de `sql/06`, `sql/07` y
     `sql/08` solo pueden usar columnas que existen en el `create table` (se extraen del propio
@@ -78,8 +96,8 @@ Sin dependencias: solo Node.js ≥ 18. Comprueba:
 - Avisos no bloqueantes del navegador: Tailwind CDN (aviso conocido de producción) y 3 avisos
   de MapLibre (`Expected value to be of type number, but found null instead`) que provienen del
   estilo OpenFreeMap, no del código de la app.
-- El service worker quedó en `app-santiago-2026-v5` (precache renovada tras el rediseño de la
-  vista de mapa; los iconos SVG siguen en cache-first).
+- El service worker quedó en `app-santiago-2026-v6` (precache renovada tras el lote de UX;
+  los iconos SVG siguen en cache-first).
 - **Limitación del navegador embebido de pruebas**: no dispara `requestAnimationFrame`, por lo
   que MapLibre no repinta (`map.loaded()` queda en `false` y `queryRenderedFeatures()` devuelve
   0). Se verificó por otra vía que el estilo se aplica, que `ne2_shaded` se elimina y que las
@@ -100,6 +118,10 @@ Requiere credenciales del proyecto Supabase (no hay `service_role` en el entorno
      actual de `sql/07_terminales.sql` ya lo trae corregido.
 3. (Opcional) Ejecutar `sql/08_puntos_fijos.sql` si la tabla `map_points` ya existía antes
    de esta versión: agrega la columna `fijo` (vista fija). `sql/06` ya la incluye.
-4. Repetir las pruebas 11–15 y 23 con dos cuentas: una `admin` y otra normal.
-5. Verificar que el usuario normal recibe error al intentar insertar un punto `tipo='general'`
+4. Ejecutar **`sql/09_admin_gestiona_puntos.sql`**: permite que el administrador renombre,
+   muestre/oculte y **borre cualquier punto** del mapa (incluidos los personales de otros
+   usuarios). Sin esta política, el botón “Guardar” de la hoja de gestión fallaría con
+   error 42501 sobre puntos que no son suyos.
+5. Repetir las pruebas 11–15, 23 y 40 con dos cuentas: una `admin` y otra normal.
+6. Verificar que el usuario normal recibe error al intentar insertar un punto `tipo='general'`
    (la política `Admin gestiona puntos generales` debe rechazarlo).

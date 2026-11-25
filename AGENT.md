@@ -978,3 +978,46 @@ mercados y clínicas privadas). Se reescribió `scripts/importar-lugares.mjs` y 
   existentes (detecta el 42703 antes de que llegue a Supabase). Verificado que la prueba
   falla si se reintroduce `activo`.
 - Total: **141 pruebas · 0 fallos · 2 avisos**.
+
+---
+
+## 25. Lote de UX del 2026-11-25 (zoom escalonado, metro, bomberos, puntos, muro y agenda)
+
+Pedido del usuario (un solo lote) y cómo quedó resuelto:
+
+| Pedido | Solución | Dónde |
+|---|---|---|
+| Zoom de puntos en **3 momentos** | Rampa con 5 umbrales: `ZOOM_PUNTO_MIN=7`, `ZOOM_PUNTO_MEDIO=9,5`, `ZOOM_PUNTO_MAX=11`, `ZOOM_ICONO=12,5`, `ZOOM_ICONO_MAX=15`; radio 0,8→7 px (meseta entre 11 y 12,5) e `icon-size` 0,25→0,45 (nunca grande) | `src/main.js` (constantes, `cargarLugares`, `cargarTransporte`, `actualizarPuntosSegunZoom`) |
+| Puntos fijos **sin borde punteado** | Se eliminó la clase `.map-point-admin` y su `outline: dashed`; los fijos solo cambian que no se achican (`data-fijo`) | `src/main.js`, `styles.css` |
+| **Metro en una sola capa** + nombre bajo el icono | Un interruptor “Metro (estaciones y líneas)” (`id: metro`) agrupa líneas, estaciones, iconos y rótulos; la capa `metro-nombres` escribe `nombre` con `text-anchor: top` desde el zoom 12,5 | `src/main.js` (`CAPAS_DEF`, `cargarTransporte`) |
+| **Bomberos separados de la policía** | `data/lugares/seguridad.geojson` quedó con 167 puntos de policía y los 178 cuarteles pasaron a `data/lugares/bomberos.geojson`; dos capas, dos interruptores y dos iconos (`policia.svg`, `bomberos.svg`) | `scripts/separar-bomberos.mjs`, `scripts/importar-lugares.mjs`, `src/main.js` |
+| **Eliminar el panel inferior** | Ya no existe `#mapa-panel-inferior`; los detalles de lugar/evento y los resultados de búsqueda se muestran en el cuadro de mensaje (`#toast-msg`) con título, cuerpo, acciones y botón de cerrar (`mostrarMensaje()`) | `index.html`, `src/main.js`, `styles.css` |
+| **Admin gestiona los puntos marcados** | Botón `#map-puntos-btn` → hoja `#puntos-sheet` con la lista por tipo (general/personal), input de nombre, checkbox `visible`, botón de borrar y **Guardar** (solo se envían los cambios y borrados) | `index.html`, `src/main.js` |
+| **Nombre del terminal al acercar** | Los marcadores HTML llevan `.map-point-nombre` debajo del icono, visible con `.map-point-con-nombre` desde el zoom 12,5 | `src/main.js`, `styles.css` |
+| **Agenda sin scroll lateral** | `overflow-x: clip` en `#view-agenda`, `min-w-0` en las tarjetas de día y botón “Nueva Actividad” con salto de línea | `styles.css`, `src/main.js`, `index.html` |
+| **Muro “Descárgate” en naranja** | Clase `muro-vent` en `#view-muro`: fondo `linear-gradient(#f25050,#d6a100)` y botón de la pestaña blanco con letras `#d96a00` | `src/main.js` (`pintarMuro`), `styles.css` |
+
+Extras que hicieron falta:
+
+- **`sql/09_admin_gestiona_puntos.sql`**: con las políticas de `sql/06` el admin no podía
+  escribir en los puntos **personales de otros usuarios** (RLS → 42501). La política nueva
+  “Admin gestiona todos los puntos” lo habilita sin cambiar nada para los demás usuarios.
+- **Iconos**: los SVG que trae el usuario pesaban 3,2 MB (trebol.svg 1,8 MB). Se optimizaron
+  con `node scripts/optimizar-iconos.mjs` (SVGO, `scripts/svgo.config.mjs`): quedan en
+  **415 KB** y ninguno supera 400 KB. El script se restauró porque la documentación ya lo
+  citaba y faltaba en el árbol de trabajo; ahora usa `--config` (con `-f` SVGO lo tomaba
+  como carpeta) y valida que el SVG conserve su `viewBox`.
+- **`sw.js`** subido a `CACHE_NAME` **v6** (precache renovada con el lote de UX).
+- **Verificación**: `scripts/verificar-mapa.mjs` → **191 pruebas · 0 fallos · 2 avisos**.
+  El bloque `[6]` se adaptó (el panel inferior ya no debe existir) y se agregó el bloque
+  `[7]` con las 11 comprobaciones del lote.
+- **Navegador** (0 errores de consola): rampa verificada en los marcadores HTML (zoom 6
+  oculto · 9 → 5,2 px · 11 → 12 px · 12,5 → icono 22 px + nombre · 16 → 34 px); capas
+  `lugares-bomberos-*` y `metro-*` creadas al encender los interruptores; cuadro de mensaje
+  con los 5 resultados de búsqueda y la ficha del evento (acciones “Ver actividad” y “Cómo
+  llegar”); hoja de gestión con los 5 puntos generales; muro naranja con botón blanco;
+  agenda sin scroll horizontal a 390 px (comprobado con un iframe de 390 px, que comparte la
+  sesión de `localStorage` con la app).
+- **Extra**: al abrir la app, las capas encendidas en las preferencias guardadas se recuperan
+  también las que necesitan fuente propia (transporte). Antes, el interruptor de Metro podía
+  quedar “encendido” sin datos en el mapa: había que apagarlo y volverlo a encender.

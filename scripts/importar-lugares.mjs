@@ -26,7 +26,8 @@
 //   - Plazas: solo plazas de armas de las comunas.
 //   - Comercio: solo centros comerciales grandes (malls).
 //   - Salud: solo hospitales públicos, SAPU y SAR (se descartan clínicas privadas).
-//   - Seguridad: bomberos, carabineros, comisarías y tenencias.
+//   - Seguridad: carabineros, comisarías y tenencias.
+//   - Bomberos: cuarteles de bomberos (capa separada del resto de seguridad).
 //   - Servicios públicos: solo municipalidades.
 //   - Sin escuelas ni edificios educacionales.
 //   - Sin paraderos de bus (solo las 4 terminales generales, en sql/07_terminales.sql).
@@ -135,13 +136,19 @@ const CATEGORIAS = [
   },
   {
     id: "seguridad",
-    etiqueta: "Bomberos, Carabineros, Comisarías y Tenencias",
+    etiqueta: "Policía, Comisarías y Tenencias",
     consulta: [
-      '["amenity"="fire_station"]["name"]',
       '["amenity"="police"]["name"]',
       '["office"="police"]["name"]',
     ],
-    sub: (t) => (t.amenity === "fire_station" ? "Cuartel de bomberos" : "Comisaría o tenencia"),
+    sub: () => "Comisaría o tenencia",
+    regla: () => true,
+  },
+  {
+    id: "bomberos",
+    etiqueta: "Cuarteles de bomberos",
+    consulta: ['["amenity"="fire_station"]["name"]'],
+    sub: () => "Cuartel de bomberos",
     regla: () => true,
   },
   {

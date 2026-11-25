@@ -89,6 +89,39 @@ a { color: #006492; }
   background: #006492; border: 3px solid #fff;
   box-shadow: 0 0 0 8px rgba(0,100,146,.22), 0 2px 6px rgba(0,0,0,.35);
 }
+/* ---- Vista agenda: sin scroll lateral (solo arriba/abajo) ----
+   La agenda se adapta al ancho de la pantalla: las tarjetas, los títulos y el
+   botón "Nueva Actividad" pueden encogerse o partirse en dos líneas en vez
+   de empujar la página hacia los lados. */
+#view-agenda { max-width: 100%; overflow-x: clip; }
+#view-agenda .activity-card,
+#view-agenda .activity-top,
+#view-agenda .activity-actions { min-width: 0; max-width: 100%; }
+#view-agenda .activity-card h3,
+#view-agenda .activity-desc { overflow-wrap: anywhere; word-break: break-word; }
+#admin-create-wrap { min-width: 0; }
+#new-activity-btn { white-space: normal; }
+@media (max-width: 430px) {
+  #new-activity-btn span:last-child { max-width: 6.5rem; white-space: normal; line-height: 1.15; text-align: left; }
+  #view-agenda .filter-tab { padding-left: .35rem; padding-right: .35rem; font-size: .78rem; }
+}
+
+/* ---- Muro: al elegir "Descárgate" el fondo se pinta de naranja ----
+   El botón de la pestaña queda blanco con las letras naranjas (2026-11-25).
+   Los selectores son más específicos que los de index.html para ganarles. */
+#view-muro.muro-vent {
+  min-height: calc(100dvh - 4rem - env(safe-area-inset-bottom, 0px));
+  background-color: #d6a100;
+  background-image: linear-gradient(180deg, #f25050 0%, #d6a100 100%);
+}
+#view-muro.muro-vent .wall-tab.selected,
+#view-muro .wall-tab.vent-activo.selected,
+.wall-tab.vent-activo.selected {
+  background: #ffffff; color: #d96a00; box-shadow: 0 2px 8px rgba(0,0,0,.18);
+}
+#view-muro.muro-vent .wall-tab:not(.selected) { background: rgba(255,255,255,.82); color: #7a4a00; }
+#view-muro.muro-vent #wall-posts .empty { background: rgba(255,255,255,.85); }
+
 /* ---- Vista mapa a pantalla completa ----
    En la pestaña Mapa se oculta el header de la app y el mapa ocupa todo el
    espacio disponible (por encima de la navegación inferior). */
@@ -111,9 +144,27 @@ body.vista-mapa .mapa-frame { height: 100% !important; min-height: 0 !important;
 }
 .map-point .material-symbols-outlined { transform: rotate(45deg); font-size: 16px; line-height: 1; color: #fff; }
 .map-point:hover, .map-point:active { scale: 1.12; }
-.map-point-admin { outline: 2px dashed rgba(255,255,255,.85); outline-offset: 2px; }
-/* Puntos personalizados con icono SVG: sin rotación de diamante, el icono ya es un pin. */
-.map-point-icono { transform: none; width: 34px; height: 34px; border: none; box-shadow: 0 2px 8px rgba(0,0,0,.35); }
+/* Los puntos de vista fija se ven IGUAL que los demás: solo cambia que no se
+   achican al alejar (lo controla `data-fijo` en src/main.js). Sin contorno
+   punteado ni ningún otro distintivo visual. */
+/* Puntos personalizados con icono SVG: sin rotación de diamante, el icono ya es un pin.
+   El tamaño lo define --icono-tam (crece poco al acercarse). */
+.map-point-icono {
+  transform: none; width: var(--icono-tam, 34px); height: var(--icono-tam, 34px);
+  border: none; box-shadow: 0 2px 8px rgba(0,0,0,.35);
+}
+
+/* Nombre del punto debajo del icono (p. ej. "Terminal Alameda"): aparece al
+   acercar el mapa, sin necesidad de presionar el punto. */
+.map-point-nombre {
+  position: absolute; top: 100%; left: 50%; transform: translateX(-50%);
+  margin-top: 3px; padding: 1px 7px; border-radius: 999px;
+  background: rgba(4,33,48,.82); color: #fff;
+  font-size: 11px; font-weight: 700; line-height: 1.5;
+  white-space: nowrap; max-width: 180px; overflow: hidden; text-overflow: ellipsis;
+  pointer-events: none; display: none;
+}
+.map-point-con-nombre .map-point-nombre { display: block; }
 
 /* Al alejar el mapa el icono se transforma en un punto de color que se achica
    hasta desaparecer. Los puntos con "vista fija" no cambian nunca. */
@@ -127,6 +178,8 @@ body.vista-mapa .mapa-frame { height: 100% !important; min-height: 0 !important;
   box-shadow: 0 1px 4px rgba(0,0,0,.35);
 }
 .map-point-oculto { display: none !important; }
+/* En modo punto no se muestra el nombre (el icono ya no está). */
+.map-point-punto .map-point-nombre { display: none !important; }
 
 /* Pines de actividad: al alejar se reducen a un punto de color (no desaparecen:
    siempre se deben poder seleccionar). */

@@ -6,7 +6,7 @@ const $ = (s) => document.querySelector(s);
 const $$ = (s) => document.querySelectorAll(s);
 const state = { user:null, profile:null, event:null, activities:[], category:"positive", filter:"mine",
   map:null, mapListo:false, markers:null, markerById:new Map(), pendingFit:null, selectedId:null, toastTimer:null,
-  mapPoints:[], pointMarkers:new Map(), pointMode:false };
+  mapPoints:[], pointMarkers:new Map(), pointMode:false, mensajeTipo:null };
 const statusText = {pending:"Pendiente", in_progress:"En curso", completed:"Completada", cancelled:"Cancelada"};
 const venueStatusText = {pending:"Programada", in_progress:"En curso", completed:"Finalizada", cancelled:"Cancelada"};
 const viewLabels = {agenda:"Agenda", mapa:"Mapa", muro:"Muro", emergencia:"Emergencia"};
@@ -32,11 +32,55 @@ function notifyError(el,msg){ el.textContent=msg || ""; }
 // Toast honesto: informa sin fingir que algo se guardó.
 function showToast(msg){
   const t=$("#toast-msg"); if(!t) return;
+  state.mensajeTipo="aviso";
+  $("#toast-title").textContent="";
+  $("#toast-title").classList.add("hidden");
+  $("#toast-icon").textContent="info";
   $("#toast-text").textContent=msg;
+  $("#toast-acciones").innerHTML="";
+  $("#toast-acciones").classList.add("hidden");
+  $("#toast-close").classList.add("hidden");
   t.classList.remove("opacity-0","pointer-events-none");
   clearTimeout(state.toastTimer);
-  state.toastTimer=setTimeout(()=>t.classList.add("opacity-0","pointer-events-none"),3000);
+  state.toastTimer=setTimeout(()=>t.classList.add("opacity-0","pointer-events-none"),3500);
 }
+
+// Cuadro de mensaje enriquecido: título, detalles y acciones. Se usa para
+// mostrar la ficha de un LUGAR o de un EVENTO del mapa (2026-11-25: se eliminó
+// el panel inferior y sus datos se muestran aquí).
+// `detalle` es HTML ya escapado por quien llama; `acciones` son botones.
+function mostrarMensaje({titulo="",detalle="",acciones=[],icono="info",tipo="detalle"}={}){
+  const t=$("#toast-msg"); if(!t) return;
+  state.mensajeTipo=tipo;
+  const cTitulo=$("#toast-title");
+  cTitulo.textContent=titulo;
+  cTitulo.classList.toggle("hidden",!titulo);
+  $("#toast-icon").textContent=icono;
+  $("#toast-text").innerHTML=detalle;
+  const caja=$("#toast-acciones");
+  caja.innerHTML="";
+  if(acciones.length){
+    caja.classList.remove("hidden");
+    acciones.forEach(a=>{
+      const b=document.createElement("button");
+      b.type="button";
+      b.className="h-9 px-3 rounded-full bg-white/15 hover:bg-white/25 text-inverse-on-surface text-sm font-bold flex items-center gap-1.5 active:scale-95 transition-all";
+      b.textContent=a.texto;
+      b.addEventListener("click",()=>{ cerrarMensaje(); a.fn?.(); });
+      caja.appendChild(b);
+    });
+  } else caja.classList.add("hidden");
+  $("#toast-close").classList.remove("hidden");
+  t.classList.remove("opacity-0","pointer-events-none");
+  clearTimeout(state.toastTimer);
+}
+function cerrarMensaje(){
+  const t=$("#toast-msg"); if(!t) return;
+  state.mensajeTipo=null;
+  t.classList.add("opacity-0","pointer-events-none");
+  clearTimeout(state.toastTimer);
+}
+$("#toast-close")?.addEventListener("click",cerrarMensaje);
 
 // Traduce errores de PostgREST/Supabase a mensajes concretos y accionables.
 function describeError(error,ctx){
@@ -65,6 +109,8 @@ async function loadProfile(){
   $("#admin-create-wrap").classList.toggle("hidden",!isAdmin());
   // Botón de alta de puntos en el mapa: solo para administradores (§9).
   $("#map-add-point")?.classList.toggle("hidden",!isAdmin());
+  // Gestión de puntos (lista, renombrar, mostrar/ocultar, borrar): solo admin.
+  $("#map-puntos-btn")?.classList.toggle("hidden",!isAdmin());
   if(state.mapListo) renderPuntosMapa();
 }
 async function usernameLogin(username,password){
@@ -280,13 +326,13 @@ function renderAgenda(){
         const badgeColor=isPast?"#dfe3e4":"#c9e6ff";
         const badgeTextColor=isPast?"#34647f":"#004262";
         dayNode.innerHTML+=`
-          <div class="relative flex items-start gap-3.5 group">
-            <div class="w-13 h-13 min-w-[52px] min-h-[52px] rounded-full flex flex-col items-center justify-center shadow-sm border-2 ${cls} transition-all" style="background-color: ${isPast?"#eaeff0":"#ffffff"};">
+          <div class="relative flex items-start gap-3.5 group min-w-0">
+            <div class="w-13 h-13 min-w-[52px] min-h-[52px] rounded-full flex flex-col items-center justify-center shadow-sm border-2 ${cls} transition-all flex-shrink-0" style="background-color: ${isPast?"#eaeff0":"#ffffff"};">
               <span class="text-[20px] font-black leading-none" style="color: ${titleColor};">${dt.getDate()}</span>
               <span class="text-[9px] font-bold uppercase tracking-wider leading-none mt-0.5" style="color: ${badgeTextColor};">OCT</span>
             </div>
-            <div class="flex-1 bg-surface-container-lowest rounded-lg p-3 shadow-sm border transition-all duration-200" style="border-color: ${isPast?"#CEE8F2":"#CEE8F2"};">
-              <button class="w-full flex items-center justify-between text-left focus:outline-none" type="button" data-day="${dayId}">
+            <div class="flex-1 min-w-0 bg-surface-container-lowest rounded-lg p-3 shadow-sm border transition-all duration-200" style="border-color: ${isPast?"#CEE8F2":"#CEE8F2"};">
+              <button class="w-full min-w-0 flex items-center justify-between gap-2 text-left focus:outline-none" type="button" data-day="${dayId}">
                 <div class="min-w-0 pr-2">
                   <div class="flex items-center gap-2 flex-wrap">
                     <span class="font-headline-sm text-[16px] font-bold uppercase tracking-tight" style="color: ${titleColor};">${esc(cap(dateFmt.format(dt)))}</span>
@@ -454,11 +500,14 @@ function renderMap(){
         renderMarkers();
         ponerMarcadorUsuario();
         applyPendingFit();
-        // Las capas de lugares que el usuario dejó encendidas se recuperan.
+        // Las capas que el usuario dejó encendidas se recuperan (§10): las de
+        // lugares (un archivo por capa) y las que necesitan una fuente propia
+        // (transporte: metro y metrotren). Sin esto, el interruptor quedaría
+        // "encendido" pero sin datos en el mapa.
         CAPAS_DEF.forEach(g=>g.items.forEach(it=>{
-          if(it.capaLugares&&capasEstado[it.id]){
-            cargarLugares(it.capaLugares).catch(err=>console.warn("capa",it.id,err));
-          }
+          if(!capasEstado[it.id]) return;
+          if(it.requiere) asegurarFuente(it.requiere).catch(err=>console.warn("capa",it.id,err));
+          if(it.capaLugares) cargarLugares(it.capaLugares).catch(err=>console.warn("capa",it.id,err));
         }));
         mapaIniciado=true;
       }catch(err){
@@ -512,68 +561,73 @@ function markersBounds(){
   const lats=cs.map(c=>c.lat), lngs=cs.map(c=>c.lng);
   return [[Math.min(...lngs),Math.min(...lats)],[Math.max(...lngs),Math.max(...lats)]];
 }
+// Búsqueda en el mapa: los resultados se muestran en el cuadro de mensaje
+// (no hay panel inferior). Cada resultado se puede presionar para ver la
+// ficha de la actividad y centrar el mapa.
 function renderMapList(){
-  const root=$("#map-activity-list"); if(!root) return;
   const q=($("#map-search")?.value||"").trim().toLowerCase();
+  if(!q){
+    // Sin búsqueda no se muestra nada: si el cuadro tenía resultados, se cierra.
+    if(state.mensajeTipo==="busqueda") cerrarMensaje();
+    return;
+  }
   const items=state.activities.filter(a=>!q
     || a.title.toLowerCase().includes(q)
     || (a.place||"").toLowerCase().includes(q)
     || (a.description||"").toLowerCase().includes(q));
-  root.innerHTML=items.length
-    ? items.map(a=>`<button class="map-item${state.selectedId===a.id?" on":""}" data-select="${a.id}" type="button">
-        <span class="map-item-title">${esc(a.title)}</span>
-        <span class="map-item-meta">${esc(dayFmt.format(new Date(a.activity_date+"T12:00:00")))} · ${esc(a.place||"Lugar por confirmar")}</span>
+  const detalle=items.length
+    ? items.map(a=>`<button type="button" data-map-sel="${a.id}"
+        class="w-full text-left px-3 py-2 rounded-xl bg-white/10 hover:bg-white/20 transition-colors mb-1.5 last:mb-0">
+        <span class="block font-bold text-sm">${esc(a.title)}</span>
+        <span class="block text-xs opacity-75">${esc(dayFmt.format(new Date(a.activity_date+"T12:00:00")))} · ${esc(a.place||"Lugar por confirmar")}</span>
       </button>`).join("")
-    : '<div class="empty">Sin resultados.</div>';
-  root.querySelectorAll("[data-select]").forEach(b=>b.addEventListener("click",()=>selectVenue(state.activities.find(a=>a.id===b.dataset.select))));
+    : '<span class="opacity-80">Sin coincidencias.</span>';
+  mostrarMensaje({
+    titulo:`${items.length} resultado${items.length===1?"":"s"}`,
+    detalle, icono:"search", tipo:"busqueda",
+  });
+  $("#toast-text").querySelectorAll("[data-map-sel]").forEach(b=>b.addEventListener("click",()=>{
+    const a=state.activities.find(x=>x.id===b.dataset.mapSel);
+    if(a) selectVenue(a);
+  }));
 }
 function resetVenue(){
   state.selectedId=null;
-  $("#venue-status").textContent="Selecciona una actividad";
-  $("#venue-title").textContent="—";
-  $("#venue-time").textContent="—";
-  $("#venue-address").textContent="—";
-  $("#venue-detail").classList.add("hidden");
-  $("#venue-nav").disabled=true;
-  renderMapList();
+  if(state.mensajeTipo==="detalle") cerrarMensaje();
 }
 function selectVenue(a,pan=true){
   if(!a) return;
   state.selectedId=a.id;
-  // Si el panel inferior está colapsado, se abre para mostrar el detalle.
-  if($("#mapa-panel-cuerpo")?.classList.contains("hidden")) colapsarPanelMapa(false);
-  $("#venue-status").textContent=venueStatusText[a.status]||"Programada";
-  $("#venue-title").textContent=a.title;
-  $("#venue-time").textContent=`${dayFmt.format(new Date(a.activity_date+"T12:00:00"))} · ${timeFmt(a.start_time)||"Hora por definir"}${a.end_time?" – "+timeFmt(a.end_time):""}`;
-  $("#venue-address").textContent=a.place||"Lugar por confirmar";
-  $("#venue-detail").classList.remove("hidden");
-  const nav=$("#venue-nav");
-  if(conCoords(a)){ const c=coords(a); nav.disabled=false; nav.dataset.lat=c.lat; nav.dataset.lng=c.lng; }
-  else { nav.disabled=true; delete nav.dataset.lat; delete nav.dataset.lng; }
-  renderMapList();
+  const cuando=`${dayFmt.format(new Date(a.activity_date+"T12:00:00"))} · ${timeFmt(a.start_time)||"Hora por definir"}${a.end_time?" – "+timeFmt(a.end_time):""}`;
+  const partes=[
+    `<span class="opacity-80 font-semibold">${esc(venueStatusText[a.status]||"Programada")}</span>`,
+    esc(cuando),
+    a.place?esc(a.place):"Lugar por confirmar",
+    a.description?esc(a.description):"",
+  ].filter(Boolean);
+  const acciones=[{texto:"Ver actividad",icono:"calendar_today",fn:()=>gotoView("agenda")}];
+  if(conCoords(a)){
+    const c=coords(a);
+    acciones.push({texto:"Cómo llegar",icono:"navigation",fn:()=>window.open(
+      `https://www.google.com/maps/dir/?api=1&destination=${c.lat},${c.lng}`,"_blank","noopener")});
+  }
+  mostrarMensaje({titulo:a.title,detalle:partes.join("<br>"),acciones,icono:"event",tipo:"detalle"});
   const m=state.markerById.get(a.id);
   if(m&&state.map&&pan){
     state.map.flyTo({center:m.getLngLat(),zoom:Math.max(state.map.getZoom(),14),duration:600,offset:offsetPanel()});
-    if(!m.getPopup()?.isOpen?.()) m.togglePopup();
   }
 }
 // Desplazamiento vertical para que el punto "centrado" caiga en el área
-// visible del mapa (entre la barra de búsqueda y el panel inferior).
+// visible del mapa (debajo de la barra de búsqueda).
 function offsetPanel(){
   const cont=$("#map")?.getBoundingClientRect();
-  const panel=$("#mapa-panel-inferior")?.getBoundingClientRect();
   const buscador=$("#map-search-wrap")?.getBoundingClientRect();
   if(!cont)return [0,0];
-  const arriba=(buscador&&buscador.height)?buscador.bottom-cont.top:60;
-  const abajo=panel?panel.top-cont.top:cont.height;
-  const yMedio=(arriba+abajo)/2;
+  const abierto=buscador&&!buscador.classList.contains("hidden");
+  const arriba=(abierto&&buscador.height)?buscador.bottom-cont.top:60;
+  const yMedio=(arriba+cont.height)/2;
   return [0,Math.round(yMedio-cont.height/2)];
 }
-$("#venue-nav").addEventListener("click",e=>{
-  const b=e.currentTarget; if(b.disabled) return;
-  window.open(`https://www.google.com/maps/dir/?api=1&destination=${b.dataset.lat},${b.dataset.lng}`,"_blank","noopener");
-});
-$("#venue-go-agenda").addEventListener("click",()=>gotoView("agenda"));
 $("#map-zoom-in").addEventListener("click",()=>state.map?.zoomIn());
 $("#map-zoom-out").addEventListener("click",()=>state.map?.zoomOut());
 // Recentrar en todas las actividades (encuadra el bounds calculado)
@@ -602,7 +656,8 @@ const cerrarBuscador=()=>{
   wrap.classList.add("hidden");
   $("#map-search-toggle")?.setAttribute("aria-expanded","false");
   if($("#map-search")) $("#map-search").value="";
-  renderMapList();
+  // Si el cuadro de mensaje mostraba los resultados de la búsqueda, se cierra.
+  if(state.mensajeTipo==="busqueda") cerrarMensaje();
 };
 $("#map-search-toggle")?.addEventListener("click",()=>{
   const wrap=$("#map-search-wrap");
@@ -620,54 +675,23 @@ $("#map-controls-toggle")?.addEventListener("click",()=>{
   $("#map-controls-icon")?.classList.toggle("rotate-180",abierto);
 });
 
-// --- Panel inferior de actividades colapsable -------------------------------
-const colapsarPanelMapa=(colapsado)=>{
-  const cuerpo=$("#mapa-panel-cuerpo"); if(!cuerpo) return;
-  cuerpo.classList.toggle("hidden",colapsado);
-  $("#mapa-panel-toggle")?.setAttribute("aria-expanded",String(!colapsado));
-  const ico=$("#mapa-panel-icon");
-  if(ico) ico.textContent=colapsado?"keyboard_arrow_up":"keyboard_arrow_down";
-  // El mapa debe re-medirse: el panel deja de tapar la parte inferior.
-  setTimeout(()=>{ state.map?.resize(); actualizarAlturaPanelMapa(); },60);
-};
-$("#mapa-panel-toggle")?.addEventListener("click",()=>{
-  colapsarPanelMapa(!$("#mapa-panel-cuerpo")?.classList.contains("hidden"));
-});
+// --- Panel inferior de actividades: ELIMINADO (2026-11-25) -----------------
+// Los detalles de un lugar o evento se muestran en el cuadro de mensaje
+// (`mostrarMensaje`) y los resultados de la búsqueda también.
 
-// Padding de encuadre: deja libres la barra de búsqueda (arriba) y el panel
-// inferior de sede/lista, para que ningún pín quede tapado.
+// Padding de encuadre: deja libre la barra de búsqueda (arriba).
 function paddingMapa(){
-  const cont=$("#view-mapa .relative.w-full")||$("#map")?.parentElement;
-  const panel=$("#mapa-panel-inferior");
   const buscador=$("#map-search-wrap");
-  const altoBuscador=buscador?buscador.getBoundingClientRect().height:0;
+  const altoBuscador=buscador&&!buscador.classList.contains("hidden")?buscador.getBoundingClientRect().height:0;
   const top=(altoBuscador?altoBuscador+24:70);
-  const bottom=(panel?panel.getBoundingClientRect().height+24:40);
-  return {top:Math.round(top),bottom:Math.round(bottom),left:24,right:24,_cont:cont};
+  return {top:Math.round(top),bottom:80,left:24,right:24};
 }
-// Atribución visible (mapas.txt §3.1): el control de atribución de MapLibre se
-// dibuja abajo a la derecha y el panel inferior de sede/lista lo tapaba. Se
-// publica la altura real del panel como variable CSS y el CSS la usa como `bottom`.
-// Se observan el panel Y el contenedor del mapa: el valor cambia al colapsar el
-// panel y también al entrar en la vista Mapa (antes el mapa no tenía tamaño).
+// Atribución visible (mapas.txt §3.1): el control de MapLibre se dibuja abajo a
+// la derecha. Ya no hay panel inferior, así que queda a 0 (se mantiene la
+// variable por si vuelve a usarse un panel).
 function actualizarAlturaPanelMapa(){
-  const panel=$("#mapa-panel-inferior"), cont=$("#map");
-  if(!panel||!cont) return;
-  const p=panel.getBoundingClientRect(), c=cont.getBoundingClientRect();
-  if(!c.height) return;                       // la vista aún no está visible
-  // `bottom` del CSS se mide desde el borde inferior del mapa: altura del panel
-  // = (borde inferior del mapa) − (borde superior del panel) + aire.
-  cont.style.setProperty("--mapa-panel-h",Math.max(0,Math.round(c.bottom-p.top)+10)+"px");
+  $("#map")?.style.setProperty("--mapa-panel-h","0px");
 }
-(function atribucionSobrePanel(){
-  const panel=$("#mapa-panel-inferior"), cont=$("#map");
-  if(!panel||!cont) return;
-  if(window.ResizeObserver){
-    const ro=new ResizeObserver(()=>actualizarAlturaPanelMapa());
-    ro.observe(panel); ro.observe(cont);
-  }
-  actualizarAlturaPanelMapa();
-})();
 
 function applyPendingFit(){
   if(!state.map||!state.pendingFit)return;
@@ -803,15 +827,31 @@ const CAPAS_LUGARES={
   "plazas":     {color:"#8bc34a", label:"Plazas de Armas"},
   "comercio":   {color:"#e8590c", label:"Centros comerciales (Malls)"},
   "salud":      {color:"#e03131", label:"Hospitales públicos, SAPU y SAR"},
-  "seguridad":  {color:"#1c7ed6", label:"Bomberos, Carabineros, Comisarías y Tenencias"},
+  "seguridad":  {color:"#1c7ed6", label:"Policía, Comisarías y Tenencias"},
+  "bomberos":   {color:"#c92a2a", label:"Cuarteles de bomberos"},
   "servicios":  {color:"#0ca678", label:"Municipalidades"},
 };
 
 // Zoom de los iconos: al alejar, cada lugar se dibuja como un punto de color
 // que se achica hasta desaparecer; al acercar aparece el icono.
-const ZOOM_PUNTO_MIN=7;      // zoom en el que el punto de color desaparece
-const ZOOM_ICONO=12.5;       // zoom a partir del cual se dibuja el icono
-const RADIO_PUNTO_MAX=7;     // radio (px) del punto de color justo antes del icono
+//
+// El usuario pidió TRES momentos bien marcados (2026-11-25):
+//   1) Muy alejado  → punto diminuto, casi imperceptible.
+//   2) Acercándose  → el punto crece poco hasta llegar a su tamaño actual y
+//                      ahí se mantiene (meseta) hasta que aparece el icono.
+//   3) Icono        → aparece PEQUEÑO y sigue creciendo apenas hasta un
+//                      máximo discreto (nunca un tamaño grande).
+const ZOOM_PUNTO_MIN=7;        // punto casi imperceptible
+const ZOOM_PUNTO_MEDIO=9.5;    // crecimiento lento del punto
+const ZOOM_PUNTO_MAX=11;       // tamaño del punto reached (meseta)
+const ZOOM_ICONO=12.5;         // aparece el icono (tamaño pequeño)
+const ZOOM_ICONO_MAX=15;       // el icono deja de crecer
+const RADIO_PUNTO_MIN=0.8;     // radio (px) del punto casi imperceptible
+const RADIO_PUNTO_MAX=7;       // radio (px) del punto en su meseta
+const TAM_PUNTO_MIN=2;         // diámetro (px) del punto propio casi imperceptible
+const TAM_PUNTO_MAX=12;        // diámetro (px) del punto propio en su meseta
+const ICONO_MIN=0.25;          // icon-size al aparecer el icono
+const ICONO_MAX=0.45;          // icon-size máximo (crece "un poco")
 
 // =============================================================================
 // ICONOS DEL MAPA (SVG) — §5
@@ -822,6 +862,7 @@ const RADIO_PUNTO_MAX=7;     // radio (px) del punto de color justo antes del ic
 const ICONOS_MAPA={
   place:{svg:"casa.svg",label:"Lugar"},
   warning:{svg:"policia.svg",label:"Alerta"},
+  bomberos:{svg:"bomberos.svg",label:"Bomberos"},
   health_and_safety:{svg:"urgencias.svg",label:"Salud"},
   hospital:{svg:"hospital.svg",label:"Hospital"},
   school:{svg:"trebol.svg",label:"Educación"},
@@ -842,7 +883,7 @@ const ICONOS_MAPA={
 // Icono de cada capa de lugares (§4/§5: identidad visual coherente).
 const ICONO_LUGAR={
   parques:"park",plazas:"park",comercio:"store",
-  salud:"health_and_safety",seguridad:"warning",servicios:"casa",
+  salud:"health_and_safety",seguridad:"warning",bomberos:"bomberos",servicios:"casa",
 };
 
 // Icono por categoría de punto personalizado (§9) y por el icono que el
@@ -964,6 +1005,10 @@ async function cargarTransporte(){
 
   // Colores referenciales por línea (no son los oficiales del Metro).
   const COLOR_LINEA={L1:"#e30613",L2:"#0f7fd4",L3:"#8a9b16",L4:"#f08a00",L4A:"#f08a00",L5:"#5ec4e8",L6:"#8b5fbf",MTN:"#00a19a",MTR:"#0079c2"};
+  // Iconos SVG del Metro: al acercar aparece el icono y DEBAJO el nombre de
+  // la estación (sin necesidad de presionarla).
+  const idIconoMetro=await asegurarIcono("metro","#e30613");
+  const idIconoCombo=await asegurarIcono("metro_combinacion","#f08a00");
   insertarBajoSimbolos({id:"metro-lineas",type:"line",source:"transporte-lineas",
     filter:["==",["get","tipo"],"metro"],
     paint:{"line-color":["match",["get","linea"],...Object.entries(COLOR_LINEA).flatMap(([k,v])=>[k,v]),"#e30613"],
@@ -971,21 +1016,37 @@ async function cargarTransporte(){
   insertarBajoSimbolos({id:"metrotren-lineas",type:"line",source:"transporte-lineas",
     filter:["==",["get","tipo"],"metrotren"],
     paint:{"line-color":"#0079c2","line-width":3,"line-opacity":0.9}});
+  // Estaciones: punto de color al alejar (mismos 3 momentos que los lugares).
   insertarBajoSimbolos({id:"metro-estaciones",type:"circle",source:"transporte-estaciones",
-    filter:["==",["get","tipo"],"metro"],
-    paint:{"circle-color":"#ffffff","circle-radius":5,"circle-stroke-color":"#181c1d","circle-stroke-width":1.5}});
+    filter:["==",["get","tipo"],"metro"],maxzoom:ZOOM_ICONO,
+    paint:{"circle-color":"#ffffff",
+            "circle-radius":["interpolate",["linear"],["zoom"],ZOOM_PUNTO_MIN,RADIO_PUNTO_MIN*1.6,ZOOM_PUNTO_MAX,5],
+            "circle-stroke-color":"#181c1d","circle-stroke-width":1.5}});
+  insertarBajoSimbolos({id:"metro-estaciones-icono",type:"symbol",source:"transporte-estaciones",
+    filter:["==",["get","tipo"],"metro"],minzoom:ZOOM_ICONO,
+    layout:{"icon-image":idIconoMetro,
+            "icon-size":["interpolate",["linear"],["zoom"],ZOOM_ICONO,ICONO_MIN,ZOOM_ICONO_MAX,ICONO_MAX],
+            "icon-allow-overlap":true,"icon-ignore-placement":true}});
   insertarBajoSimbolos({id:"metro-combo",type:"circle",source:"transporte-estaciones",
-    filter:["all",["==",["get","tipo"],"metro"],["==",["get","combinaciones"],true]],
-    paint:{"circle-color":"#ffd54f","circle-radius":7,"circle-stroke-color":"#181c1d","circle-stroke-width":1.5}});
+    filter:["all",["==",["get","tipo"],"metro"],["==",["get","combinaciones"],true]],maxzoom:ZOOM_ICONO,
+    paint:{"circle-color":"#ffd54f",
+            "circle-radius":["interpolate",["linear"],["zoom"],ZOOM_PUNTO_MIN,RADIO_PUNTO_MIN*2,ZOOM_PUNTO_MAX,7],
+            "circle-stroke-color":"#181c1d","circle-stroke-width":1.5}});
+  insertarBajoSimbolos({id:"metro-combo-icono",type:"symbol",source:"transporte-estaciones",
+    filter:["all",["==",["get","tipo"],"metro"],["==",["get","combinaciones"],true]],minzoom:ZOOM_ICONO,
+    layout:{"icon-image":idIconoCombo,
+            "icon-size":["interpolate",["linear"],["zoom"],ZOOM_ICONO,ICONO_MIN,ZOOM_ICONO_MAX,ICONO_MAX],
+            "icon-allow-overlap":true,"icon-ignore-placement":true}});
   insertarBajoSimbolos({id:"metrotren-estaciones",type:"circle",source:"transporte-estaciones",
     filter:["==",["get","tipo"],"metrotren"],
     paint:{"circle-color":"#ffffff","circle-radius":5,"circle-stroke-color":"#0079c2","circle-stroke-width":2}});
 
-  // Rótulos de estación: solo en zoom alto y ENCIMA de las etiquetas base.
+  // Rótulos de estación: nombre DEBAJO del icono, al acercar el mapa.
   map.addLayer({id:"metro-nombres",type:"symbol",source:"transporte-estaciones",
-    filter:["==",["get","tipo"],"metro"],minzoom:12.5,
-    layout:{"text-field":["get","nombre"],"text-size":11,"text-offset":[0,0.9],"text-anchor":"top"},
-    paint:{"text-color":"#ffffff","text-halo-color":"#0b2b3d","text-halo-width":1.4}});
+    filter:["==",["get","tipo"],"metro"],minzoom:ZOOM_ICONO,
+    layout:{"text-field":["get","nombre"],"text-size":11,"text-offset":[0,2.2],"text-anchor":"top",
+             "text-max-width":14,"text-allow-overlap":false},
+    paint:{"text-color":"#ffffff","text-halo-color":"#0b2b3d","text-halo-width":1.6}});
 
   // Popups (§6: nombre, categoría, dirección, comuna, coordenadas, fuente, fecha).
   const popupLugar=new maplibregl.Popup({closeButton:true,offset:14,maxWidth:"260px"});
@@ -1006,10 +1067,12 @@ async function cargarTransporte(){
       `<br><span class="muted" style="font-size:11px">${p.tipo==="metrotren"?"EFE Trenes de Chile":"Metro de Santiago"} · DTPM GTFS</span>`
     ).addTo(map);
   });
-  abrirPopup(["metro-estaciones","metro-combo","metrotren-estaciones"]);
+  abrirPopup(["metro-estaciones","metro-estaciones-icono","metro-combo","metro-combo-icono","metrotren-estaciones"]);
   const cursorPuntero=(ids)=>{map.on("mouseenter",ids,()=>map.getCanvas().style.cursor="pointer");
     map.on("mouseleave",ids,()=>map.getCanvas().style.cursor="");};
-  cursorPuntero(["metro-estaciones","metro-combo","metrotren-estaciones"]);
+  cursorPuntero(["metro-estaciones","metro-estaciones-icono","metro-combo","metro-combo-icono","metrotren-estaciones"]);
+  // La visibilidad de las capas de transporte la fija el panel de capas.
+  aplicarCapas();
 }
 
 // Carga UNA capa de lugares: su propio archivo, con clustering nativo de
@@ -1046,15 +1109,23 @@ async function cargarLugares(capa){
     layout:{"text-field":["get","point_count_abbreviated"],"text-size":12,"text-font":["Noto Sans Regular"]},
     paint:{"text-color":"#ffffff"}});
   // Puntos sueltos: icono SVG en vez de círculo de color.
-  // - Cerca (zoom >= ZOOM_ICONO): se ve el icono.
-  // - Lejos (zoom < ZOOM_ICONO): punto de color que se achica con el zoom.
+  // - Cerca (zoom >= ZOOM_ICONO): se ve el icono, que aparece PEQUEÑO y crece
+  //   apenas hasta ICONO_MAX (nunca un tamaño grande).
+  // - Lejos (zoom < ZOOM_ICONO): punto de color casi imperceptible que crece
+  //   poco hasta RADIO_PUNTO_MAX y ahí se mantiene hasta que aparece el icono.
   insertarBajoSimbolos({id:`${fuente}-puntos`,type:"symbol",source:fuente,
     filter:["!",["has","point_count"]],minzoom:ZOOM_ICONO,
-    layout:{"icon-image":idIcono,"icon-size":0.5,"icon-allow-overlap":true,"icon-ignore-placement":true}});
+    layout:{"icon-image":idIcono,
+            "icon-size":["interpolate",["linear"],["zoom"],ZOOM_ICONO,ICONO_MIN,ZOOM_ICONO_MAX,ICONO_MAX],
+            "icon-allow-overlap":true,"icon-ignore-placement":true}});
   insertarBajoSimbolos({id:`${fuente}-puntos-mini`,type:"circle",source:fuente,
     filter:["!",["has","point_count"]],minzoom:ZOOM_PUNTO_MIN,maxzoom:ZOOM_ICONO,
     paint:{"circle-color":cfg.color,
-            "circle-radius":["interpolate",["linear"],["zoom"],ZOOM_PUNTO_MIN,0,ZOOM_ICONO,RADIO_PUNTO_MAX],
+            "circle-radius":["interpolate",["linear"],["zoom"],
+              ZOOM_PUNTO_MIN,RADIO_PUNTO_MIN,
+              ZOOM_PUNTO_MEDIO,RADIO_PUNTO_MAX*0.45,
+              ZOOM_PUNTO_MAX,RADIO_PUNTO_MAX,
+              ZOOM_ICONO,RADIO_PUNTO_MAX],
             "circle-opacity":0.92,
             "circle-stroke-color":"#ffffff","circle-stroke-width":1}});
 
@@ -1140,8 +1211,8 @@ const CAPAS_DEF=[
     {id:"comunas",nombre:"Límites comunales",defecto:true,custom:"comunas"},
   ]},
   {grupo:"Transporte",items:[
-    {id:"metro-estaciones",nombre:"Estaciones de Metro",requiere:"transporte",capas:["metro-estaciones","metro-combo","metro-nombres"]},
-    {id:"metro-lineas",nombre:"Líneas de Metro",requiere:"transporte",capas:["metro-lineas"]},
+    {id:"metro",nombre:"Metro (estaciones y líneas)",requiere:"transporte",
+      capas:["metro-estaciones","metro-estaciones-icono","metro-combo","metro-combo-icono","metro-nombres","metro-lineas"]},
     {id:"metrotren",nombre:"MetroTren",requiere:"transporte",capas:["metrotren-estaciones","metrotren-lineas"]},
   ]},
   {grupo:"Áreas verdes",items:[
@@ -1153,7 +1224,8 @@ const CAPAS_DEF=[
   ]},
   {grupo:"Servicios",items:[
     {id:"salud",nombre:"Hospitales públicos, SAPU y SAR",capaLugares:"salud"},
-    {id:"seguridad",nombre:"Bomberos, Carabineros, Comisarías y Tenencias",capaLugares:"seguridad"},
+    {id:"seguridad",nombre:"Policía, Comisarías y Tenencias",capaLugares:"seguridad"},
+    {id:"bomberos",nombre:"Cuarteles de bomberos",capaLugares:"bomberos"},
     {id:"servicios",nombre:"Municipalidades",capaLugares:"servicios"},
   ]},
   {grupo:"Aplicación",items:[
@@ -1327,25 +1399,53 @@ async function cargarPuntosMapa(){
   renderPuntosMapa();
 }
 
-// Comportamiento de los marcadores según el zoom:
-//   - Al ACERCAR, los puntos muestran su icono.
-//   - Al ALEJAR, el icono se transforma en un punto del color del pin y ese
-//     punto se achica a medida que se aleja, hasta desaparecer.
+// Comportamiento de los marcadores según el zoom (3 momentos, 2026-11-25):
+//   1) Muy alejado  → punto diminuto, casi imperceptible.
+//   2) Acercándose  → el punto crece poco hasta su tamaño actual y ahí se
+//                      mantiene (meseta) hasta que aparece el icono.
+//   3) Icono        → aparece pequeño, crece apenas hasta un máximo discreto
+//                      y muestra el nombre debajo (p. ej. terminales de bus).
 //   - Los puntos marcados como "vista fija" (columna `fijo`) conservan siempre
-//     su icono.
+//     su icono: no se achican ni desaparecen.
 // Los pines de actividad también se reducen a un punto de color, pero con un
 // tamaño mínimo: siempre se deben poder seleccionar.
+function interpolarRampa(z, puntos){
+  // puntos: [[zoom, valor], ...] ordenados. Devuelve el valor interpolado.
+  if(z<=puntos[0][0]) return puntos[0][1];
+  for(let i=1;i<puntos.length;i++){
+    if(z<=puntos[i][0]){
+      const [z0,v0]=puntos[i-1],[z1,v1]=puntos[i];
+      const t=(z-z0)/(z1-z0);
+      return v0+(v1-v0)*t;
+    }
+  }
+  return puntos[puntos.length-1][1];
+}
 function actualizarPuntosSegunZoom(){
   const map=state.map; if(!map) return;
   const z=map.getZoom();
-  const t=Math.max(0,Math.min(1,(z-ZOOM_PUNTO_MIN)/(ZOOM_ICONO-ZOOM_PUNTO_MIN)));
+  // Tamaño del punto (px de diámetro): diminuto → meseta.
+  const tamPunto=interpolarRampa(z,[
+    [ZOOM_PUNTO_MIN,TAM_PUNTO_MIN],
+    [ZOOM_PUNTO_MEDIO,TAM_PUNTO_MAX*0.5],
+    [ZOOM_PUNTO_MAX,TAM_PUNTO_MAX],
+    [ZOOM_ICONO,TAM_PUNTO_MAX],
+  ]);
+  // Tamaño del icono (px): pequeño al aparecer → máximo discreto.
+  const tamIcono=interpolarRampa(z,[[ZOOM_ICONO,22],[ZOOM_ICONO_MAX,34]]);
   state.pointMarkers.forEach(m=>{
     const el=m.getElement&&m.getElement(); if(!el) return;
-    if(el.dataset.fijo==="1"||z>=ZOOM_ICONO){
+    const fijo=el.dataset.fijo==="1";
+    el.style.setProperty("--icono-tam",tamIcono.toFixed(1)+"px");
+    // El icono (y su nombre) se muestran si el punto es fijo o si ya estamos
+    // suficientemente cerca.
+    if(fijo||z>=ZOOM_ICONO){
       el.classList.remove("map-point-punto","map-point-oculto");
+      el.classList.add("map-point-con-nombre");
       el.style.removeProperty("--punto-tam");
       return;
     }
+    el.classList.remove("map-point-con-nombre");
     if(z<=ZOOM_PUNTO_MIN){
       el.classList.add("map-point-oculto");
       el.classList.remove("map-point-punto");
@@ -1353,9 +1453,9 @@ function actualizarPuntosSegunZoom(){
     }
     el.classList.remove("map-point-oculto");
     el.classList.add("map-point-punto");
-    el.style.setProperty("--punto-tam",(3+t*9).toFixed(1)+"px");
+    el.style.setProperty("--punto-tam",tamPunto.toFixed(1)+"px");
   });
-  const tam=Math.max(12,Math.min(30,Math.round(10+t*20)));
+  const tam=Math.max(12,Math.min(30,Math.round(10+(tamPunto/TAM_PUNTO_MAX)*20)));
   state.markers.forEach(m=>{
     const el=m.getElement&&m.getElement(); if(!el) return;
     el.classList.toggle("modo-punto",z<ZOOM_ICONO);
@@ -1385,6 +1485,12 @@ function renderPuntosMapa(){
     el.style.backgroundRepeat="no-repeat";
     el.style.backgroundPosition="center";
     el.title=p.name;
+    // Nombre debajo del icono (p. ej. "Terminal Alameda"): se ve al acercar el
+    // mapa, sin necesidad de presionar el punto.
+    const etiqueta=document.createElement("span");
+    etiqueta.className="map-point-nombre";
+    etiqueta.textContent=p.name;
+    el.appendChild(etiqueta);
     const tipoTag=p.tipo==="personal"?"<span class=\"muted\" style=\"font-size:10px\">· personal</span>":"<span class=\"muted\" style=\"font-size:10px\">· general</span>";
     const popup=new maplibregl.Popup({offset:22,closeButton:true}).setHTML(
       `<strong>${esc(p.name)}</strong>${tipoTag}`+
@@ -1394,7 +1500,8 @@ function renderPuntosMapa(){
     const m=new maplibregl.Marker({element:el,anchor:"bottom"})
       .setLngLat([p.longitude,p.latitude]).setPopup(popup).addTo(map);
     if(isAdmin()){
-      el.classList.add("map-point-admin");
+      // Sin contorno ni color especial: los puntos de vista fija se ven IGUAL
+      // que los demás (solo cambia que no se achican al alejar).
       el.addEventListener("click",()=>abrirFormPunto(p));
     }
     state.pointMarkers.set(p.id,m);
@@ -1420,6 +1527,104 @@ function desactivarModoPunto(){
   $("#map-point-mode")?.classList.add("hidden");
 }
 $("#map-add-point")?.addEventListener("click",activarModoPunto);
+
+// --- gestión de puntos (solo admin) -----------------------------------------
+// El admin abre una lista de los puntos POR TIPO (general / personal) y puede,
+// en cada fila: cambiar el nombre, marcar/desmarcar si se muestra en el mapa y
+// borrar el punto. Los cambios se aplican con el botón "Guardar".
+const PUNTOS_ELIMINADOS=new Set();   // ids marcados para borrar (se aplican al guardar)
+const PUNTOS_EDITADOS=new Map();    // id → {name, visible} (solo lo que cambió)
+function abrirGestionPuntos(){
+  if(!isAdmin()){ showToast("Solo el administrador puede gestionar los puntos."); return; }
+  PUNTOS_ELIMINADOS.clear();
+  PUNTOS_EDITADOS.clear();
+  renderGestionPuntos();
+  $("#puntos-sheet")?.classList.remove("hidden");
+}
+function cerrarGestionPuntos(){
+  $("#puntos-sheet")?.classList.add("hidden");
+}
+$("#map-puntos-btn")?.addEventListener("click",abrirGestionPuntos);
+$("#puntos-close")?.addEventListener("click",cerrarGestionPuntos);
+$("#puntos-backdrop")?.addEventListener("click",cerrarGestionPuntos);
+
+function renderGestionPuntos(){
+  const root=$("#puntos-lista"); if(!root) return;
+  const grupos=[
+    {id:"general",titulo:"Puntos generales (visibles para todos)"},
+    {id:"personal",titulo:"Puntos personales"},
+  ];
+  const punto=(p)=>{
+    const cat=CATEGORIA_PUNTO[p.category]||p.category;
+    const icono=ICONOS_MAPA[ICONO_PUNTO[p.icon]||ICONO_PUNTO[p.category]]||ICONOS_MAPA.place;
+    return `<div class="flex items-center gap-2 bg-surface-container-low rounded-xl p-2" data-punto="${p.id}">
+      <img src="./icons/${icono.svg}" alt="" width="28" height="28" class="w-7 h-7 flex-shrink-0" loading="lazy">
+      <div class="min-w-0 flex-1">
+        <input type="text" maxlength="120" value="${esc(p.name)}" data-punto-nombre="${p.id}"
+               class="w-full bg-surface-container-lowest rounded-lg px-2 py-1.5 text-sm font-semibold text-on-surface focus:outline-none" aria-label="Nombre del punto">
+        <span class="block text-[11px] text-on-surface-variant truncate">${esc(cat)}${p.comuna?" · "+esc(p.comuna):""}</span>
+      </div>
+      <label class="flex items-center gap-1 flex-shrink-0 px-1" title="Mostrar en el mapa">
+        <input type="checkbox" data-punto-visible="${p.id}" ${p.visible?"checked":""} class="w-5 h-5 accent-primary">
+      </label>
+      <button type="button" data-punto-borrar="${p.id}" aria-label="Borrar punto"
+              class="w-9 h-9 rounded-full bg-error-container text-on-error-container flex items-center justify-center flex-shrink-0 active:scale-95 transition-all">
+        <span class="material-symbols-outlined text-[18px]">delete</span>
+      </button>
+    </div>`;
+  };
+  root.innerHTML=grupos.map(g=>{
+    const items=state.mapPoints.filter(p=>(p.tipo||"personal")===g.id);
+    return `<section>
+      <p class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wide mb-1.5">${g.titulo} (${items.length})</p>
+      ${items.length?items.map(punto).join(""):'<p class="text-sm text-on-surface-variant px-1">Sin puntos.</p>'}
+    </section>`;
+  }).join("");
+  // Marcar un punto para borrar (se aplica al guardar).
+  root.querySelectorAll("[data-punto-borrar]").forEach(b=>b.addEventListener("click",()=>{
+    const id=b.dataset.puntoBorrar;
+    if(!confirm("¿Borrar este punto del mapa?")) return;
+    PUNTOS_ELIMINADOS.add(id);
+    PUNTOS_EDITADOS.delete(id);
+    b.closest("[data-punto]")?.remove();
+  }));
+  // Cambiar si se muestra en el mapa: se aplica al guardar.
+  root.querySelectorAll("[data-punto-visible]").forEach(c=>c.addEventListener("change",()=>{
+    const id=c.dataset.puntoVisible;
+    const p=state.mapPoints.find(x=>x.id===id); if(!p) return;
+    PUNTOS_EDITADOS.set(id,{name:p.name,visible:c.checked});
+  }));
+  // Renombrar: se aplica al guardar.
+  root.querySelectorAll("[data-punto-nombre]").forEach(i=>i.addEventListener("input",()=>{
+    const id=i.dataset.puntoNombre;
+    const p=state.mapPoints.find(x=>x.id===id); if(!p) return;
+    const visible=PUNTOS_EDITADOS.get(id)?.visible??p.visible;
+    PUNTOS_EDITADOS.set(id,{name:i.value,visible});
+  }));
+}
+$("#puntos-guardar")?.addEventListener("click",async()=>{
+  if(!isAdmin()) return;
+  const btn=$("#puntos-guardar");
+  btn.disabled=true;
+  try{
+    // 1) Borrados (el admin puede moderar cualquier punto: política RLS de
+    //    sql/09_admin_gestiona_puntos.sql).
+    for(const id of PUNTOS_ELIMINADOS){
+      const {error}=await supabase.from("map_points").delete().eq("id",id);
+      if(error){ console.error("puntos: borrar",error); showToast("No se pudo borrar un punto: "+describeError(error,"los puntos del mapa")); return; }
+    }
+    // 2) Cambios de nombre y visibilidad (solo los que realmente cambiaron).
+    for(const [id,cambio] of PUNTOS_EDITADOS){
+      if(PUNTOS_ELIMINADOS.has(id)) continue;
+      const {error}=await supabase.from("map_points")
+        .update({name:(cambio.name||"").trim()||"Punto",visible:!!cambio.visible}).eq("id",id);
+      if(error){ console.error("puntos: guardar",error); showToast("No se pudo guardar un punto: "+describeError(error,"los puntos del mapa")); return; }
+    }
+    cerrarGestionPuntos();
+    await cargarPuntosMapa();
+    showToast("Puntos guardados.");
+  }finally{ btn.disabled=false; }
+});
 
 // --- formulario -------------------------------------------------------------
 // Selector visual de iconos: se construye con el catálogo ICONOS_MAPA, así que
@@ -1670,11 +1875,22 @@ $("#close-wall-modal").addEventListener("click",closeWallModal);
 $("#wall-modal").addEventListener("click",e=>{ if(e.target===$("#wall-modal")) closeWallModal(); });
 document.addEventListener("keydown",e=>{ if(e.key==="Escape"&&!$("#wall-modal").classList.contains("pointer-events-none")) closeWallModal(); });
 // Hay dos juegos de pestañas (vista y modal): se sincronizan por categoría.
+// Al elegir "Descárgate" el muro se pinta de naranja y el botón de la pestaña
+// queda blanco con las letras naranjas (2026-11-25).
+function pintarMuro(categoria){
+  const muro=$("#view-muro");
+  if(!muro) return;
+  const vent=categoria==="vent";
+  muro.classList.toggle("muro-vent",vent);
+  $$(".wall-tab").forEach(x=>x.classList.toggle("vent-activo",vent&&x.dataset.category==="vent"));
+}
 $$(".wall-tab").forEach(b=>b.addEventListener("click",()=>{
   state.category=b.dataset.category;
   $$(".wall-tab").forEach(x=>x.classList.toggle("selected",x.dataset.category===state.category));
+  pintarMuro(state.category);
   loadWall();
 }));
+pintarMuro(state.category);
 $("#wall-content").addEventListener("input",()=>$("#wall-counter").textContent=`${$("#wall-content").value.length}/500`);
 $("#wall-form").addEventListener("submit",async e=>{
   e.preventDefault();const content=$("#wall-content").value.trim();if(!content)return;

@@ -98,28 +98,78 @@ cambio día a día está en `AGENT.md`; el plan de pruebas está en `PRUEBAS.md`
   agregar punto). Colapsados solo se ve el **botón superior derecho con flecha hacia abajo**
   (`#map-controls-toggle`, `keyboard_arrow_down`); al presionarlo se despliega la fila a su
   izquierda y la flecha rota 180° (`rotate-180`).
-- **Panel inferior de actividades colapsable**: `#mapa-panel-toggle` (asa + flecha) pliega
-  la sede seleccionada y la lista de actividades; el panel queda reducido a 58 px y la
-  atribución se reposa sobre él (`--mapa-panel-h`). Al seleccionar una actividad el panel
-  se reabre automáticamente.
+- **Panel inferior de actividades: ELIMINADO** (2026-11-25). Ya no existe la vista
+  inferior colapsable (`#mapa-panel-inferior`, `#mapa-panel-toggle`, `#mapa-panel-cuerpo`):
+  los detalles de un **lugar** o de un **evento** se muestran en el **cuadro de mensaje**
+  (`#toast-msg`), que ahora admite título, cuerpo y acciones (`mostrarMensaje()`), y los
+  resultados del buscador también se listan ahí (`renderMapList()`). El cuadro tiene botón de
+  cerrar; los avisos simples siguen usando `showToast()` con autocierre a los 3,5 s.
 
 ### 1.7 Comportamiento de los puntos según el zoom (2026-11-25)
 
+Rampa de **tres momentos**, igual para las capas GeoJSON y para los marcadores HTML:
+
+| Momento | Zoom | Qué se ve |
+|---|---|---|
+| 1 · Muy alejado | ≤ 7 | Punto diminuto, casi imperceptible (radio 0,8 px / 2 px de diámetro). |
+| 2 · Acercándose | 7 → 11 | El punto **crece poco** (radio 0,8 → 3,15 → 7 px) y a partir del zoom 11 **se mantiene** (meseta) hasta que aparece el icono. |
+| 3 · Icono | 12,5 → 15 | Aparece el icono **pequeño** (`icon-size` 0,25), **crece un poco** hasta 0,45 (zoom 15) y ahí se mantiene: nunca es grande. |
+
 - **Al acercar** (zoom ≥ 12,5) cada punto muestra su **icono**.
 - **Al alejar** el icono se transforma en un **punto del color del pin** y ese punto se
-  **achica a medida que se aleja hasta desaparecer** (radio interpolado entre zoom 12,5 y
-  zoom 7; por debajo de 7 no se dibuja).
+  **achica a medida que se aleja hasta desaparecer** (por debajo del zoom 7 no se dibuja).
   - Capa de lugares (GeoJSON): capa `circle` `${capa}-puntos-mini` (`minzoom: 7`,
     `maxzoom: 12,5`, `circle-radius` interpolado) + capa `symbol` `${capa}-puntos`
-    (`minzoom: 12,5`).
+    (`minzoom: 12,5`, `icon-size` interpolado).
   - Puntos personalizados: la misma lógica en CSS (`actualizarPuntosSegunZoom()` al evento
     `zoom`): `.map-point-punto` (círculo de color) y `.map-point-oculto` (desaparecido).
 - **Vista fija**: los puntos marcados como fijos (`fijo = true`, opción `#point-fijo` del
-  formulario) **conservan siempre su icono**, a cualquier zoom.
+  formulario) **conservan siempre su icono**, a cualquier zoom. Se ven **exactamente igual
+  que los demás**: no llevan ningún contorno punteado ni distintivo visual.
 - Los pines de **actividad** también se reducen a un punto de color, pero con un **tamaño
   mínimo** (12 px): no desaparecen nunca, para que la sede siempre sea seleccionable.
 
-### 1.8 Agenda y funcionalidades existentes
+### 1.8 Metro unificado, bomberos separados y etiquetas (2026-11-25)
+
+- **Metro en una sola capa**: el interruptor del panel es **“Metro (estaciones y líneas)”**
+  (`id: metro`): al encenderlo aparecen juntos las líneas (`metro-lineas`), las estaciones
+  (`metro-estaciones`, `metro-combo`), sus iconos (`metro-estaciones-icono`,
+  `metro-combo-icono`) y los rótulos (`metro-nombres`).
+- **Nombre de la estación bajo el icono**: la capa `metro-nombres` escribe `nombre` con
+  `text-anchor: "top"` y `text-offset: [0, 2.2]`, a partir del zoom 12,5: se ve **sin
+  necesidad de presionar la estación**.
+- **Bomberos separados de la policía**: `data/lugares/seguridad.geojson` quedó solo con
+  comisarías y tenencias (167 puntos) y los **178 cuarteles** se movieron a
+  `data/lugares/bomberos.geojson`. Son dos capas y dos interruptores distintos, con iconos
+  propios (`policia.svg` y `bomberos.svg`).
+  - El reparto se puede rehacer sin Overpass con `node scripts/separar-bomberos.mjs`
+    (idempotente); el importador ya consulta `fire_station` en su propia capa.
+- **Nombre de los terminales y de los puntos propios**: los marcadores HTML llevan una
+  etiqueta `.map-point-nombre` **debajo del icono**, visible desde el zoom 12,5
+  (`.map-point-con-nombre`), sin necesidad de presionarlos.
+
+### 1.9 Gestión de puntos por el administrador (2026-11-25)
+
+- Botón **“Gestionar puntos”** (`#map-puntos-btn`, solo admin) en la fila de controles del
+  mapa; abre la hoja `#puntos-sheet` con la lista **por tipo**: *Puntos generales* y
+  *Puntos personales*.
+- En cada fila: **cambiar el nombre** (input), **mostrar/desmostrar en el mapa** (checkbox
+  `visible`) y **borrar** (botón de papelera). Nada se escribe en Supabase hasta presionar
+  **Guardar** (`#puntos-guardar`): se envían solo los cambios y los borrados.
+- Para que el admin pueda moderar también los puntos personales de otros usuarios hace
+  falta **`sql/09_admin_gestiona_puntos.sql`** (política “Admin gestiona todos los puntos”).
+
+### 1.10 Agenda y muro (2026-11-25)
+
+- **Agenda sin scroll lateral**: la vista se adapta al ancho (`overflow-x: clip`, tarjetas y
+  títulos con `min-w-0`, botón “Nueva Actividad” con salto de línea). Solo hay scroll
+  vertical.
+- **Muro**: al presionar **“🔥 Descárgate”** el fondo de la vista pasa a **naranja** (el mismo
+  degradado `#f25050 → #d6a100` del botón *Publicar*) y el botón de la pestaña queda
+  **blanco con las letras naranjas** (`#d96a00`). Al volver a “Positivo” se restaura el
+  diseño original.
+
+### 1.11 Agenda y funcionalidades existentes
 
 - La agenda de `agenda.html` quedó integrada en `index.html` (timeline por días, nodo
   activo, acordeones) **sin reemplazar** la agenda semanal ni la relación actividades↔usuarios.
@@ -194,6 +244,7 @@ Políticas resultantes:
 | Usuarios consultan puntos del mapa | `select` | general visible y activo **o** personal propio **o** admin |
 | Usuarios gestionan sus puntos personales | `all` | `tipo='personal' and created_by=auth.uid()` |
 | Admin gestiona puntos generales | `all` | `tipo='general' and is_admin()` |
+| **Admin gestiona todos los puntos** (`sql/09`) | `all` | `is_admin()` — permite renombrar, mostrar/ocultar y borrar **cualquier** punto, incluidos los personales de otros usuarios |
 
 `grant select, insert, update, delete on public.map_points to authenticated` — la barrera
 real es RLS, no los permisos.
@@ -239,10 +290,14 @@ node scripts/importar-lugares.mjs salud seguridad  # solo esas
 
 # 5) Iconos SVG del mapa (optimiza sin perder el viewBox)
 node scripts/optimizar-iconos.mjs     # usa npx svgo (se baja solo, no se agrega al repo)
+
+# 6) Separar bomberos de la seguridad (si Overpass no responde)
+node scripts/separar-bomberos.mjs     # reparte seguridad.geojson en seguridad + bomberos
 ```
 
-Los iconos se conservan ya optimizados en `icons/*.svg` (490 KB en total para los 16
-dibujos; antes 4,3 MB) y el PNG original de cada uno queda en `icons/png/` como respaldo.
+Los iconos se conservan ya optimizados en `icons/*.svg` (415 KB en total para los 17
+dibujos; los originales iterales ocupaban 3,2 MB) y el PNG original de cada uno queda en
+`icons/png/` como respaldo.
 
 Reglas del importador de lugares:
 
@@ -252,7 +307,8 @@ Reglas del importador de lugares:
 - **Comercio**: solo `shop=mall`.
 - **Salud**: solo necesidad básica pública (SAPU, SAR, CESFAM, CECOSF, consultorios, centros
   de salud, postas) u operador público; se descartan clínicas privadas.
-- **Seguridad**: `amenity=fire_station`, `amenity=police`, `office=police`.
+- **Seguridad**: `amenity=police`, `office=police` (policía, comisarías y tenencias).
+- **Bomberos**: `amenity=fire_station`, en **capa propia** (`bomberos.geojson`).
 - **Servicios**: solo `amenity=townhall` (municipalidades).
 - **Dedupe**: `categoría|nombre|comuna`, con prioridad relación > way > nodo.
 - **Idempotencia ante fallos**: si Overpass no responde, el archivo de esa capa **no** se
@@ -279,10 +335,13 @@ No hay variables de entorno ni claves de mapas私 embebidas en el repositorio: e
 
 Detalle en `PRUEBAS.md`.
 
-- `node scripts/verificar-mapa.mjs` → **141 pruebas, 0 fallos, 2 avisos** (datos, coordenadas,
+- `node scripts/verificar-mapa.mjs` → **191 pruebas, 0 fallos, 2 avisos** (datos, coordenadas,
   duplicados, iconos SVG, vista de mapa a pantalla completa, controles colapsables,
   comportamiento de los puntos según el zoom, vista fija, referencias del frontend, RLS en
-  los SQL, columnas existentes en las consultas SQL y ausencia de claves privadas).
+  los SQL, columnas existentes en las consultas SQL y ausencia de claves privadas). El bloque
+  `[7]` cubre el lote de UX del 2026-11-25: rampa de zoom en 3 momentos, puntos fijos sin
+  contorno, metro unificado con rótulo, bomberos en capa propia, etiquetas bajo el icono,
+  gestión de puntos del admin, muro naranja y agenda sin scroll lateral.
 - Navegador (2026-11-25): **0 errores de consola**; el mapa abre con satélite + comunas,
   las 6 capas de lugares se encienden/apagan de forma independiente, los iconos **SVG** se
   rasterizan y pintan (17/17 miniaturas del selector cargan), los popups muestran todos
@@ -292,8 +351,17 @@ Detalle en `PRUEBAS.md`.
   botón con flecha arriba a la derecha (8 botones en una fila horizontal de 362 px),
   panel inferior plegable (269 px → 58 px, con `--mapa-panel-h` = 68 px) y formulario de
   punto con la casilla **“Vista fija (mostrar siempre el icono)”**.
-- El service worker quedó en `app-santiago-2026-v5` (los iconos SVG se sirven cache-first y la
-  precache se renovó con el rediseño de la vista de mapa).
+- Lote UX del 2026-11-25 (navegador): rampa verificada en los marcadores HTML (zoom 6 →
+  oculto · 9 → punto 5,2 px · 11 → punto 12 px (meseta) · 12,5 → icono 22 px + nombre ·
+  14 → 29,2 px · 16 → 34 px); capas `lugares-bomberos-*` y `metro-*` creadas al encender los
+  interruptores (iconos `icono-bomberos.svg`, `icono-metro.svg` y `icono-metro-combinacion.svg`
+  presentes); buscador y ficha de evento en el cuadro de mensaje (5 resultados, acciones
+  “Ver actividad” y “Cómo llegar”); hoja de gestión con 5 puntos generales, checkbox de
+  visibilidad y botón Guardar; muro “Descárgate” con fondo `linear-gradient(#f25050,#d6a100)`
+  y botón blanco con letras `#d96a00`; agenda sin scroll horizontal a 390 px de ancho
+  (`scrollWidth = clientWidth = 390`).
+- El service worker quedó en `app-santiago-2026-v6` (los iconos SVG se sirven cache-first y la
+  precache se renovó con el lote de UX del 2026-11-25).
 
 ---
 
@@ -316,6 +384,6 @@ Detalle en `PRUEBAS.md`.
   no se repinta ahí y `map.loaded()` queda en `false`. No es un fallo de la app (en un
   navegador normal sí se pinta); se verificó que el estilo, las fuentes y las capas propias
   se crean correctamente (`style.load` → `ne2_shaded` eliminada → capas añadidas).
-- **RLS y las 4 terminales** requieren que el administrador ejecute `sql/06`, `sql/07` y
-  (opcionalmente) `sql/08` en Supabase: hasta entonces el frontend funciona y solo avisa
-  por consola.
+- **RLS y las 4 terminales** requieren que el administrador ejecute `sql/06`, `sql/07`,
+  (opcionalmente) `sql/08` y **`sql/09`** (gestión de puntos del admin) en Supabase: hasta
+  entonces el frontend funciona y solo avisa por consola.

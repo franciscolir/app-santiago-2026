@@ -106,7 +106,7 @@ console.log("[2] Transporte público (GTFS DTPM)");
 
 // --------------------------------------------------------------- 3. lugares --
 console.log("[3] Lugares de OSM (data/lugares/*.geojson)");
-const CAPAS = ["parques", "plazas", "comercio", "salud", "seguridad", "servicios"];
+const CAPAS = ["parques", "plazas", "comercio", "salud", "seguridad", "bomberos", "servicios"];
 const REQUERIDOS = ["nombre", "categoria", "subcategoria", "fuente", "actualizado"];
 // Subcategorías permitidas por capa: son las del importador y reflejan los
 // filtros pedidos (parques grandes, malls, salud pública, etc.).
@@ -115,7 +115,8 @@ const SUBCATEGORIAS = {
   plazas:     ["Plaza de Armas"],
   comercio:   ["Centro comercial"],
   salud:      ["Hospital público", "SAPU / SAR", "Hospital público / SAR"],
-  seguridad:  ["Cuartel de bomberos", "Comisaría o tenencia"],
+  seguridad:  ["Comisaría o tenencia"],
+  bomberos:   ["Cuartel de bomberos"],
   servicios:  ["Municipalidad"],
 };
 for (const capa of CAPAS) {
@@ -196,6 +197,12 @@ console.log("[4] Referencias del frontend");
   const capasMain = [...main.matchAll(/^  "([a-z]+)":\s*\{color/gm)].map((m) => m[1]);
   const capasFaltan = capasMain.filter((c) => !existsSync(join(ROOT, `data/lugares/${c}.geojson`)));
   check(capasFaltan.length === 0, "cada capa del panel tiene su GeoJSON", "faltan: " + capasFaltan.join(", "));
+  // Los datos de cada capa del panel deben coincidir con la lista del importador.
+  const capasImportador = [...(leerTexto("scripts/importar-lugares.mjs") || "").matchAll(/^\s{4}id:\s*"([a-z]+)",/gm)].map((m) => m[1]);
+  const sinImportador = capasMain.filter((c) => !capasImportador.includes(c));
+  check(sinImportador.length === 0, "cada capa del panel existe en el importador", "no importadas: " + sinImportador.join(", "));
+  check(capasImportador.includes("bomberos") && !capasImportador.includes("paraderos"),
+    "importador: bomberos en capa propia y sin paraderos", "revisa las categorías de importar-lugares.mjs");
 
   const precache = [...sw.matchAll(/"\.\/([^"]+)"/g)].map((m) => m[1]);
   const faltan = precache.filter((p) => !existsSync(join(ROOT, p)));
@@ -278,10 +285,18 @@ console.log("[6] Vista de mapa: espacio, controles y comportamiento de los punto
   const bloqueControles = (html.match(/<div id="map-controls"[^>]*>/) || [""])[0];
   check(/absolute right-3 top-3/.test(bloqueControles), "controles: anclados arriba a la derecha", "no están a la derecha");
 
-  // --- panel inferior de actividades colapsable ------------------------------
-  check(/id="mapa-panel-toggle"/.test(html), "panel inferior: botón de colapso", "falta #mapa-panel-toggle");
-  check(/id="mapa-panel-cuerpo"/.test(html), "panel inferior: cuerpo colapsable", "falta #mapa-panel-cuerpo");
-  check(/const colapsarPanelMapa/.test(main), "panel inferior: función de colapso", "no colapsa el panel");
+  // --- panel inferior ELIMINADO: los detalles van al cuadro de mensaje -------
+  check(!/id="mapa-panel-inferior"/.test(html), "panel inferior: eliminado del HTML", "sigue el panel inferior colapsable");
+  check(!/id="mapa-panel-toggle"/.test(html) && !/id="mapa-panel-cuerpo"/.test(html),
+    "panel inferior: sin botón ni cuerpo de colapso", "quedaron los controles del panel");
+  check(!/colapsarPanelMapa/.test(main), "panel inferior: sin función de colapso", "quedó colapsarPanelMapa");
+  check(/id="toast-msg"/.test(html) && /id="toast-text"/.test(html) && /id="toast-title"/.test(html),
+    "cuadro de mensaje: existe y tiene título y texto", "falta #toast-msg / #toast-text / #toast-title");
+  check(/function mostrarMensaje/.test(main), "cuadro de mensaje: función mostrarMensaje", "no existe mostrarMensaje");
+  check(/function selectVenue[\s\S]{0,900}mostrarMensaje/.test(main),
+    "cuadro de mensaje: los detalles del evento se muestran ahí", "selectVenue no usa mostrarMensaje");
+  check(/function renderMapList[\s\S]{0,1400}mostrarMensaje/.test(main),
+    "cuadro de mensaje: los resultados de búsqueda se muestran ahí", "renderMapList no usa mostrarMensaje");
 
   // --- iconos al acercar / punto de color al alejar -------------------------
   check(/const ZOOM_PUNTO_MIN\s*=/.test(main) && /const ZOOM_ICONO\s*=/.test(main),
@@ -347,6 +362,98 @@ console.log("[6] Vista de mapa: espacio, controles y comportamiento de los punto
   check(/actualizarAlturaPanelMapa/.test(main), "atribución: altura del panel actualizada", "falta actualizarAlturaPanelMapa");
   check(/--mapa-panel-h/.test(main) && /--mapa-panel-h/.test(html),
     "atribución: variable CSS --mapa-panel-h", "no se publica la altura del panel");
+}
+
+// ------------------------- 7. lote de UX del 2026-11-25 ----------------------
+console.log("[7] UX del 2026-11-25: zoom escalonado, metro, bomberos, puntos, muro y agenda");
+{
+  const main = leerTexto("src/main.js") || "";
+  const html = leerTexto("index.html") || "";
+  const css = leerTexto("styles.css") || "";
+
+  // --- 1) rampa de zoom en 3 momentos ---------------------------------------
+  check(/const ZOOM_PUNTO_MIN\s*=/.test(main) && /const ZOOM_PUNTO_MEDIO\s*=/.test(main) &&
+        /const ZOOM_PUNTO_MAX\s*=/.test(main) && /const ZOOM_ICONO\s*=/.test(main) &&
+        /const ZOOM_ICONO_MAX\s*=/.test(main),
+    "zoom: los cinco umbrales de la rampa están definidos", "faltan ZOOM_PUNTO_MEDIO / ZOOM_PUNTO_MAX / ZOOM_ICONO_MAX");
+  check(/const RADIO_PUNTO_MIN\s*=/.test(main) && /const RADIO_PUNTO_MAX\s*=/.test(main),
+    "zoom: radio mínimo y máximo del punto", "faltan RADIO_PUNTO_MIN / RADIO_PUNTO_MAX");
+  check(/ZOOM_PUNTO_MIN,RADIO_PUNTO_MIN,[\s\S]{0,120}ZOOM_PUNTO_MAX,RADIO_PUNTO_MAX,[\s\S]{0,80}ZOOM_ICONO,RADIO_PUNTO_MAX/.test(main),
+    "zoom: el punto crece poco y mantiene su meseta hasta el icono", "la rampa del radio no tiene meseta antes del icono");
+  check(/ZOOM_ICONO,ICONO_MIN,ZOOM_ICONO_MAX,ICONO_MAX/.test(main),
+    "zoom: el icono aparece pequeño y crece apenas hasta su máximo", "falta la rampa de icon-size");
+  check(/ICONO_MAX\s*=\s*0\.\d+/.test(main) && /0\.\d+/.test(main),
+    "zoom: el icono nunca llega a un tamaño grande", "ICONO_MAX debería ser pequeño");
+  check(/interpolarRampa/.test(main), "zoom: interpolación de la rampa en los marcadores HTML", "falta interpolarRampa");
+
+  // --- 2) puntos fijos sin contorno punteado ---------------------------------
+  check(!/map-point-admin/.test(main) && !/\.map-point-admin/.test(css),
+    "puntos fijos: sin clase ni contorno punteado", "quedó el contorno punteado de los puntos fijos");
+  check(!/dashed/.test(css), "puntos fijos: el CSS no usa bordes punteados", "quedó un borde punteado");
+
+  // --- 3) metro unificado (estaciones + líneas) y nombre bajo el icono ------
+  check(/id:"metro",nombre:"Metro \(estaciones y líneas\)"/.test(main),
+    "metro: un solo interruptor para estaciones y líneas", "el panel separa estaciones y líneas");
+  check(/if\(it\.requiere\) asegurarFuente/.test(main),
+    "capas: al abrir la app se recuperan las capas que necesitan fuente (transporte)",
+    "el interruptor puede quedar encendido sin datos");
+  check(/id:"metro-lineas"/.test(main) && /id:"metro-estaciones-icono"/.test(main),
+    "metro: capas de líneas y de icono de estación", "faltan capas del metro");
+  check(/id:"metro-nombres"[\s\S]{0,400}"text-field":\["get","nombre"\]/.test(main),
+    "metro: rótulo con el nombre de la estación", "falta el texto del rótulo");
+  check(/id:"metro-nombres"[\s\S]{0,400}"text-anchor":"top"/.test(main),
+    "metro: el nombre va DEBAJO del icono", "el rótulo no está anclado arriba");
+
+  // --- 4) bomberos separados de la policía -----------------------------------
+  const bom = leerJSON("data/lugares/bomberos.geojson");
+  check(!!bom && bom.features.length > 0, "bomberos: archivo con puntos", "falta data/lugares/bomberos.geojson");
+  const seg = leerJSON("data/lugares/seguridad.geojson");
+  const segBom = (seg?.features || []).filter((f) => /bombero/i.test(f.properties?.subcategoria || ""));
+  check(segBom.length === 0, "bomberos: la capa de seguridad ya no tiene cuarteles", "quedaron " + segBom.length + " cuarteles en seguridad");
+  check(/bomberos/.test(main), "bomberos: capa propia en el mapa", "no hay referencia a la capa bomberos");
+  check(/ICONO_LUGAR[\s\S]{0,300}bomberos:"bomberos"/.test(main),
+    "bomberos: icono propio (no el de la policía)", "bomberos usa el mismo icono que seguridad");
+
+  // --- 5) nombre del terminal / punto debajo del icono ------------------------
+  check(/\.map-point-nombre/.test(css), "etiquetas: estilo del nombre bajo el icono", "falta .map-point-nombre");
+  check(/className="map-point-nombre"/.test(main), "etiquetas: se crea el nombre bajo el icono", "no se crea .map-point-nombre");
+  check(/map-point-con-nombre/.test(main) && /map-point-con-nombre/.test(css),
+    "etiquetas: se muestran al acercar el mapa", "falta la clase map-point-con-nombre");
+
+  // --- 6) gestión de puntos del mapa por el admin ----------------------------
+  check(/id="map-puntos-btn"/.test(html), "gestión de puntos: botón de entrada", "falta #map-puntos-btn");
+  check(/id="puntos-sheet"/.test(html) && /id="puntos-lista"/.test(html) && /id="puntos-guardar"/.test(html),
+    "gestión de puntos: hoja con lista y botón Guardar", "faltan #puntos-sheet / #puntos-lista / #puntos-guardar");
+  check(/data-punto-nombre/.test(main) && /data-punto-visible/.test(main) && /data-punto-borrar/.test(main),
+    "gestión de puntos: renombrar, mostrar/ocultar y borrar", "faltan los controles por fila");
+  check(/from\("map_points"\)\s*\n?\s*\.update\(\{name:/.test(main),
+    "gestión de puntos: guarda el nombre", "no guarda el nombre del punto");
+  check(/visible:!!cambio\.visible/.test(main),
+    "gestión de puntos: guarda la visibilidad", "no guarda el campo visible");
+  check(/from\("map_points"\)\.delete\(\)/.test(main),
+    "gestión de puntos: borra puntos", "no borra puntos");
+  check(/tipo==="general"/.test(main) || /tipo:'general'/.test(main) || /id:"general",titulo/.test(main),
+    "gestión de puntos: lista por tipo (general / personal)", "no agrupa por tipo");
+  const sql09 = leerTexto("sql/09_admin_gestiona_puntos.sql") || "";
+  check(!!sql09, "sql/09_admin_gestiona_puntos.sql existe", "falta el archivo");
+  check(/create policy "Admin gestiona todos los puntos"/.test(sql09),
+    "sql/09: el admin puede gestionar cualquier punto", "falta la política del admin");
+
+  // --- 7) muro: "Descárgate" con fondo naranja y botón blanco -----------------
+  check(/muro-vent/.test(main) && /muro-vent/.test(css),
+    "muro: estado naranja de la pestaña Descárgate", "falta la clase muro-vent");
+  check(/#f25050/.test(css) && /#d6a100/.test(css),
+    "muro: fondo naranja (como el botón Publicar)", "no se replica el degradado naranja");
+  check(/wall-tab\.vent-activo\.selected[\s\S]{0,200}background:\s*#ffffff/.test(css),
+    "muro: el botón queda blanco", "el botón no queda blanco");
+  check(/wall-tab\.vent-activo\.selected[\s\S]{0,260}color:\s*#d96a00/.test(css),
+    "muro: las letras quedan naranjas", "las letras no quedan naranjas");
+
+  // --- 8) agenda sin scroll lateral -------------------------------------------
+  check(/#view-agenda[^{]*\{[^}]*overflow-x:\s*clip/.test(css),
+    "agenda: sin scroll lateral (overflow-x: clip)", "falta overflow-x en #view-agenda");
+  check(/#view-agenda \.activity-card/.test(css),
+    "agenda: las tarjetas se adaptan al ancho", "faltan reglas de ancho en la agenda");
 }
 
 // ---------------------------------------------------------------- resumen ----

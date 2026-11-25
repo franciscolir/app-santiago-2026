@@ -1,7 +1,9 @@
-// v5: se renueva la precache tras el rediseño de la vista de mapa
-// (index.html, styles.css y src/main.js cambiaron) y se aplica la columna
-// "fijo" (vista fija) de los puntos.
-const CACHE_NAME = "app-santiago-2026-v5";
+// v6: se renueva la precache tras el lote de UX del 2026-11-25 (zoom
+// escalonado en 3 momentos, metro unificado, bomberos separados, cuadro de
+// mensaje en vez de panel inferior, gestión de puntos del admin, muro naranja
+// y agenda sin scroll lateral). También se precachea el nuevo icono de
+// bomberos.
+const CACHE_NAME = "app-santiago-2026-v6";
 const APP_SHELL = [
   "./",
   "./index.html",
@@ -14,6 +16,7 @@ const APP_SHELL = [
   "./icons/icon-192.png",
   "./icons/icon-512.png",
   "./icons/icon-maskable-512.png",
+  "./icons/bomberos.svg",
   "./data/comunas-rm.geojson",
   // Etapa 3: datos geográficos. Los archivos de transporte son pequeños
   // y se pre-cachean; los de lugares (data/lugares/*.geojson) NO entran
