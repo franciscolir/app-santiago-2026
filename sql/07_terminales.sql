@@ -19,7 +19,49 @@
 --
 -- Es idempotente: se puede ejecutar más de una vez sin duplicar filas
 -- (upsert por external_id).
+--
+-- ----------------------------------------------------------------------------
+-- FIX 2026-11-25 · error 42P10
+--   "there is no unique or exclusion constraint matching the ON CONFLICT
+--    specification"
+--   Causa: el índice único de `external_id` es PARCIAL
+--          (create unique index ... where external_id is not null).
+--          PostgreSQL NO puede inferir un índice parcial con
+--          `on conflict (external_id)`: hay que repetir el predicado:
+--             on conflict (external_id) where external_id is not null
+--   Este archivo además crea el índice si falta (por si la migración 06 se
+--   ejecutó con una versión anterior) y elimina duplicados previos de las
+--   CUATRO terminales para que el índice se pueda crear sin error.
 -- ============================================================================
+
+-- ----------------------------------------------------------------------------
+-- 0) Comprobaciones previas
+-- ----------------------------------------------------------------------------
+do $$
+begin
+  if to_regclass('public.map_points') is null then
+    raise exception 'Falta la tabla public.map_points: ejecuta primero sql/06_map_points.sql';
+  end if;
+end;
+$$;
+
+-- Duplicados de las 4 terminales (si la semilla se corrió con otra versión):
+-- se conserva la fila más antigua y se borran las demás.
+delete from public.map_points p
+using (
+  select distinct on (external_id) id
+  from public.map_points
+  where external_id in ('way/23393749','way/23393750','way/39330024','node/253282386')
+  order by external_id, created_at, id
+) keep
+where p.external_id in ('way/23393749','way/23393750','way/39330024','node/253282386')
+  and p.id <> keep.id;
+
+-- Índice único PARCIAL (el mismo que crea sql/06). Es el "arbiter" del
+-- ON CONFLICT de abajo: por eso el `where external_id is not null` en ambos
+-- lados debe coincidir exactamente.
+create unique index if not exists map_points_external_id_idx
+  on public.map_points (external_id) where external_id is not null;
 
 -- ----------------------------------------------------------------------------
 -- 1) Inserción/actualización de las cuatro terminales
@@ -65,21 +107,21 @@ values
    'OpenStreetMap', 'node/253282386',
    'general', (select p.id from public.profiles p where p.role = 'admin' and p.active order by p.created_at limit 1),
    true, true)
-on conflict (external_id) do update
-  set name        = excluded.name,
-      description = excluded.description,
-      category    = excluded.category,
-      subcategory = excluded.subcategory,
-      icon        = excluded.icon,
-      latitude    = excluded.latitude,
-      longitude   = excluded.longitude,
-      address     = excluded.address,
-      comuna       = excluded.comuna,
-      source      = excluded.source,
-      tipo        = 'general',
-      visible     = true,
-      active      = true,
-      updated_at  = now();
+ on conflict (external_id) where external_id is not null do update
+   set name        = excluded.name,
+       description = excluded.description,
+       category    = excluded.category,
+       subcategory = excluded.subcategory,
+       icon        = excluded.icon,
+       latitude    = excluded.latitude,
+       longitude   = excluded.longitude,
+       address     = excluded.address,
+       comuna       = excluded.comuna,
+       source      = excluded.source,
+       tipo        = 'general',
+       visible     = true,
+       active      = true,
+       updated_at  = now();
 
 -- ----------------------------------------------------------------------------
 -- 2) VERIFICACIÓN

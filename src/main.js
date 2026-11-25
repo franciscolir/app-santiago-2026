@@ -389,6 +389,28 @@ const MAP_STYLE = "https://tiles.openfreemap.org/styles/positron";
 const coords=(a)=>({lat:Number(a.latitude ?? a.lat),lng:Number(a.longitude ?? a.long ?? a.lng)});
 const conCoords=(a)=>{const c=coords(a);return Number.isFinite(c.lat)&&Number.isFinite(c.lng)&&c.lat!==0&&c.lng!==0;};
 
+// El estilo "positron" de OpenFreeMap declara la fuente ráster "ne2_shaded"
+// (relieve de Natural Earth) pero NINGUNA capa la usa: la base de la app es la
+// vista satelital (§3.1). Si esa fuente se demora, MapLibre nunca termina de
+// "cargar" el estilo → el mapa se queda en blanco.
+//quitarla DESPUÉS de crear el mapa no sirve: al quitarla, MapLibre recarga el
+// estilo entero y BORRA las capas propias que ya se habían añadido.
+// Por eso el estilo se descarga aquí, se limpia y se le pasa a MapLibre como
+// objeto: así el estilo carga limpio y una sola vez.
+async function obtenerEstiloBase(){
+  try{
+    const res=await fetch(MAP_STYLE);
+    if(!res.ok) return MAP_STYLE;
+    const estilo=await res.json();
+    if(estilo.sources?.ne2_shaded) delete estilo.sources.ne2_shaded;
+    if(Array.isArray(estilo.layers)) estilo.layers=estilo.layers.filter(l=>l.source!=="ne2_shaded");
+    return estilo;
+  }catch(err){
+    console.warn("mapa: no se pudo preparar el estilo base:",err.message);
+    return MAP_STYLE;
+  }
+}
+
 function renderMap(){
   renderMapList();
   if(!window.maplibregl)return;
@@ -396,59 +418,58 @@ function renderMap(){
     // El mapa solo se instancia con la vista visible (contenedor con tamaño);
     // si aún no se abrió la pestaña Mapa, solo se deja preparado el fitBounds.
     if(!$("#view-mapa").classList.contains("active")){ state.pendingFit=markersBounds(); return; }
-    state.map=new maplibregl.Map({
-      container:"map", style:MAP_STYLE, center:[-70.6693,-33.4489], zoom:11,
-      attributionControl:{compact:false}   // atribución siempre visible (§3.1: Esri + ODbL)
+    // El estilo se carga antes de crear el mapa (ver obtenerEstiloBase).
+    obtenerEstiloBase().then(estilo=>{
+      if(state.map) return;
+      state.map=new maplibregl.Map({
+        container:"map", style:estilo, center:[-70.6693,-33.4489], zoom:11,
+        attributionControl:{compact:false}   // atribución siempre visible (§3.1: Esri + ODbL)
+      });
+      state.markers=[];
+      window.__mapa=state.map;   // enganche de depuración (consola del navegador)
+      state.map.on("click",(e)=>{
+        // Modo edición de puntos (mapas.txt §9): el admin ubica el punto con un clic.
+        if(!state.pointMode) return;
+        desactivarModoPunto();
+        abrirFormPunto(null,e.lngLat.lat,e.lngLat.lng);
+      });
+      // El arranque se hace con `style.load` (el estilo ya está aplicado y se
+      // pueden añadir sources/layers). Si alguna fuente del estilo se demora,
+      // el vigilante reintenta: `addSource` lanza si el estilo no está listo.
+      let mapaIniciado=false, iniciando=false;
+      const iniciarMapa=()=>{
+        if(mapaIniciado||iniciando) return;
+        iniciando=true;
+        try{
+          state.mapListo=true;
+          // §10: se respetan las preferencias guardadas del usuario (vista
+          // satelital y límites comunales se encienden según su última elección).
+          if(capasEstado.satelite) activarSateliteInicial();
+          cargarComunas().catch(err=>console.warn("comunas:",err));   // §3.2 (async)
+          cargarPuntosMapa().catch(err=>console.warn("puntos:",err)); // §9 (async)
+          renderMarkers();
+          ponerMarcadorUsuario();
+          applyPendingFit();
+          // Las capas de lugares que el usuario dejó encendidas se recuperan.
+          CAPAS_DEF.forEach(g=>g.items.forEach(it=>{
+            if(it.capaLugares&&capasEstado[it.id]){
+              cargarLugares(it.capaLugares).catch(err=>console.warn("capa",it.id,err));
+            }
+          }));
+          mapaIniciado=true;
+        }catch(err){
+          // El estilo todavía no está listo: se reintenta en el siguiente tick.
+          console.warn("mapa: aún no se puede iniciar",err.message);
+        }finally{ iniciando=false; }
+      };
+      state.map.on("style.load",iniciarMapa);
+      state.map.on("load",iniciarMapa);
+      const vigilante=setInterval(()=>{
+        if(mapaIniciado){ clearInterval(vigilante); return; }
+        iniciarMapa();
+      },1000);
+      setTimeout(()=>clearInterval(vigilante),30000);
     });
-    state.markers=[];
-    window.__mapa=state.map;   // enganche de depuración (consola del navegador)
-    state.map.on("click",(e)=>{
-      // Modo edición de puntos (mapas.txt §9): el admin ubica el punto con un clic.
-      if(!state.pointMode) return;
-      desactivarModoPunto();
-      abrirFormPunto(null,e.lngLat.lat,e.lngLat.lng);
-    });
-    // El mapa se da por "listo" con el evento `load` (estilo aplicado y fuentes
-    // del estilo cargadas). Antes de eso, en `style.load`, se elimina la fuente
-    // ráster "ne2_shaded" del estilo OpenFreeMap: NINGUNA capa la usa (la base
-    // es el satélite) y, si su carga se demora, MapLibre nunca termina de
-    // "cargar" el estilo → el mapa se queda en blanco y las capas propias
-    // (comunas, lugares) no se añaden.
-    let mapaIniciado=false;
-    const iniciarMapa=()=>{
-      if(mapaIniciado) return;
-      mapaIniciado=true;
-      state.mapListo=true;
-      // §10: se respetan las preferencias guardadas del usuario (vista satelital
-      // y límites comunales se encienden según su última elección).
-      if(capasEstado.satelite) activarSateliteInicial();
-      cargarComunas();            // §3.2: límites comunales de la RM (async)
-      cargarPuntosMapa();         // §9: puntos personalizados de los admins
-      renderMarkers();
-      ponerMarcadorUsuario();
-      applyPendingFit();
-      // Las capas de lugares que el usuario dejó encendidas se recuperan.
-      CAPAS_DEF.forEach(g=>g.items.forEach(it=>{
-        if(it.capaLugares&&capasEstado[it.id]){
-          cargarLugares(it.capaLugares).catch(err=>console.warn("capa",it.id,err));
-        }
-      }));
-    };
-    const quitarRelieveNaturalEarth=()=>{
-      try{
-        if(state.map.getLayer("ne2_shaded")) state.map.removeLayer("ne2_shaded");
-        if(state.map.getSource("ne2_shaded")) state.map.removeSource("ne2_shaded");
-      }catch(_){ /* si no existe, nada que hacer */ }
-    };
-    state.map.on("style.load",quitarRelieveNaturalEarth);
-    state.map.on("load",iniciarMapa);
-    // Red de seguridad: si alguna fuente del estilo se demora, se reintenta cada
-    // segundo. No se añaden sources antes de que el estilo esté listo: hacerlo
-    // con el estilo a medio cargar puede dejar el mapa sin dibujar.
-    const vigilante=setInterval(()=>{
-      if(!state.map||state.map.isStyleLoaded()){ clearInterval(vigilante); iniciarMapa(); }
-    },1000);
-    setTimeout(()=>clearInterval(vigilante),30000);
   }
   if(state.mapListo) renderMarkers();
 }
@@ -724,55 +745,116 @@ const CAPAS_LUGARES={
   "servicios":  {color:"#0ca678", label:"Municipalidades"},
 };
 
-// Iconos PNG de /icons por capa de lugares (§5: identidad visual coherente).
-const ICONO_LUGAR={
-  parques:"parque.png",plazas:"parque.png",comercio:"mall.png",
-  salud:"urgencias.png",seguridad:"policia.png",servicios:"casa.png",
+// =============================================================================
+// ICONOS DEL MAPA (SVG) — §5
+// Catálogo: clave -> archivo SVG en /icons. El PNG original de cada icono queda
+// en /icons/png/ y se usa SOLO como respaldo si el SVG no se puede rasterizar.
+// La clave es lo que se guarda en la columna `icon` de `map_points`.
+// =============================================================================
+const ICONOS_MAPA={
+  place:{svg:"casa.svg",label:"Lugar"},
+  warning:{svg:"policia.svg",label:"Alerta"},
+  health_and_safety:{svg:"urgencias.svg",label:"Salud"},
+  hospital:{svg:"hospital.svg",label:"Hospital"},
+  school:{svg:"trebol.svg",label:"Educación"},
+  directions_bus:{svg:"buses.svg",label:"Transporte"},
+  metro:{svg:"metro.svg",label:"Metro"},
+  metro_combinacion:{svg:"metro-combinacion.svg",label:"Metro con combinación"},
+  store:{svg:"mall.svg",label:"Comercio"},
+  park:{svg:"parque.svg",label:"Parque"},
+  planetario:{svg:"planetario.svg",label:"Planetario"},
+  info:{svg:"exhibidor.svg",label:"Información"},
+  evento:{svg:"evento.svg",label:"Evento"},
+  salon:{svg:"salon.svg",label:"Salón"},
+  predicacion:{svg:"predicacion.svg",label:"Predicción"},
+  betel:{svg:"betel.svg",label:"Betel"},
+  casa:{svg:"casa.svg",label:"Casa"},
 };
 
-// Iconos PNG por categoría de punto personalizado (§9) y por el icono que el
+// Icono de cada capa de lugares (§4/§5: identidad visual coherente).
+const ICONO_LUGAR={
+  parques:"park",plazas:"park",comercio:"store",
+  salud:"health_and_safety",seguridad:"warning",servicios:"casa",
+};
+
+// Icono por categoría de punto personalizado (§9) y por el icono que el
 // usuario elige en el formulario. El valor elegido (columna `icon`) manda;
 // si no existe o no se reconoce, se usa el de la categoría.
 const ICONO_PUNTO={
-  general:"casa.png",seguridad:"policia.png",salud:"urgencias.png",educacion:"trebol.png",
-  transporte:"buses.png",comercio:"mall.png",areas_verdes:"parque.png",otro:"casa.png",
-  // valores del <select id="point-icon">
-  place:"casa.png",warning:"policia.png",health_and_safety:"urgencias.png",
-  school:"trebol.png",directions_bus:"buses.png",store:"mall.png",
-  park:"parque.png",info:"exhibidor.png",
+  general:"place",seguridad:"warning",salud:"health_and_safety",educacion:"school",
+  transporte:"directions_bus",comercio:"store",areas_verdes:"park",otro:"place",
 };
 
-// Carga una imagen PNG como icono de MapLibre (solo una vez por sesión).
+// Carga un icono como imagen de MapLibre (solo una vez por sesión).
+// MapLibre NO acepta SVG: hay que rasterizarlo. Se descarga el SVG con
+// `fetch`, se dibuja en un <canvas> y se añade con `addImage`.
 // NOTA: `map.loadImage()` puede quedarse SIN RESPONDER (el callback nunca se
-// dispara y la promesa se cuelga, dejando la capa sin añadir). Por eso se
-// descarga con `fetch` + `createImageBitmap` y se añade con `addImage`.
-// `addImage` LANZA si la id ya existe: se comprueba con `hasImage`.
+// dispara y la promesa se cuelga, dejando la capa sin añadir) — por eso NO se
+// usa. `addImage` LANZA si la id ya existe: se comprueba con `hasImage`.
 const imagenesCargadas=new Set();
-const TIMEOUT_ICONO_MS=8000;
+const TIMEOUT_ICONO_MS=12000;
+const LADO_ICONO_MAX=256;   // px del icono rasterizado (en el mapa se ve a ~64 px)
 function conTimeout(ms,generador){
   return Promise.race([
     generador(),
     new Promise((_,rej)=>setTimeout(()=>rej(new Error(`timeout de ${ms} ms cargando icono`)),ms)),
   ]);
 }
-async function cargarIcono(nombre){
-  const map=state.map; if(!map) throw new Error("sin mapa");
-  const id=`icono-${nombre}`;
-  if(imagenesCargadas.has(nombre)&&map.hasImage?.(id)) return;
-  if(map.hasImage?.(id)){ imagenesCargadas.add(nombre); return; }
 
-  const blob=await conTimeout(TIMEOUT_ICONO_MS,async()=>{
-    const res=await fetch(`./icons/${nombre}`,{cache:"force-cache"});
-    if(!res.ok) throw new Error(`HTTP ${res.status} al cargar ${nombre}`);
-    return res.blob();
-  });
-  const bitmap=await createImageBitmap(blob);
-
-  if(!map.hasImage?.(id)) map.addImage(id,bitmap,{pixelRatio:2});
-  imagenesCargadas.add(nombre);
+// Convierte el texto de un SVG en ImageData (lo que MapLibre puede pintar).
+async function rasterizarSVG(texto,ladoMax=LADO_ICONO_MAX){
+  const vb=(texto.match(/viewBox\s*=\s*"([^"]+)"/i)||[])[1];
+  let vw=0,vh=0;
+  if(vb){
+    const p=vb.trim().split(/[\s,]+/).map(Number);
+    vw=p[2]; vh=p[3];
+  }
+  const url=URL.createObjectURL(new Blob([texto],{type:"image/svg+xml;charset=utf-8"}));
+  try{
+    const img=new Image();
+    img.decoding="async";
+    const listo=new Promise((res,rej)=>{
+      img.onload=()=>res();
+      img.onerror=()=>rej(new Error("el SVG no se pudo decodificar"));
+    });
+    img.src=url;
+    await listo;
+    const w=vw||img.naturalWidth||ladoMax, h=vh||img.naturalHeight||ladoMax;
+    const escala=Math.min(1,ladoMax/Math.max(w,h));
+    const cw=Math.max(1,Math.round(w*escala)), ch=Math.max(1,Math.round(h*escala));
+    const c=document.createElement("canvas"); c.width=cw; c.height=ch;
+    const g=c.getContext("2d");
+    g.drawImage(img,0,0,cw,ch);
+    return g.getImageData(0,0,cw,ch);
+  } finally { URL.revokeObjectURL(url); }
 }
 
-// Respaldo si un PNG no se puede decodificar: un pin de color relleno, para
+// Descarga el icono: primero el SVG; si falla, el PNG de respaldo.
+async function cargarImagenIcono(svg){
+  try{
+    const res=await fetch(`./icons/${svg}`,{cache:"force-cache"});
+    if(res.ok) return await rasterizarSVG(await res.text());
+  }catch(_){/* se intenta el PNG de respaldo */}
+  const png=svg.replace(/\.svg$/i,".png");
+  const res=await fetch(`./icons/png/${png}`,{cache:"force-cache"});
+  if(!res.ok) throw new Error(`no se encontró ${svg} ni su PNG de respaldo`);
+  return await createImageBitmap(await res.blob());
+}
+
+// Devuelve la id de imagen de MapLibre del icono (p. ej. "icono-parque.svg").
+async function cargarIcono(clave){
+  const map=state.map; if(!map) throw new Error("sin mapa");
+  const def=ICONOS_MAPA[clave]||ICONOS_MAPA.place;
+  const id=`icono-${def.svg}`;
+  if(map.hasImage?.(id)){ imagenesCargadas.add(clave); return id; }
+
+  const imagen=await conTimeout(TIMEOUT_ICONO_MS,()=>cargarImagenIcono(def.svg));
+  if(!map.hasImage?.(id)) map.addImage(id,imagen,{pixelRatio:2});
+  imagenesCargadas.add(clave);
+  return id;
+}
+
+// Respaldo si un icono no se puede decodificar: un pin de color relleno, para
 // que el punto nunca quede invisible en el mapa (§5: marcador identificable).
 function crearPinRespaldo(color){
   const c=document.createElement("canvas"); c.width=64; c.height=64;
@@ -783,13 +865,15 @@ function crearPinRespaldo(color){
   g.fill(); g.stroke();
   return g.getImageData(0,0,64,64);
 }
-async function asegurarIcono(nombre,color){
-  try{ await cargarIcono(nombre); }
+async function asegurarIcono(clave,color){
+  const def=ICONOS_MAPA[clave]||ICONOS_MAPA.place;
+  const id=`icono-${def.svg}`;
+  try{ return await cargarIcono(clave); }
   catch(err){
-    console.warn(`No se pudo cargar el icono ${nombre}, se usa un pin de respaldo:`,err.message);
-    const id=`icono-${nombre}`;
+    console.warn(`No se pudo cargar el icono ${def.svg}, se usa un pin de respaldo:`,err.message);
     if(!state.map?.hasImage?.(id)) state.map?.addImage(id,crearPinRespaldo(color||"#006492"));
-    imagenesCargadas.add(nombre);
+    imagenesCargadas.add(clave);
+    return id;
   }
 }
 const lugaresCargados=new Set();   // capas ya descargadas en esta sesión
@@ -869,9 +953,9 @@ async function cargarLugares(capa){
   const geo=await res.json();
   if(!state.map||state.map.getSource(`lugares-${capa}`)) return;
 
-  // Icono PNG de esta capa (se descarga una sola vez por sesión).
-  const icono=ICONO_LUGAR[capa]||"casa.png";
-  await asegurarIcono(icono,cfg.color);
+  // Icono SVG de esta capa (se descarga y rasteriza una sola vez por sesión).
+  const claveIcono=ICONO_LUGAR[capa]||"casa";
+  const idIcono=await asegurarIcono(claveIcono,cfg.color);
 
   const fuente=`lugares-${capa}`;
   map.addSource(fuente,{type:"geojson",data:geo,cluster:true,clusterMaxZoom:13,clusterRadius:52});
@@ -887,10 +971,10 @@ async function cargarLugares(capa){
     filter:["has","point_count"],
     layout:{"text-field":["get","point_count_abbreviated"],"text-size":12,"text-font":["Noto Sans Regular"]},
     paint:{"text-color":"#ffffff"}});
-  // Puntos sueltos: icono PNG en vez de círculo de color.
+  // Puntos sueltos: icono SVG en vez de círculo de color.
   insertarBajoSimbolos({id:`${fuente}-puntos`,type:"symbol",source:fuente,
     filter:["!",["has","point_count"]],
-    layout:{"icon-image":`icono-${icono}`,"icon-size":0.5,"icon-allow-overlap":true,"icon-ignore-placement":true}});
+    layout:{"icon-image":idIcono,"icon-size":0.5,"icon-allow-overlap":true,"icon-ignore-placement":true}});
 
   // Popup con nombre, categoría, dirección, comuna, coordenadas, fuente y fecha (§6).
   const popup=new maplibregl.Popup({closeButton:true,offset:[0,-14],maxWidth:"260px"});
@@ -1148,9 +1232,12 @@ function renderPuntosMapa(){
   const visibles=state.mapPoints.filter(p=>p.visible||isAdmin());  // el admin ve también los ocultos
   visibles.forEach(p=>{
     const el=document.createElement("div");
-    el.className="map-point map-point-png";
-    const ico=ICONO_PUNTO[p.icon]||ICONO_PUNTO[p.category]||ICONO_PUNTO.general;
-    el.style.backgroundImage=`url('./icons/${ico}')`;
+    el.className="map-point map-point-icono";
+    const claveIcono=ICONO_PUNTO[p.icon]||ICONO_PUNTO[p.category]||ICONO_PUNTO.general;
+    const defIcono=ICONOS_MAPA[claveIcono]||ICONOS_MAPA.place;
+    // El SVG se muestra directo como fondo CSS (es vectorial: se ve nítido en
+    // cualquier zoom y no necesita rasterizarse).
+    el.style.backgroundImage=`url('./icons/${defIcono.svg}')`;
     el.style.backgroundSize="contain";
     el.style.backgroundRepeat="no-repeat";
     el.style.backgroundPosition="center";
@@ -1190,6 +1277,33 @@ function desactivarModoPunto(){
 $("#map-add-point")?.addEventListener("click",activarModoPunto);
 
 // --- formulario -------------------------------------------------------------
+// Selector visual de iconos: se construye con el catálogo ICONOS_MAPA, así que
+// basta con añadir un SVG a /icons y su entrada al catálogo para que aparezca.
+function renderSelectorIconos(){
+  const grid=$("#point-icon-grid");
+  if(!grid||grid.dataset.listo) return;
+  grid.dataset.listo="1";
+  grid.innerHTML=Object.entries(ICONOS_MAPA).map(([clave,def])=>
+    `<button type="button" class="icono-selector" data-icon="${clave}" role="radio" aria-checked="false" title="${esc(def.label)}" aria-label="${esc(def.label)}">`+
+    `<img src="./icons/${def.svg}" alt="" width="24" height="24" loading="lazy" draggable="false"></button>`).join("");
+  grid.addEventListener("click",e=>{
+    const btn=e.target.closest("[data-icon]");
+    if(!btn) return;
+    seleccionarIcono(btn.dataset.icon);
+  });
+}
+function seleccionarIcono(clave){
+  const input=$("#point-icon");
+  if(!input||!ICONOS_MAPA[clave]) return;
+  input.value=clave;
+  $$("#point-icon-grid [data-icon]").forEach(b=>{
+    const act=b.dataset.icon===clave;
+    b.classList.toggle("icono-selector-activo",act);
+    b.setAttribute("aria-checked",act?"true":"false");
+  });
+}
+renderSelectorIconos();
+
 function abrirFormPunto(p=null,lat=null,lng=null){
   if(!state.user) return;
   $("#point-dialog-title").textContent=p?"Editar punto":"Nuevo punto";
@@ -1197,7 +1311,7 @@ function abrirFormPunto(p=null,lat=null,lng=null){
   $("#point-name").value=p?.name||"";
   $("#point-description").value=p?.description||"";
   $("#point-category").value=p?.category||"general";
-  $("#point-icon").value=p?.icon||"place";
+  seleccionarIcono(ICONOS_MAPA[p?.icon]?p.icon:"place");
   $("#point-lat").value=p?p.latitude:(lat??"");
   $("#point-lng").value=p?p.longitude:(lng??"");
   $("#point-visible").checked=p?!!p.visible:true;
@@ -1226,9 +1340,8 @@ $("#point-backdrop")?.addEventListener("click",cerrarFormPunto);
 const ICONO_POR_CATEGORIA={general:"place",seguridad:"warning",salud:"health_and_safety",
   educacion:"school",transporte:"directions_bus",comercio:"store",areas_verdes:"park",otro:"place"};
 $("#point-category")?.addEventListener("change",e=>{
-  const sel=$("#point-icon"); if(!sel) return;
   const valor=ICONO_POR_CATEGORIA[e.target.value];
-  if(valor&&[...sel.options].some(o=>o.value===valor)) sel.value=valor;
+  if(valor) seleccionarIcono(valor);
 });
 
 // --- guardar / eliminar -----------------------------------------------------

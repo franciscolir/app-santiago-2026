@@ -855,3 +855,53 @@ mercados y clínicas privadas). Se reescribió `scripts/importar-lugares.mjs` y 
 - `DOCUMENTACION-MAPA.md`: modificaciones, tablas, SQL/RLS, fuentes, procedimiento de
   importación, variables de configuración, pruebas y limitaciones conocidas.
 - `README.md`: enlaza la documentación y el comando de verificación.
+
+## 23. Iconos SVG del mapa + fix de la migración 7 (2026-11-25)
+
+### `sql/07_terminales.sql` — error 42P10
+
+- **Síntoma**: `ERROR: 42P10: there is no unique or exclusion constraint matching the
+  ON CONFLICT specification` al ejecutar la siembra de las 4 terminales.
+- **Causa**: el índice único de `external_id` es **parcial**
+  (`create unique index ... on public.map_points (external_id) where external_id is not null`).
+  PostgreSQL **no puede inferir** un índice parcial con `on conflict (external_id)`: hay que
+  repetir el predicado → `on conflict (external_id) where external_id is not null do update`.
+- **Fix aplicado**: `sql/07_terminales.sql` ahora
+  1. avisa con un mensaje claro si falta la tabla `map_points` (ejecutar `sql/06` primero),
+  2. borra duplicados previos de esas 4 terminales (conserva la más antigua),
+  3. crea el índice parcial si falta,
+  4. hace el upsert con el predicado correcto.
+- Regresión cubierta por `scripts/verificar-mapa.mjs` (comprueba el `ON CONFLICT` de `sql/07`
+  y el índice parcial de `sql/06`).
+
+### Iconos del mapa en SVG (los que dejó el usuario)
+
+- El usuario dejó 16 dibujos vectoriales en `icons/*.svg` y movió los PNG a `icons/png/`.
+- **Optimización**: `scripts/optimizar-iconos.mjs` (usa `npx svgo`, sin dependencias al
+  repo) → **4,3 MB → 490 KB (-89%)**. Se conservan `viewBox`, `width` y `height`
+  (el navegador necesita tamaño intrínseco para rasterizar) y los grosores de trazo.
+- **Carga en MapLibre**: MapLibre no acepta SVG, así que el SVG se descarga con `fetch`, se
+  dibuja en un `<canvas>` (máx. 256 px) y se añade con `map.addImage`. Si el SVG falla se usa
+  el PNG de `icons/png/` y, en último caso, un pin de color.
+  Se mantiene `fetch` + `createImageBitmap` (y **no** `map.loadImage`, que se cuelga).
+- **Catálogo** (`ICONOS_MAPA` en `src/main.js`): 17 claves → archivo SVG. `ICONO_LUGAR` y
+  `ICONO_PUNTO` ahora guardan la clave, no el nombre de archivo.
+- **Selector visual de iconos**: el `<select id="point-icon">` se reemplazó por una grilla de
+  miniaturas SVG (`#point-icon-grid` + `<input type="hidden" id="point-icon">`), construida
+  desde el catálogo. Al cambiar la categoría se propone el icono equivalente.
+- **Service worker**: `CACHE_NAME` v4 y los iconos SVG se sirven **cache-first**
+  (se descargan una sola vez).
+
+### Arreglo del mapa en blanco (estilo OpenFreeMap)
+
+- El estilo `positron` declara la fuente ráster `ne2_shaded` que **ninguna capa usa**; si su
+  carga se demora, MapLibre nunca termina de "cargar" el estilo → el mapa queda en blanco.
+- **Quitar la fuente después de crear el mapa no sirve**: MapLibre recarga el estilo entero y
+  **borra las capas propias** ya añadidas (se vio en la prueba: las fuentes `comunas` y
+  `lugares-*` desaparecieron).
+- **Solución**: `obtenerEstiloBase()` descarga el JSON del estilo, le quita `ne2_shaded`
+  (fuente y capas que la usen) y se lo pasa a MapLibre **como objeto**. El arranque del mapa
+  se hace en `style.load` con reintentos (el vigilante llama a `iniciarMapa()` cada segundo
+  hasta que `addSource` deja de lanzar).
+- Medido: `isStyleLoaded=true`, `loaded=true`, fuentes `openmaptiles, satelite, comunas,
+  lugares-*`, 26 features de lugares renderizadas, 0 errores de consola.

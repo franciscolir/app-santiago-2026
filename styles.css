@@ -100,8 +100,21 @@ a { color: #006492; }
 .map-point .material-symbols-outlined { transform: rotate(45deg); font-size: 16px; line-height: 1; color: #fff; }
 .map-point:hover, .map-point:active { scale: 1.12; }
 .map-point-admin { outline: 2px dashed rgba(255,255,255,.85); outline-offset: 2px; }
-/* Puntos personalizados con icono PNG: sin rotación de diamante, el icono ya es un pin. */
-.map-point-png { transform: none; width: 34px; height: 34px; border: none; box-shadow: 0 2px 8px rgba(0,0,0,.35); }
+/* Puntos personalizados con icono SVG: sin rotación de diamante, el icono ya es un pin. */
+.map-point-icono { transform: none; width: 34px; height: 34px; border: none; box-shadow: 0 2px 8px rgba(0,0,0,.35); }
+
+/* Selector visual de iconos del punto (§9): miniaturas SVG del mapa. */
+.icono-selector {
+  display: flex; align-items: center; justify-content: center;
+  aspect-ratio: 1 / 1; padding: 3px; cursor: pointer;
+  background: var(--surface-container-low, #eef3f6);
+  border: 1px solid transparent; border-radius: 10px;
+  transition: border-color .12s ease, background .12s ease, transform .12s ease;
+}
+.icono-selector img { width: 100%; height: 100%; object-fit: contain; pointer-events: none; }
+.icono-selector:hover { background: #fff; transform: translateY(-1px); }
+.icono-selector:focus-visible { outline: 2px solid #006492; outline-offset: 1px; }
+.icono-selector-activo { border-color: #006492; background: #fff; box-shadow: 0 0 0 1px #006492 inset; }
 
 /* ---- Diálogo de actividad ---- */
 dialog { border: 0; padding: 0; margin: 0; max-width: 100%; max-height: 100%; width: 100%; height: 100%; background: transparent; }

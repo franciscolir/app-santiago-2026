@@ -14,6 +14,11 @@ cambio día a día está en `AGENT.md`; el plan de pruebas está en `PRUEBAS.md`
 
 - **Vista satelital por defecto**: fuente ráster Esri World Imagery (`satelite`) + estilo
   OpenFreeMap `positron` superpuesto para los rótulos legibles.
+- El estilo base se descarga y se **limpia antes** de crear el mapa: se elimina la fuente
+  ráster `ne2_shaded` (relieve de Natural Earth) porque **ninguna capa la usa** y, si se
+  demora, MapLibre nunca termina de "cargar" el estilo → el mapa queda en blanco.
+  Quitarla *después* de crear el mapa no sirve (MapLibre recarga el estilo y borra las
+  capas propias), por eso se hace en `obtenerEstiloBase()` (`src/main.js`).
 - **Límites comunales**: `data/comunas-rm.geojson` (52 comunas, OSM/ODbL) con capas de
   relleno, resaltado al pasar y borde. Popup con el nombre de la comuna.
 - **Pantalla completa** del mapa y **atribución siempre visible** (control desplazado
@@ -48,12 +53,22 @@ cambio día a día está en `AGENT.md`; el plan de pruebas está en `PRUEBAS.md`
 
 ### 1.4 Marcadores e información (`mapas.txt` §5, §6)
 
-- Iconos PNG en `icons/` (pin por categoría) y clustering nativo de MapLibre.
+- Iconos **SVG** en `icons/` (16 drawings vectoriales del mapa: parque, plaza, mall,
+  urgencias, policía, municipalidad, buses, metro, hospital, planetario, evento, salón,
+  predicción, betel, casa, información) y clustering nativo de MapLibre.
+- MapLibre solo pinta imágenes rasterizadas: el SVG se descarga con `fetch`, se dibuja en
+  un `<canvas>` (máx. 256 px) y se añade con `map.addImage`. Si el SVG no se puede
+  decodificar se usa el PNG de respaldo de `icons/png/` y, en último caso, un pin de color.
+  **No** se usa `map.loadImage` (en este entorno nunca resolvía y dejaba la capa sin añadir).
+- El servicio worker sirve los iconos SVG con **cache-first** (`app-santiago-2026-v4`):
+  se descargan una sola vez.
 - Popups con **nombre, categoría, dirección, comuna, coordenadas, fuente y fecha**
   (§6). En Metro además líneas y estación de combinación.
-- Iconos cargados con `fetch` + `createImageBitmap` (no con `map.loadImage`, que en este
-  entorno nunca resolvía y dejaba la capa sin añadir). Si un PNG falla se dibuja un pin
-  de color de respaldo.
+- **Selector visual de iconos** en el formulario de punto: grilla con las miniaturas SVG
+  (`#point-icon-grid`); el valor guardado es la clave del catálogo (`place`, `warning`,
+  `health_and_safety`, `hospital`, `school`, `directions_bus`, `metro`,
+  `metro_combinacion`, `store`, `park`, `planetario`, `info`, `evento`, `salon`,
+  `predicacion`, `betel`, `casa`). Al cambiar la categoría se propone el icono equivalente.
 
 ### 1.5 Puntos personalizados y administración (`mapas.txt` §8, §9)
 
@@ -81,7 +96,7 @@ cambio día a día está en `AGENT.md`; el plan de pruebas está en `PRUEBAS.md`
 | `description` | `text` | detalle opcional |
 | `category` | `text` | `general`, `seguridad`, `salud`, `educacion`, `transporte`, `comercio`, `areas_verdes`, `otro` |
 | `subcategory` | `text` | subcategoría §8 |
-| `icon` | `text` | icono elegido (PNG de `icons/`) |
+| `icon` | `text` | clave del icono elegido (catálogo SVG, ver §1.4) |
 | `latitude` / `longitude` | `double precision` | check dentro de la RM (PostGIS no está disponible) |
 | `address`, `comuna`, `source`, `external_id` | `text` | procedencia del dato |
 | `active`, `visible` | `boolean` | flags de publicación |
@@ -108,6 +123,14 @@ Aplicar en el **SQL Editor de Supabase**, en este orden:
 -- 2) Semilla de las 4 terminales de bus (puntos generales)
 \i sql/07_terminales.sql
 ```
+
+> **Error 42P10** (`there is no unique or exclusion constraint matching the ON CONFLICT
+> specification`): el índice único de `external_id` es **parcial**
+> (`... where external_id is not null`). PostgreSQL no puede inferir un índice parcial, así
+> que el `ON CONFLICT` debe repetir el predicado:
+> `on conflict (external_id) where external_id is not null do update`.
+> `sql/07_terminales.sql` ya viene corregido (y además crea el índice si falta, borra
+> duplicados previos de esas 4 terminales y avisa si falta la tabla `map_points`).
 
 Políticas resultantes:
 
@@ -158,7 +181,13 @@ node scripts/importar-lugares.mjs salud seguridad  # solo esas
 
 # 4) Terminales de bus → Supabase (SQL Editor)
 #    sql/07_terminales.sql (idempotente)
+
+# 5) Iconos SVG del mapa (optimiza sin perder el viewBox)
+node scripts/optimizar-iconos.mjs     # usa npx svgo (se baja solo, no se agrega al repo)
 ```
+
+Los iconos se conservan ya optimizados en `icons/*.svg` (490 KB en total para los 16
+dibujos; antes 4,3 MB) y el PNG original de cada uno queda en `icons/png/` como respaldo.
 
 Reglas del importador de lugares:
 
@@ -195,12 +224,13 @@ No hay variables de entorno ni claves de mapas私 embebidas en el repositorio: e
 
 Detalle en `PRUEBAS.md`.
 
-- `node scripts/verificar-mapa.mjs` → **88 pruebas, 0 fallos, 2 avisos** (datos, coordenadas,
-  duplicados, referencias del frontend, RLS en los SQL y ausencia de claves privadas).
+- `node scripts/verificar-mapa.mjs` → **101 pruebas, 0 fallos, 2 avisos** (datos, coordenadas,
+  duplicados, iconos SVG, referencias del frontend, RLS en los SQL y ausencia de claves privadas).
 - Navegador (2026-11-25): **0 errores de consola**; el mapa abre con satélite + comunas,
-  las 6 capas de lugares se encienden/apagan de forma independiente, los iconos PNG se
-  cargan, los popups muestran todos los campos de §6 y el acordeón de la agenda funciona.
-- El service worker quedó en `app-santiago-2026-v3`.
+  las 6 capas de lugares se encienden/apagan de forma independiente, los iconos **SVG** se
+  rasterizan y pintan (17/17 miniaturas del selector cargan), los popups muestran todos
+  los campos de §6 y el acordeón de la agenda funciona.
+- El service worker quedó en `app-santiago-2026-v4` (los iconos SVG se sirven cache-first).
 
 ---
 

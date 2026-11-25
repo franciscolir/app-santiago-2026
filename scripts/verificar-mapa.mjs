@@ -157,10 +157,41 @@ console.log("[4] Referencias del frontend");
   const sw = leerTexto("sw.js") || "";
   const html = leerTexto("index.html") || "";
 
-  const iconos = [...main.matchAll(/([a-z0-9\-]+\.png)/g)].map((m) => m[1]);
-  const iconosUsados = [...new Set(iconos.filter((n) => !n.includes("-192") && !n.includes("-512") && !n.includes("maskable")))];
-  const faltanIcons = iconosUsados.filter((n) => !existsSync(join(ROOT, "icons", n)));
-  check(faltanIcons.length === 0, "iconos PNG existen", "faltan: " + faltanIcons.join(", "));
+  // --- iconos SVG del mapa --------------------------------------------------
+  // Catálogo: clave -> {svg, label}
+  const catalogo = [...main.matchAll(/([a-z_]+):\{svg:"([^"]+)"/g)].map((m) => ({ clave: m[1], svg: m[2] }));
+  check(catalogo.length >= 10, "catálogo de iconos del mapa", "solo " + catalogo.length + " iconos");
+  const svgsUsados = [...new Set(catalogo.map((c) => c.svg))];
+  const faltanSvg = svgsUsados.filter((n) => !existsSync(join(ROOT, "icons", n)));
+  check(faltanSvg.length === 0, "iconos SVG existen en /icons", "faltan: " + faltanSvg.join(", "));
+  const sinViewBox = svgsUsados.filter((n) => {
+    const t = leerTexto("icons/" + n) || "";
+    return !/viewBox\s*=/i.test(t) || !/<svg[\s>]/i.test(t);
+  });
+  check(sinViewBox.length === 0, "iconos SVG con viewBox (escalables)", "sin viewBox: " + sinViewBox.join(", "));
+  const pesados = svgsUsados.filter((n) => (leerTexto("icons/" + n) || "").length > 400 * 1024);
+  check(pesados.length === 0, "iconos SVG optimizados (< 400 KB)", "muy pesados: " + pesados.join(", "));
+  const sinPng = svgsUsados.filter((n) => !existsSync(join(ROOT, "icons", "png", n.replace(/\.svg$/, ".png"))));
+  check(sinPng.length === 0, "PNG de respaldo de cada icono", "faltan: " + sinPng.join(", "));
+
+  // Cada capa de lugares debe tener icono en el catálogo.
+  const bloqueLugares = (main.match(/const ICONO_LUGAR=\{([^}]+)\}/) || [])[1] || "";
+  const clavesLugares = [...bloqueLugares.matchAll(/([a-z]+):"([a-z_]+)"/g)].map((m) => m[2]);
+  const clavesCatalogo = new Set(catalogo.map((c) => c.clave));
+  const iconosSinCatalogo = clavesLugares.filter((k) => !clavesCatalogo.has(k));
+  check(iconosSinCatalogo.length === 0, "iconos de capa en el catálogo", "no existen: " + iconosSinCatalogo.join(", "));
+
+  // Selector visual de iconos del formulario (§9).
+  check(/id="point-icon-grid"/.test(html), "selector visual de iconos en el HTML", "falta #point-icon-grid");
+  check(/type="hidden" id="point-icon"/.test(html), "campo oculto #point-icon", "falta el input hidden");
+  check(/renderSelectorIconos/.test(main), "el selector se construye desde el catálogo", "falta renderSelectorIconos");
+
+  // --- carga de iconos ------------------------------------------------------
+  // Se ignoran los comentarios: mencionan map.loadImage a propósito.
+  const codigoMain = main.split("\n").filter((l) => !/^\s*(\/\/|\*|\/\*)/.test(l)).join("\n");
+  check(!/map\.loadImage/.test(codigoMain), "iconos cargados sin map.loadImage", "usa map.loadImage (se cuelga)");
+  check(/rasterizarSVG/.test(main), "SVG rasterizado para MapLibre", "no rasteriza el SVG");
+  check(/createImageBitmap/.test(main), "PNG de respaldo con createImageBitmap", "no usa createImageBitmap");
 
   const capasMain = [...main.matchAll(/^  "([a-z]+)":\s*\{color/gm)].map((m) => m[1]);
   const capasFaltan = capasMain.filter((c) => !existsSync(join(ROOT, `data/lugares/${c}.geojson`)));
@@ -175,7 +206,6 @@ console.log("[4] Referencias del frontend");
   check(!/onclick\s*=/.test(html) && !/onclick\s*=/.test(main),
     "sin handlers inline", "quedan atributos onclick (los módulos no exponen funciones globales)");
   check(!/window\.__cargarLugares/.test(main), "sin hooks de depuración temporales", "quedó window.__cargarLugares");
-  check(/createImageBitmap/.test(main), "iconos cargados sin map.loadImage", "no usa createImageBitmap");
 }
 
 // ------------------------------------------------------------ 5. seguridad ---
@@ -206,6 +236,15 @@ console.log("[5] Credenciales y SQL");
   const terminales = [...new Set(sql07.match(/'(?:way|node)\/\d+'/g) || [])];
   check(terminales.length === 4, "sql/07: 4 terminales con external_id OSM", "hay " + terminales.length);
   check(/tipo\s*=\s*'general'/.test(sql07) || /'general'/.test(sql07), "sql/07: puntos generales", "");
+  // Regresión del error 42P10: el índice de external_id es PARCIAL, así que el
+  // ON CONFLICT debe repetir el predicado o PostgreSQL no puede inferirlo.
+  check(/on conflict \(external_id\) where external_id is not null/i.test(sql07),
+    "sql/07: ON CONFLICT con el predicado del índice parcial", "falta 'where external_id is not null' (error 42P10)");
+  check(/create unique index if not exists map_points_external_id_idx/i.test(sql07),
+    "sql/07: crea el índice único parcial", "no crea el índice map_points_external_id_idx");
+  const sql06b = leerTexto("sql/06_map_points.sql") || "";
+  check(/create unique index if not exists map_points_external_id_idx\s*\n?\s*on public\.map_points \(external_id\) where external_id is not null/i.test(sql06b),
+    "sql/06: índice único parcial de external_id", "no coincide con el índice parcial esperado");
 }
 
 // ---------------------------------------------------------------- resumen ----

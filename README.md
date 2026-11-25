@@ -52,8 +52,16 @@ Luego entra a `http://localhost:8080`.
 
 - Implementación, fuentes, SQL y procedimiento de importación: **`DOCUMENTACION-MAPA.md`**.
 - Plan y resultados de pruebas: **`PRUEBAS.md`**.
-- Verificación automática (datos, coordenadas, duplicados, referencias, RLS y claves privadas):
+- Verificación automática (datos, coordenadas, duplicados, iconos SVG, referencias, RLS y claves privadas):
 
 ```bash
 node scripts/verificar-mapa.mjs
 ```
+
+- Optimizar los iconos SVG del mapa (sin perder el `viewBox`; usa `npx svgo`, no agrega dependencias):
+
+```bash
+node scripts/optimizar-iconos.mjs
+```
+
+- En Supabase (SQL Editor, en este orden): `sql/06_map_points.sql` → `sql/07_terminales.sql`.

@@ -1,4 +1,4 @@
-const CACHE_NAME = "app-santiago-2026-v3";
+const CACHE_NAME = "app-santiago-2026-v4";
 const APP_SHELL = [
   "./",
   "./index.html",
@@ -44,6 +44,25 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(request.url);
 
   if (request.method !== "GET" || url.origin !== self.location.origin || request.headers.has("range")) {
+    return;
+  }
+
+  // Iconos SVG del mapa: son inmutables y pesan ~1 MB en total. Se sirven
+  // cache-first (una sola descarga) para no repetir la petición en cada
+  // apertura (§11: caché y rendimiento).
+  if (url.pathname.includes("/icons/") && url.pathname.endsWith(".svg")) {
+    event.respondWith(
+      caches.match(request).then((cached) => {
+        if (cached) return cached;
+        return fetch(request).then((response) => {
+          if (response.ok) {
+            const copy = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
+          }
+          return response;
+        });
+      })
+    );
     return;
   }
 

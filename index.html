@@ -390,16 +390,10 @@ dialog::backdrop { background: rgba(44, 49, 50, .6); backdrop-filter: blur(2px);
               </label>
               <label class="block">
                 <span class="font-label-md text-label-md text-on-surface-variant">Icono</span>
-                <select id="point-icon" class="mt-1 w-full bg-surface-container-low rounded-lg px-3 py-2.5 font-body-md text-body-md text-on-surface focus:outline-none">
-                  <option value="place">Lugar</option>
-                  <option value="warning">Alerta</option>
-                  <option value="health_and_safety">Salud</option>
-                  <option value="school">Educación</option>
-                  <option value="directions_bus">Transporte</option>
-                  <option value="store">Comercio</option>
-                  <option value="park">Parque</option>
-                  <option value="info">Información</option>
-                </select>
+                <!-- Selector visual: los SVG del mapa (icons/*.svg). El valor
+                     guardado es la clave del catálogo (columna `icon`). -->
+                <input type="hidden" id="point-icon" value="place">
+                <div id="point-icon-grid" class="mt-1 grid grid-cols-6 gap-1.5" role="radiogroup" aria-label="Icono del punto"></div>
               </label>
             </div>
             <!-- Tipo de punto: personal (solo el autor) o general (admin, para todos) (§9) -->
