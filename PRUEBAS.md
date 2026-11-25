@@ -64,6 +64,11 @@ Sin dependencias: solo Node.js ≥ 18. Comprueba:
 
 ## 3. Resultados de la corrida automática
 
+- **2026-11-25 (fix 42703 en sql/08)**: **141 pruebas · 0 fallos · 2 avisos**.
+  - Nueva regresión: las consultas `select … from public.map_points` de `sql/06`, `sql/07` y
+    `sql/08` solo pueden usar columnas que existen en el `create table` (se extraen del propio
+    `sql/06`). Es la que detectó el error `42703: column "activo" does not exist` (la columna
+    real es `active`). Comprobado que la prueba falla si se vuelve a escribir `activo`.
 - **2026-11-25 (vista de mapa)**: **138 pruebas · 0 fallos · 2 avisos**.
   - Los dos avisos son nombres que contienen palabras educativas: dos “Granja Educativa”
     (etiquetadas como zoológico en OSM) y “Cerro Escuela La Cantera” (cerro parque), más

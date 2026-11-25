@@ -12,6 +12,15 @@
 -- Es idempotente: se puede ejecutar más de una vez sin error.
 -- ============================================================================
 
+-- 0) Comprobación previa: sin la tabla no se puede agregar la columna.
+do $$
+begin
+  if to_regclass('public.map_points') is null then
+    raise exception 'Falta la tabla public.map_points: ejecuta primero sql/06_map_points.sql';
+  end if;
+end;
+$$;
+
 -- 1) Columna `fijo` (por defecto false: el comportamiento normal es el
 --    "punto de color" al alejar).
 alter table public.map_points
@@ -27,7 +36,8 @@ select policyname, cmd, roles::text
 from pg_policies where tablename='map_points' order by policyname;
 
 -- 3) VERIFICACIÓN
-select id, name, category, tipo, visible, activo, fijo
+--    OJO: la columna de publicación se llama `active` (no `activo`).
+select id, name, category, tipo, visible, active, fijo
 from public.map_points
 order by created_at desc
 limit 20;

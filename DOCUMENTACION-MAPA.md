@@ -172,6 +172,12 @@ Aplicar en el **SQL Editor de Supabase**, en este orden:
 
 > `sql/06` ya incluye la columna `fijo`; `sql/08_puntos_fijos.sql` sirve para agregarla
 > a una tabla que se creó antes de esta versión (es idempotente).
+>
+> **Error 42703** (`column "activo" does not exist`): la columna de publicación se llama
+> **`active`**, no `activo`. Ocurrió en la consulta de verificación de `sql/08`; el
+> `alter table` de `fijo` sí se había aplicado, así que basta con volver a ejecutar el
+> archivo corregido. `scripts/verificar-mapa.mjs` ahora revisa que ninguna consulta
+> `select … from public.map_points` use una columna inexistente.
 
 > **Error 42P10** (`there is no unique or exclusion constraint matching the ON CONFLICT
 > specification`): el índice único de `external_id` es **parcial**
@@ -273,10 +279,10 @@ No hay variables de entorno ni claves de mapas私 embebidas en el repositorio: e
 
 Detalle en `PRUEBAS.md`.
 
-- `node scripts/verificar-mapa.mjs` → **138 pruebas, 0 fallos, 2 avisos** (datos, coordenadas,
+- `node scripts/verificar-mapa.mjs` → **141 pruebas, 0 fallos, 2 avisos** (datos, coordenadas,
   duplicados, iconos SVG, vista de mapa a pantalla completa, controles colapsables,
   comportamiento de los puntos según el zoom, vista fija, referencias del frontend, RLS en
-  los SQL y ausencia de claves privadas).
+  los SQL, columnas existentes en las consultas SQL y ausencia de claves privadas).
 - Navegador (2026-11-25): **0 errores de consola**; el mapa abre con satélite + comunas,
   las 6 capas de lugares se encienden/apagan de forma independiente, los iconos **SVG** se
   rasterizan y pintan (17/17 miniaturas del selector cargan), los popups muestran todos

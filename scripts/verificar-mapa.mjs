@@ -310,6 +310,28 @@ console.log("[6] Vista de mapa: espacio, controles y comportamiento de los punto
   check(/add column if not exists fijo boolean not null default false/i.test(sql08),
     "sql/08: crea la columna fijo", "no crea la columna fijo");
 
+  // --- regresión 42703: las consultas de verificación usan columnas reales ---
+  // Las columnas se extraen del propio `create table` de sql/06 (así la prueba
+  // no se desincroniza si la tabla cambia).
+  const bloqueTabla = (sql06.match(/create table if not exists public\.map_points\s*\(([\s\S]*?)\n\);/) || ["", ""])[1];
+  const columnas = new Set([...bloqueTabla.matchAll(/^\s{2}([a-z_]+)\s+(?:uuid|text|boolean|double precision|timestamptz)\b/gm)].map((m) => m[1]));
+  check(columnas.size >= 15, "SQL: columnas de map_points detectadas", "solo " + columnas.size);
+  check(columnas.has("fijo") && columnas.has("active") && !columnas.has("activo"),
+    "SQL: la columna de publicación se llama 'active'", "revisa active/activo/fijo");
+  const columnasMalas = [];
+  for (const rel of ["sql/06_map_points.sql", "sql/07_terminales.sql", "sql/08_puntos_fijos.sql"]) {
+    const t = leerTexto(rel) || "";
+    // `select <lista> from public.map_points` (sin cruzar el fin de sentencia)
+    for (const m of t.matchAll(/select\s+([^;]*?)\s+from\s+public\.map_points/gi)) {
+      for (const col of m[1].split(",").map((s) => s.trim().toLowerCase())) {
+        if (!col || col === "*" || col.includes("(")) continue;
+        if (!columnas.has(col)) columnasMalas.push(`${rel} → ${col}`);
+      }
+    }
+  }
+  check(columnasMalas.length === 0, "SQL: las consultas solo usan columnas existentes (error 42703)",
+    "columnas inexistentes: " + columnasMalas.join(", "));
+
   // --- estilo base: URL (no objeto) y limpieza de ne2_shaded ----------------
   // Regresión: en MapLibre 4.7.1 `Style.loadJSON()` aplaza la carga a un
   // requestAnimationFrame; si la pestaña no pinta, el mapa queda en blanco.

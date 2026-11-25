@@ -963,3 +963,18 @@ mercados y clínicas privadas). Se reescribió `scripts/importar-lugares.mjs` y 
   controles (856,12) con 8 botones en fila, panel 269 → 58 px con `--mapa-panel-h` = 68 px,
   formulario con la casilla “Vista fija”, **0 errores de consola**.
 - `sw.js` subido a `CACHE_NAME` **v5** (renueva la precache del app shell con el rediseño).
+
+### Fix del error 42703 en `sql/08_puntos_fijos.sql`
+
+- Al ejecutar la migración 8 en Supabase falló: `ERROR 42703: column "activo" does not
+  exist` (la columna real se llama **`active`**, no `activo`). El `alter table` de la
+  columna `fijo` **sí se había aplicado**: el error venía de la consulta de verificación
+  final, así que la migración 8 era idempotente y se puede volver a ejecutar sin más.
+- Corregido: la consulta usa `active`. Además se le agregó la comprobación previa de la
+  tabla (`to_regclass('public.map_points')`), igual que `sql/07`.
+- **Regresión automática**: `scripts/verificar-mapa.mjs` ahora extrae las columnas reales
+  del `create table` de `sql/06` y revisa que **todas** las consultas
+  `select … from public.map_points` de `sql/06`, `sql/07` y `sql/08` usen solo columnas
+  existentes (detecta el 42703 antes de que llegue a Supabase). Verificado que la prueba
+  falla si se reintroduce `activo`.
+- Total: **141 pruebas · 0 fallos · 2 avisos**.
