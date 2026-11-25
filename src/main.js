@@ -276,7 +276,7 @@ function renderAgenda(){
               <span class="text-[9px] font-bold uppercase tracking-wider leading-none mt-0.5" style="color: ${badgeTextColor};">OCT</span>
             </div>
             <div class="flex-1 bg-surface-container-lowest rounded-lg p-3 shadow-sm border transition-all duration-200" style="border-color: ${isPast?"#CEE8F2":"#CEE8F2"};">
-              <button class="w-full flex items-center justify-between text-left focus:outline-none" type="button" onclick="toggleDay('${dayId}')">
+              <button class="w-full flex items-center justify-between text-left focus:outline-none" type="button" data-day="${dayId}">
                 <div class="min-w-0 pr-2">
                   <div class="flex items-center gap-2 flex-wrap">
                     <span class="font-headline-sm text-[16px] font-bold uppercase tracking-tight" style="color: ${titleColor};">${esc(cap(dateFmt.format(dt)))}</span>
@@ -296,15 +296,13 @@ function renderAgenda(){
           </div>`;
       }
     }
-    // Botones de toggle de días pasados/futuros.
-    past.querySelectorAll("button[type=button]").forEach(b=>{
-      const id=b.getAttribute("onclick")?.match(/toggleDay\('([^']+)'\)/)?.[1];
-      if(id) b.addEventListener("click",()=>toggleDay(id));
+    // Botones de toggle de días pasados/futuros (sin onclick inline: main.js
+    // es un módulo y sus funciones no son globales en el ámbito de la página).
+    const enlazarDias=(raiz)=>raiz.querySelectorAll("button[data-day]").forEach(b=>{
+      const id=b.getAttribute("data-day"); if(id) b.addEventListener("click",()=>toggleDay(id));
     });
-    upcoming.querySelectorAll("button[type=button]").forEach(b=>{
-      const id=b.getAttribute("onclick")?.match(/toggleDay\('([^']+)'\)/)?.[1];
-      if(id) b.addEventListener("click",()=>toggleDay(id));
-    });
+    enlazarDias(past);
+    enlazarDias(upcoming);
   } else {
     // Fallback: lista simple.
     root.innerHTML=[...byDate.entries()].map(([date,items])=>{
@@ -334,6 +332,7 @@ function renderAgenda(){
 function toggleDay(dayId){
   const content=document.getElementById(dayId+"-content");
   const icon=document.getElementById(dayId+"-icon");
+  if(!content||!icon) return;   // el nodo puede haber sido recreado por un re-render
   if(content.classList.contains("hidden")){ content.classList.remove("hidden"); icon.textContent="expand_less"; }
   else { content.classList.add("hidden"); icon.textContent="expand_more"; }
 }
@@ -701,24 +700,67 @@ const ICONO_LUGAR={
   salud:"urgencias.png",seguridad:"policia.png",servicios:"casa.png",
 };
 
-// Iconos PNG por categoría de punto personalizado (§9).
+// Iconos PNG por categoría de punto personalizado (§9) y por el icono que el
+// usuario elige en el formulario. El valor elegido (columna `icon`) manda;
+// si no existe o no se reconoce, se usa el de la categoría.
 const ICONO_PUNTO={
   general:"casa.png",seguridad:"policia.png",salud:"urgencias.png",educacion:"trebol.png",
   transporte:"buses.png",comercio:"mall.png",areas_verdes:"parque.png",otro:"casa.png",
+  // valores del <select id="point-icon">
+  place:"casa.png",warning:"policia.png",health_and_safety:"urgencias.png",
+  school:"trebol.png",directions_bus:"buses.png",store:"mall.png",
+  park:"parque.png",info:"exhibidor.png",
 };
 
 // Carga una imagen PNG como icono de MapLibre (solo una vez por sesión).
+// NOTA: `map.loadImage()` puede quedarse SIN RESPONDER (el callback nunca se
+// dispara y la promesa se cuelga, dejando la capa sin añadir). Por eso se
+// descarga con `fetch` + `createImageBitmap` y se añade con `addImage`.
+// `addImage` LANZA si la id ya existe: se comprueba con `hasImage`.
 const imagenesCargadas=new Set();
-function cargarIcono(nombre){
-  if(imagenesCargadas.has(nombre)) return Promise.resolve();
-  const map=state.map; if(!map) return Promise.reject(new Error("sin mapa"));
-  return new Promise((resolve,reject)=>{
-    map.loadImage(`./icons/${nombre}`,(err,image)=>{
-      if(err){ imagenesCargadas.delete(nombre); reject(err); return; }
-      map.addImage(`icono-${nombre}`,image);
-      imagenesCargadas.add(nombre); resolve();
-    });
+const TIMEOUT_ICONO_MS=8000;
+function conTimeout(ms,generador){
+  return Promise.race([
+    generador(),
+    new Promise((_,rej)=>setTimeout(()=>rej(new Error(`timeout de ${ms} ms cargando icono`)),ms)),
+  ]);
+}
+async function cargarIcono(nombre){
+  const map=state.map; if(!map) throw new Error("sin mapa");
+  const id=`icono-${nombre}`;
+  if(imagenesCargadas.has(nombre)&&map.hasImage?.(id)) return;
+  if(map.hasImage?.(id)){ imagenesCargadas.add(nombre); return; }
+
+  const blob=await conTimeout(TIMEOUT_ICONO_MS,async()=>{
+    const res=await fetch(`./icons/${nombre}`,{cache:"force-cache"});
+    if(!res.ok) throw new Error(`HTTP ${res.status} al cargar ${nombre}`);
+    return res.blob();
   });
+  const bitmap=await createImageBitmap(blob);
+
+  if(!map.hasImage?.(id)) map.addImage(id,bitmap,{pixelRatio:2});
+  imagenesCargadas.add(nombre);
+}
+
+// Respaldo si un PNG no se puede decodificar: un pin de color relleno, para
+// que el punto nunca quede invisible en el mapa (§5: marcador identificable).
+function crearPinRespaldo(color){
+  const c=document.createElement("canvas"); c.width=64; c.height=64;
+  const g=c.getContext("2d");
+  g.fillStyle=color; g.strokeStyle="#ffffff"; g.lineWidth=4;
+  g.beginPath(); g.arc(32,26,20,0,Math.PI*2); g.fill(); g.stroke();
+  g.beginPath(); g.moveTo(20,38); g.lineTo(32,60); g.lineTo(44,38); g.closePath();
+  g.fill(); g.stroke();
+  return g.getImageData(0,0,64,64);
+}
+async function asegurarIcono(nombre,color){
+  try{ await cargarIcono(nombre); }
+  catch(err){
+    console.warn(`No se pudo cargar el icono ${nombre}, se usa un pin de respaldo:`,err.message);
+    const id=`icono-${nombre}`;
+    if(!state.map?.hasImage?.(id)) state.map?.addImage(id,crearPinRespaldo(color||"#006492"));
+    imagenesCargadas.add(nombre);
+  }
 }
 const lugaresCargados=new Set();   // capas ya descargadas en esta sesión
 
@@ -796,7 +838,7 @@ async function cargarLugares(capa){
 
   // Icono PNG de esta capa (se descarga una sola vez por sesión).
   const icono=ICONO_LUGAR[capa]||"casa.png";
-  await cargarIcono(icono);
+  await asegurarIcono(icono,cfg.color);
 
   const fuente=`lugares-${capa}`;
   map.addSource(fuente,{type:"geojson",data:geo,cluster:true,clusterMaxZoom:13,clusterRadius:52});
@@ -828,7 +870,7 @@ async function cargarLugares(capa){
       (p.subcategoria?`<br>${esc(p.subcategoria)}`:"")+
       (p.direccion?`<br><span class="muted">${esc(p.direccion)}</span>`:"")+
       (p.comuna?`<br><span class="muted">${esc(p.comuna)}</span>`:"")+
-      (fecha?`<br><span class="muted" style="font-size:11px">OSM · ODbL · ${fecha}</span>`:"<br><span class="muted" style="font-size:11px">OpenStreetMap · ODbL</span>")
+      (fecha?`<br><span class="muted" style="font-size:11px">OSM · ODbL · ${fecha}</span>`:`<br><span class="muted" style="font-size:11px">OpenStreetMap · ODbL</span>`)
     ).addTo(map);
   });
   map.on("mouseenter",`${fuente}-puntos`,()=>map.getCanvas().style.cursor="pointer");
@@ -1070,7 +1112,7 @@ function renderPuntosMapa(){
   visibles.forEach(p=>{
     const el=document.createElement("div");
     el.className="map-point map-point-png";
-    const ico=ICONO_PUNTO[p.category]||ICONO_PUNTO.general;
+    const ico=ICONO_PUNTO[p.icon]||ICONO_PUNTO[p.category]||ICONO_PUNTO.general;
     el.style.backgroundImage=`url('./icons/${ico}')`;
     el.style.backgroundSize="contain";
     el.style.backgroundRepeat="no-repeat";
@@ -1141,6 +1183,16 @@ function cerrarFormPunto(){
 }
 $("#point-close")?.addEventListener("click",cerrarFormPunto);
 $("#point-backdrop")?.addEventListener("click",cerrarFormPunto);
+
+// Al cambiar la categoría se propone el icono equivalente (§9: el usuario
+// elige el icono, pero partir de la categoría evita combinaciones absurdas).
+const ICONO_POR_CATEGORIA={general:"place",seguridad:"warning",salud:"health_and_safety",
+  educacion:"school",transporte:"directions_bus",comercio:"store",areas_verdes:"park",otro:"place"};
+$("#point-category")?.addEventListener("change",e=>{
+  const sel=$("#point-icon"); if(!sel) return;
+  const valor=ICONO_POR_CATEGORIA[e.target.value];
+  if(valor&&[...sel.options].some(o=>o.value===valor)) sel.value=valor;
+});
 
 // --- guardar / eliminar -----------------------------------------------------
 $("#point-form")?.addEventListener("submit",async e=>{

@@ -7,10 +7,12 @@
 //
 // Uso:  node scripts/importar-lugares.mjs                  # todas las categorías
 //       node scripts/importar-lugares.mjs salud             # solo las indicadas
-//       node scripts/importar-lugares.mjs salud --todo       # rehacer todo
 //
-// Con filtro, los resultados se FUNDEN con data/lugares.geojson existente:
-// se reemplaza solo la categoría indicada (útil si un espejo de Overpass falla).
+// Salida: un archivo GeoJSON POR CAPA en data/lugares/<capa>.geojson.
+// No se genera un mega-archivo: el frontend descarga solo la capa que el
+// usuario enciende (§11) y el repositorio no duplica los mismos puntos.
+// Si una categoría falla (Overpass 502/406), NO se sobrescribe su archivo:
+// se conserva el anterior para no dejar una capa vacía.
 //
 // Fuentes y licencia (§7.6):
 //   - OpenStreetMap vía Overpass API, licencia ODbL.
@@ -40,7 +42,7 @@ import { fileURLToPath } from "node:url";
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const OUT = join(ROOT, "data");
 const COMUNAS = join(OUT, "comunas-rm.geojson");
-const ARCHIVO = join(OUT, "lugares.geojson");
+const DIR_LUGARES = join(OUT, "lugares");
 
 const ESPEJOS = [
   "https://overpass.private.coffee/api/interpreter",
@@ -232,43 +234,32 @@ for (const [categoria, etiqueta, entradas] of CATEGORIAS) {
 }
 
 // ------------------------------------------------------------------ salida --
-let features = [...porCategoria.values()].flatMap((m) => [...m.values()]);
-if (!features.length) { console.error("No se obtuvo ningún punto: abortando."); process.exit(1); }
-mkdirSync(OUT, { recursive: true });
-
-if (solo && !rehacerTodo && existsSync(ARCHIVO)) {
-  const previo = JSON.parse(readFileSync(ARCHIVO, "utf8"));
-  const mantenidos = (previo.features || []).filter((f) => !porCategoria.has(f.properties.categoria));
-  features = [...mantenidos, ...features];
-  console.log(`Fusión con lo existente: ${mantenidos.length} de otras categorías + ${features.length - mantenidos.length} nuevas`);
-}
-writeFileSync(ARCHIVO, JSON.stringify({ type: "FeatureCollection", features }));
-
-// ------------------------------------------------------------------ corte ---
 // Etapa 4/§11: cada interruptor del panel de capas descarga SU archivo, no un
 // mega-archivo con todo. Así el móvil no carga miles de puntos si solo quiere
 // ver, por ejemplo, los parques. Cada archivo se cachea en su primer uso.
 const CAPAS_LUGARES = [
-  ["parques",       (f) => f.properties.categoria === "parques"],
-  ["plazas",        (f) => f.properties.categoria === "plazas"],
-  ["comercio",      (f) => f.properties.categoria === "comercio"],
-  ["salud",         (f) => f.properties.categoria === "salud"],
-  ["seguridad",     (f) => f.properties.categoria === "seguridad"],
-  ["servicios",     (f) => f.properties.categoria === "servicios"],
+  ["parques",   "Parques grandes, cerros y zoológicos"],
+  ["plazas",    "Plazas de Armas"],
+  ["comercio",  "Centros comerciales (Malls)"],
+  ["salud",     "Hospitales públicos, SAPU y SAR"],
+  ["seguridad", "Bomberos, Carabineros, Comisarías y Tenencias"],
+  ["servicios", "Municipalidades"],
 ];
-const DIR_LUGARES = join(OUT, "lugares");
 mkdirSync(DIR_LUGARES, { recursive: true });
 console.log("\nCorte por capa (una descarga por interruptor):");
-for (const [capa, pred] of CAPAS_LUGARES) {
-  const fs = features.filter(pred);
+for (const [capa] of CAPAS_LUGARES) {
   const archivo = join(DIR_LUGARES, `${capa}.geojson`);
+  if (!porCategoria.has(capa)) {
+    console.log(`  ${capa.padEnd(18)}   ---  sin cambios (consulta fallida; se conserva el archivo previo)`);
+    continue;
+  }
+  const fs = [...porCategoria.get(capa).values()];
   writeFileSync(archivo, JSON.stringify({ type: "FeatureCollection", features: fs }));
   console.log(`  ${capa.padEnd(18)} ${String(fs.length).padStart(5)} pts  → data/lugares/${capa}.geojson  (${(readFileSync(archivo).length / 1024).toFixed(1)} KB)`);
 }
 
-const kb = (readFileSync(ARCHIVO).length / 1024).toFixed(1);
-console.log(`\n${features.length} lugares → data/lugares.geojson (${kb} KB)`);
-console.log(`Fecha de la fuente (osm3s): ${fechaFuente}`);
+const features = [...porCategoria.values()].flatMap((m) => [...m.values()]);
+console.log(`\nFecha de la fuente (osm3s): ${fechaFuente}`);
 
 // ----------------------------------------------------------- validaciones --
 const porCat = {};

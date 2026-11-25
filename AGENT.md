@@ -659,6 +659,8 @@ Implementa `mapas.txt` §4, §7 y §8 (etapa 3 de su §14). No toca la UI de act
   - `data/transporte-estaciones.geojson` — **154 estaciones** (126 Metro + 28 MetroTren), 38 KB.
   - `data/transporte-lineas.geojson` — **9 líneas** con trazado real (`shapes.txt`), 16 KB.
   - `data/transporte-paraderos.geojson` — **12.181 paraderos de bus** con líneas asociadas, 3,8 MB.
+    **NO se genera ni se versiona por defecto** (el usuario pidió mostrar solo las 4 terminales
+    generales): se reproduce con `node scripts/importar-transporte.mjs --paraderos`.
 - Criterio §7.5: NO todo `stop` es estación de Metro. Se filtra por agencia (M = Metro, MT = EFE/Trenes) y los stops se suben a `parent_station`.
 - Paraderos: se recorren los `stop_times` de todos los viajes de bus para saber qué paradas existen de verdad (no se inventan posiciones).
 - Nombres de estación validados: Baquedano → ["L1","L5"], Tobalaba → ["L1","L4"], Los Héroes → ["L1","L2"].
@@ -674,18 +676,25 @@ Implementa `mapas.txt` §4, §7 y §8 (etapa 3 de su §14). No toca la UI de act
   - Seguridad: bomberos, carabineros, comisarías y tenencias.
   - Servicios públicos: solo municipalidades.
   - Sin escuelas ni edificios educacionales. Sin paraderos de bus.
-- Total: ver `data/lugares/*.geojson` tras ejecutar `scripts/importar-lugares.mjs --todo`.
+- Total: ver `data/lugares/*.geojson` tras ejecutar `scripts/importar-lugares.mjs` (una capa por archivo).
 - Cada feature tiene nombre, subcategoría, dirección (`addr:street`+`addr:housenumber`), comuna (georreferenciados contra `comunas-rm.geojson`), y fecha de la fuente (`osm3s.timestamp_osm_base`).
 - Dedupe por `categoría|nombre|comuna` con prioridad relación > way > nodo (§13.15).
-- `data/lugares.geojson` (acumulado) se conserva pero el frontend lee los archivos por capa.
+- **No existe mega-archivo acumulado**: `data/lugares.geojson` se eliminó (duplicaba los mismos puntos y pesaba 3,4 MB). El script escribe solo `data/lugares/<capa>.geojson`.
+- Si una capa falla (Overpass 502/504), **el script NO sobrescribe su archivo**: conserva el previo y lo informa ("sin cambios"). Así una caída del espejo no deja una capa vacía.
+- Archivos por capa vigentes (2026-11-25): `parques` 2.244 · `comercio` 708 · `salud` 513 · `seguridad` 345 · `plazas` 42 · `servicios` 61.
 
 ### Base de datos Supabase (`sql/06_map_points.sql`)
 
 - Tabla `public.map_points` con RLS: id, name, description, category, subcategory, icon, latitude, longitude, address, comuna, source, external_id, active, visible, tipo, created_by, created_at, updated_at.
 - Modelo `tipo`: `personal` (solo el autor lo ve/edita) o `general` (admin lo crea, todos lo ven) — mapas.txt §9.
-- RLS: `Usuarios consultan puntos del mapa` (select autenticados) + `Usuarios gestionan sus puntos personales` (personal del dueño) + `Admin gestiona puntos generales` (general solo admin).
+- RLS: `Usuarios consultan puntos del mapa` (select: general+visible, o personal del dueño, o admin ve todo)
+  + `Usuarios gestionan sus puntos personales` (personal del dueño) + `Admin gestiona puntos generales` (general solo admin).
+- Índice único parcial en `external_id` → permite reimportar sin duplicar (lo usa `sql/07_terminales.sql`).
 - GRANT select/insert/update/delete a `authenticated` (barrera real es RLS).
 - **PostGIS NO disponible** (verificado). Coordenadas lat/lon simples.
+- **Semilla de las 4 terminales de bus** (`sql/07_terminales.sql`, ejecutar después de `06`): Terminal Alameda,
+  Terminal Sur, Terminal San Borja y Terminal de Buses Pajaritos, como puntos `tipo='general'` con datos
+  OSM verificables (`external_id` = `way/23393749`, `way/23393750`, `way/39330024`, `node/253282386`).
 
 ### Puntos personalizados del mapa (§9, Etapa 5)
 
@@ -713,7 +722,9 @@ Implementa `mapas.txt` §4, §5, §6, §9 y §10.
 - Íconos PNG con forma de pin en `/icons/`.
 - Estaciones de Metro: círculo blanco con borde.
 - Lugares de OSM: icono PNG por subcategoría (clustering nativo de MapLibre, `cluster:true`, `clusterMaxZoom:13`).
-- Puntos personalizados: icono PNG por categoría; indicador "personal" o "general" en el popup.
+- Puntos personalizados: icono PNG **elegido por el usuario** en el formulario (`#point-icon`); si no se
+  reconoce, se usa el de la categoría (`ICONO_PUNTO`). Al cambiar la categoría se propone el icono equivalente.
+  Indicador "personal" o "general" en el popup.
 
 ### Información al seleccionar (§6)
 
@@ -731,3 +742,57 @@ Implementa `mapas.txt` §4, §5, §6, §9 y §10.
 - Aplicar `sql/06_map_points.sql` en el SQL Editor de Supabase (requiere credenciales del proyecto).
 - CRUD completo de puntos personalizados implementado en frontend, pendiente de tabla en BD.
 - Vista de agenda adaptada de `agenda.html` (timeline por días, nodo activo, accordions).
+
+## 21. Correcciones de la app en Pages (2026-11-25)
+
+Errores reportados por el usuario al abrir la app publicada + ajustes derivados. Sin cambios de arquitectura.
+
+### 1) `SyntaxError: Unexpected identifier 'muted'` (`src/main.js`)
+
+- El `else` de un ternario usaba comillas dobles alrededor de HTML que ya traía comillas dobles.
+- Corregido con plantillas literales (backticks). `node --check src/main.js` OK.
+
+### 2) `ReferenceError: toggleDay is not defined`
+
+- `index.html` carga `src/main.js` como `<script type="module">`: las funciones del módulo **no** son globales
+  y los `onclick="toggleDay('day-…')"` inline fallaban.
+- Ahora los botones se generan con `data-day="<id>"` y se enganchan con `addEventListener` dentro del módulo
+  (`enlazarDias()`), sin handlers inline. `toggleDay()` además valida que el nodo exista (re-render).
+
+### 3) Las capas `lugares-*` nunca se añadían al mapa (síntoma: `fetch` 200 pero sin source/layer)
+
+- Causa raíz: **`map.loadImage()` nunca resolvía el callback** en este entorno, la promesa de `cargarIcono()`
+  quedaba colgada y `cargarLugares()` no llegaba a `addSource`/`addLayer`. El botón del panel sí cambiaba
+  a `aria-pressed="true"`, por eso parecía un problema de datos.
+- Solución: los iconos PNG se descargan con `fetch` + `createImageBitmap` y se añaden con `map.addImage()`
+  (con `hasImage()` para no duplicar id). Si el PNG falla, se usa un pin de color de respaldo
+  (`crearPinRespaldo()`), de modo que el punto nunca queda invisible. Timeout de 8 s por icono.
+
+### 4) Service Worker
+
+- `CACHE_NAME` subido a `app-santiago-2026-v3` (el código nuevo de `main.js` llega a los clientes).
+- Fuera del precache: `data/transporte-paraderos.geojson` (3,7 MB que la app ya no usa).
+
+### 5) Limpieza de datos
+
+- Eliminados `data/lugares.geojson` (mega-archivo de 3,4 MB) y los archivos obsoletos
+  `areas-verdes`, `comercio-centros`, `comercio-mercados`, `comercio-super`, `educacion`.
+- `scripts/importar-lugares.mjs` ahora escribe **solo** `data/lugares/<capa>.geojson` y no pisa un archivo
+  si la consulta a Overpass falla.
+- `scripts/importar-transporte.mjs` solo genera los paraderos con `--paraderos`.
+- `plazas` (42) y `servicios` (61) reimportados con éxito (Overpass volvió a responder el 2026-11-25).
+
+### Verificación (2026-11-25, navegador embebido, `http://localhost:8080`)
+
+- Consola: **0 errores**. Solo avisos: Tailwind CDN (aviso conocido) y 3 avisos de MapLibre
+  (`Expected value to be of type number, but found null instead`) que provienen del estilo OpenFreeMap.
+- Mapa: fuentes `ne2_shaded`, `openmaptiles`, `satelite`, `comunas` + `lugares-parques/comercio/salud/seguridad`.
+- Iconos cargados: `icono-parque.png`, `icono-mall.png`, `icono-urgencias.png`, `icono-policia.png`.
+- Encender/apagar una capa del panel adds/quita su source y sus layers al instante.
+- Agenda: el acordeón de días abre y cierra (`toggleDay`).
+
+### Pendiente
+
+- **Etapas 6 (pruebas) y 7 (documentación)** de `mapas.txt`.
+- Ejecutar en Supabase (SQL Editor, en este orden): `sql/06_map_points.sql` → `sql/07_terminales.sql`.
+- Si `map_points` aún no existe, el frontend registra el aviso `cargarPuntosMapa:` y sigue funcionando.

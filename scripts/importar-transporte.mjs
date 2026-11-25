@@ -228,27 +228,37 @@ const lons = estFeatures.map((f) => f.geometry.coordinates[0]);
 console.log(`  bbox: lon [${Math.min(...lons).toFixed(4)}, ${Math.max(...lons).toFixed(4)}] lat [${Math.min(...lats).toFixed(4)}, ${Math.max(...lats).toFixed(4)}]`);
 if (metro.length < 100) { console.error("AVISO: menos de 100 estaciones de Metro: revisar el filtro de agencia."); process.exitCode = 2; }
 
-// 8) Paraderos de bus → GeoJSON independiente (§4.A, capa opcional)
-const paraderosFeatures = [...paradasBus.entries()]
-  .map(([stopId, lineas]) => {
-    const s = stops.get(stopId);
-    if (!s) return null;
-    const lat = Number(s.stop_lat), lon = Number(s.stop_lon);
-    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
-    return {
-      type: "Feature",
-      properties: {
-        nombre: s.stop_name || "Paradero de bus",
-        tipo: "paradero",
-        subcategoria: "Paradero",
-        lineas: [...lineas].sort().join(" · "),
-        operador: "Red Metropolitana de Movilidad",
-        gtfs_stop_id: stopId,
-        fuente: "DTPM GTFS",
-      },
-      geometry: { type: "Point", coordinates: [Number(lon.toFixed(6)), Number(lat.toFixed(6))] },
-    };
-  }).filter(Boolean);
+// 8) Paraderos de bus → GeoJSON independiente (OPCIONAL).
+//    El usuario pidió NO mostrar paraderos de bus en el mapa (solo las 4
+//    terminales generales, sembradas en sql/07_terminales.sql). Por eso el
+//    archivo NO se genera por defecto: son ~12.000 puntos y 3,7 MB que nadie
+//    usa. Se puede reproducir cuando haga falta con:
+//        node scripts/importar-transporte.mjs --paraderos
+const WANT_PARADEROS = process.argv.includes("--paraderos");
+if (!WANT_PARADEROS) {
+  console.log("paraderos: omitidos (usa --paraderos si necesitas el archivo)");
+} else {
+  const paraderosFeatures = [...paradasBus.entries()]
+    .map(([stopId, lineas]) => {
+      const s = stops.get(stopId);
+      if (!s) return null;
+      const lat = Number(s.stop_lat), lon = Number(s.stop_lon);
+      if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+      return {
+        type: "Feature",
+        properties: {
+          nombre: s.stop_name || "Paradero de bus",
+          tipo: "paradero",
+          subcategoria: "Paradero",
+          lineas: [...lineas].sort().join(" · "),
+          operador: "Red Metropolitana de Movilidad",
+          gtfs_stop_id: stopId,
+          fuente: "DTPM GTFS",
+        },
+        geometry: { type: "Point", coordinates: [Number(lon.toFixed(6)), Number(lat.toFixed(6))] },
+      };
+    }).filter(Boolean);
 
-writeFileSync(join(OUT, "transporte-paraderos.geojson"), JSON.stringify({ type: "FeatureCollection", features: paraderosFeatures }));
-console.log(`paraderos: ${paraderosFeatures.length} → data/transporte-paraderos.geojson (${kb("transporte-paraderos.geojson")} KB)`);
+  writeFileSync(join(OUT, "transporte-paraderos.geojson"), JSON.stringify({ type: "FeatureCollection", features: paraderosFeatures }));
+  console.log(`paraderos: ${paraderosFeatures.length} → data/transporte-paraderos.geojson (${kb("transporte-paraderos.geojson")} KB)`);
+}

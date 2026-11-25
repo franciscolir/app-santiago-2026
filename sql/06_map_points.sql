@@ -68,6 +68,9 @@ create index if not exists map_points_tipo_idx       on public.map_points (tipo)
 create index if not exists map_points_created_by_idx on public.map_points (created_by);
 create index if not exists map_points_coords_idx     on public.map_points (latitude, longitude);
 create index if not exists map_points_category_idx   on public.map_points (category);
+-- Identificador externo único (id de OSM, etc.): permite reimportar sin duplicar.
+create unique index if not exists map_points_external_id_idx
+  on public.map_points (external_id) where external_id is not null;
 
 -- ----------------------------------------------------------------------------
 -- 4) updated_at automático
@@ -96,10 +99,17 @@ drop policy if exists "Usuarios consultan puntos del mapa" on public.map_points;
 drop policy if exists "Usuarios gestionan sus puntos personales" on public.map_points;
 drop policy if exists "Admin gestiona puntos generales" on public.map_points;
 
--- Lectura: cualquier autenticado ve todos los puntos (personales y generales).
+-- Lectura (mapas.txt §9):
+--   - Los puntos GENERALES activos y visibles los ve cualquier usuario autenticado.
+--   - Los puntos PERSONALES solo los ve su autor (created_by = auth.uid()).
+--   - El ADMIN ve todos los puntos (puede moderar los personales).
 create policy "Usuarios consultan puntos del mapa"
 on public.map_points for select to authenticated
-using (true);
+using (
+  (tipo = 'general' and visible = true and active = true)
+  or (tipo = 'personal' and created_by = auth.uid())
+  or is_admin()
+);
 
 -- Escritura personal: cualquier usuario crea/edita/elimina SUS puntos personales.
 create policy "Usuarios gestionan sus puntos personales"

@@ -1,4 +1,4 @@
-const CACHE_NAME = "app-santiago-2026-v2";
+const CACHE_NAME = "app-santiago-2026-v3";
 const APP_SHELL = [
   "./",
   "./index.html",
@@ -18,8 +18,7 @@ const APP_SHELL = [
   // de fetch de abajo (§11: se descarga una sola vez y después se sirve
   // desde caché).
   "./data/transporte-estaciones.geojson",
-  "./data/transporte-lineas.geojson",
-  "./data/transporte-paraderos.geojson"
+  "./data/transporte-lineas.geojson"
 ];
 
 self.addEventListener("install", (event) => {
