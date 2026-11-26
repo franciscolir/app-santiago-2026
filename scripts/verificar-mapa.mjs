@@ -433,7 +433,8 @@ console.log("[7] UX del 2026-11-25: zoom escalonado, metro, bomberos, puntos, mu
     "etiquetas: se muestran al acercar el mapa", "falta la clase map-point-con-nombre");
 
   // --- 6) gestión de puntos del mapa por el admin ----------------------------
-  check(/id="map-puntos-btn"/.test(html), "gestión de puntos: botón de entrada", "falta #map-puntos-btn");
+  check(/id="capas-admin-btn"/.test(html) && /id="capas-admin-dialog"/.test(html),
+    "gestión de capas: botón de ajustes del ADMIN", "falta #capas-admin-btn/#capas-admin-dialog");
   check(/id="puntos-sheet"/.test(html) && /id="puntos-lista"/.test(html) && /id="puntos-guardar"/.test(html),
     "gestión de puntos: hoja con lista y botón Guardar", "faltan #puntos-sheet / #puntos-lista / #puntos-guardar");
   check(/data-punto-nombre/.test(main) && /data-punto-visible/.test(main) && /data-punto-borrar/.test(main),
@@ -681,7 +682,7 @@ console.log("[9] Acceso: login por usuario, grupo automático y registro");
   check(/\$\("#agenda-active-day"\)\?\.classList\.add\("hidden"\)/.test(main),
     "agenda: la tarjeta del día activo se oculta si HOY no tiene actividades",
     "el encabezado del día anterior puede quedar visible");
-  check(/app-santiago-2026-v26/.test(sw),
+  check(/app-santiago-2026-v27/.test(sw),
     "service worker: v23 (ADMIN/MANAGER + puntos bloqueados)", "el SW no se renovó");
 }
 
@@ -900,7 +901,7 @@ console.log("[13] Fase 5: agenda con todos los días, FAB y SOS");
     "quedaron restos del hero/estado de red");
   check(/bottom: calc\(4\.5rem \+ env\(safe-area-inset-bottom/.test(html),
     "SOS/FAB: sobre la barra de navegación (safe area)", "no respetan la barra inferior");
-  check(/app-santiago-2026-v26/.test(sw),
+  check(/app-santiago-2026-v27/.test(sw),
     "service worker: v23", "el SW no se renovó");
 }
 
@@ -958,7 +959,7 @@ console.log("[14] Fase 6: animaciones JW (destello y latido)");
     "JW: temporizador de 60 s (sin consultas a Supabase)", "no hay temporizador");
   check(/aplicarEstadoJW\(\);\s*\}/.test(main),
     "JW: el estado se reaplica al renderizar los puntos", "no se aplica al render");
-  check(/app-santiago-2026-v26/.test(leerTexto("sw.js") || ""),
+  check(/app-santiago-2026-v27/.test(leerTexto("sw.js") || ""),
     "service worker: v23", "el SW no se renovó");
 }
 
@@ -1078,6 +1079,51 @@ console.log("[14] Fase 6: animaciones JW (destello y latido)");
         /"short_name": "STGO 2026"/.test(manifest),
     "Marca: nombre PWA STGO 2026 | Región 8",
     "el manifest conserva el nombre anterior");
+}
+
+// ------------------- 17. Subcategorías/capas y gestos (sql/19, 20) ----------
+{
+  const sql19 = leerTexto("sql/19_subcategorias_capas.sql") || "";
+  const sql20 = leerTexto("sql/20_jw_subcategorias.sql") || "";
+  const main = leerTexto("src/main.js") || "";
+  const html = leerTexto("index.html") || "";
+  const css = leerTexto("styles.css") || "";
+
+  check(/create table if not exists public\.map_subcategories/.test(sql19) &&
+        /create table if not exists public\.map_layer_point_overrides/.test(sql19) &&
+        /add column if not exists subcategory_id uuid/.test(sql19),
+    "Capas: subcategorías, overrides y subcategory_id", "falta el modelo sql/19");
+  check(/Admin gestiona subcategorías/.test(sql19) && /Admin gestiona overrides/.test(sql19),
+    "Capas: escritura solo ADMIN", "faltan las políticas de administración");
+  check(/layer_key/.test(sql19) && /render_mode/.test(sql19) && /'jw' then 'icon'/.test(sql19),
+    "Capas: render_mode y JW siempre icono", "falta la herencia JW");
+  check(/forzar_jw_subcategoria/.test(sql20),
+    "Capas: trigger JW siempre icono", "falta sql/20");
+  check(/id="point-name"[^>]*textarea|textarea[^>]*id="point-name"/.test(html) &&
+        /id="point-subcategory"/.test(html),
+    "Puntos: nombre multilínea y selector de subcategoría",
+    "falta textarea o subcategoría");
+  check(!/id="map-zoom-in"|id="map-zoom-out"|id="map-add-point"|id="map-puntos-btn"|id="map-satellite"|id="map-fullscreen"/.test(html) &&
+        /id="map-recenter"/.test(html) && /id="map-locate"/.test(html) &&
+        /id="map-layers"/.test(html) && /id="map-near-me"/.test(html),
+    "Controles: centrar, ubicación, capas y cerca de mí",
+    "quedaron botones laterales antiguos");
+  check(/id="capas-admin-btn"/.test(html) && /id="capas-admin-dialog"/.test(html) &&
+        /id="capa-form-dialog"/.test(html) && /id="capa-puntos-dialog"/.test(html),
+    "Capas: ajustes ADMIN, formulario y lista de puntos externos",
+    "falta la UI de administración");
+  check(/white-space: pre-line/.test(css) && /-webkit-line-clamp: 3/.test(css),
+    "Nombres: máximo 3 líneas", "la etiqueta no limita a 3 líneas");
+  check(/function subcategoriaDe\(p\)/.test(main) &&
+        /function modoRenderPunto\(p\)/.test(main) &&
+        /function filtrarGeoOverrides/.test(main) &&
+        /capa-puntos-guardar/.test(main),
+    "Capas: render por subcategoría y overrides globales", "falta la lógica de capas");
+  check(/pointerdown/.test(main) && /suppressMapClick/.test(main) &&
+        /abrirFormPunto\(null,e\.lngLat\.lat,e\.lngLat\.lng\)/.test(main),
+    "Puntos: clic o pulsación larga sobre el mapa", "falta el gesto de alta");
+  check(/map-near-me/.test(main) && /función en la próxima etapa/.test(main),
+    "Cerca de mí: botón reservado para la siguiente etapa", "falta el placeholder");
 }
 
 // ---------------------------------------------------------------- resumen ----

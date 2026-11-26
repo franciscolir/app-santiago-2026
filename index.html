@@ -443,40 +443,18 @@ dialog::backdrop { background: rgba(44, 49, 50, .6); backdrop-filter: blur(2px);
             <span class="material-symbols-outlined text-[22px] transition-transform" id="map-controls-icon">keyboard_arrow_down</span>
           </button>
           <div id="map-controls-row" class="hidden flex flex-col items-end gap-1.5 max-h-[calc(100dvh-7rem)] overflow-y-auto no-scrollbar">
-            <button aria-label="Acercar mapa" id="map-zoom-in" class="w-10 h-10 rounded-full bg-surface-container-lowest/95 backdrop-blur-md text-on-primary-container shadow-md flex items-center justify-center active:scale-95 hover:bg-surface transition-all">
-              <span class="material-symbols-outlined text-[20px]">add</span>
-            </button>
-            <button aria-label="Alejar mapa" id="map-zoom-out" class="w-10 h-10 rounded-full bg-surface-container-lowest/95 backdrop-blur-md text-on-primary-container shadow-md flex items-center justify-center active:scale-95 hover:bg-surface transition-all">
-              <span class="material-symbols-outlined text-[20px]">remove</span>
-            </button>
             <button aria-label="Centrar en todas las actividades" id="map-recenter" class="w-10 h-10 rounded-full bg-primary text-on-primary shadow-lg flex items-center justify-center active:scale-95 hover:bg-primary-container hover:text-on-primary-container transition-all">
               <span class="material-symbols-outlined text-[20px]">center_focus_strong</span>
             </button>
             <button aria-label="Centrar en mi ubicación" id="map-locate" class="w-10 h-10 rounded-full bg-surface-container-lowest/95 backdrop-blur-md text-on-primary-container shadow-md flex items-center justify-center active:scale-95 hover:bg-surface transition-all">
               <span class="material-symbols-outlined text-[20px]">my_location</span>
             </button>
-            <button aria-label="Vista satélite" aria-pressed="false" id="map-satellite" class="w-10 h-10 rounded-full bg-surface-container-lowest/95 backdrop-blur-md text-on-primary-container shadow-md flex items-center justify-center active:scale-95 hover:bg-surface transition-all">
-              <span class="material-symbols-outlined text-[20px]">satellite_alt</span>
-            </button>
             <button aria-label="Capas del mapa" aria-expanded="false" id="map-layers" class="w-10 h-10 rounded-full bg-surface-container-lowest/95 backdrop-blur-md text-on-primary-container shadow-md flex items-center justify-center active:scale-95 hover:bg-surface transition-all">
               <span class="material-symbols-outlined text-[20px]">layers</span>
             </button>
-            <button aria-label="Pantalla completa" aria-pressed="false" id="map-fullscreen" class="w-10 h-10 rounded-full bg-surface-container-lowest/95 backdrop-blur-md text-on-primary-container shadow-md flex items-center justify-center active:scale-95 hover:bg-surface transition-all">
-              <span class="material-symbols-outlined text-[20px]">fullscreen</span>
+            <button aria-label="Cerca de mí" id="map-near-me" class="w-10 h-10 rounded-full bg-surface-container-lowest/95 backdrop-blur-md text-on-primary-container shadow-md flex items-center justify-center active:scale-95 hover:bg-surface transition-all">
+              <span class="material-symbols-outlined text-[20px]">near_me</span>
             </button>
-            <button aria-label="Agregar punto en el mapa" id="map-add-point" class="w-10 h-10 rounded-full bg-surface-container-lowest/95 backdrop-blur-md text-on-primary-container shadow-md flex items-center justify-center active:scale-95 hover:bg-surface transition-all hidden">
-              <span class="material-symbols-outlined text-[20px]">add_location_alt</span>
-            </button>
-            <button aria-label="Gestionar puntos del mapa" id="map-puntos-btn" class="w-10 h-10 rounded-full bg-surface-container-lowest/95 backdrop-blur-md text-on-primary-container shadow-md flex items-center justify-center active:scale-95 hover:bg-surface transition-all hidden">
-              <span class="material-symbols-outlined text-[20px]">format_list_bulleted</span>
-            </button>
-          </div>
-        </div>
-
-        <!-- Modo edición: el admin hace clic en el mapa para ubicar el punto (mapas.txt §9) -->
-        <div id="map-point-mode" class="absolute inset-0 z-[1050] hidden pointer-events-none">
-          <div class="absolute inset-x-0 top-3 mx-auto w-fit bg-primary text-on-primary text-label-md label-md font-semibold px-4 py-2 rounded-full shadow-lg">
-            Toca el mapa para ubicar el punto
           </div>
         </div>
 
@@ -496,7 +474,7 @@ dialog::backdrop { background: rgba(44, 49, 50, .6); backdrop-filter: blur(2px);
             <input type="hidden" id="point-id">
             <label class="block pb-2">
               <span class="font-label-md text-label-md text-on-surface-variant">Nombre</span>
-              <input id="point-name" required maxlength="120" class="mt-1 w-full bg-surface-container-low rounded-lg px-3 py-2.5 font-body-md text-body-md text-on-surface focus:outline-none" type="text" placeholder="Nombre del punto">
+              <textarea id="point-name" required maxlength="120" rows="2" class="mt-1 w-full bg-surface-container-low rounded-lg px-3 py-2.5 font-body-md text-body-md text-on-surface focus:outline-none" placeholder="Nombre del punto (máx. 3 líneas)"></textarea>
             </label>
             <label class="block pb-2">
               <span class="font-label-md text-label-md text-on-surface-variant">Descripción</span>
@@ -516,7 +494,7 @@ dialog::backdrop { background: rgba(44, 49, 50, .6); backdrop-filter: blur(2px);
                   <option value="otro">Otro</option>
                 </select>
               </label>
-              <label class="block">
+              <label id="point-icon-block" class="block">
                 <span class="font-label-md text-label-md text-on-surface-variant">Icono</span>
                 <!-- Selector visual: los SVG del mapa (icons/*.svg). El valor
                      guardado es la clave del catálogo (columna `icon`). -->
@@ -524,6 +502,12 @@ dialog::backdrop { background: rgba(44, 49, 50, .6); backdrop-filter: blur(2px);
                 <div id="point-icon-grid" class="mt-1 grid grid-cols-6 gap-1.5" role="radiogroup" aria-label="Icono del punto"></div>
               </label>
             </div>
+            <label class="block pb-2">
+              <span class="font-label-md text-label-md text-on-surface-variant">Subcategoría / capa</span>
+              <select id="point-subcategory" class="mt-1 w-full bg-surface-container-low rounded-lg px-3 py-2.5 font-body-md text-body-md text-on-surface focus:outline-none">
+                <option value="">General</option>
+              </select>
+            </label>
             <!-- Tipo de punto: personal (solo el autor) o general (admin, para todos) (§9) -->
             <div class="grid grid-cols-2 gap-3 pb-2">
               <label id="point-tipo-label" class="block hidden">
@@ -595,9 +579,15 @@ dialog::backdrop { background: rgba(44, 49, 50, .6); backdrop-filter: blur(2px);
             </div>
             <div class="flex items-center justify-between gap-3 pb-1 flex-shrink-0">
               <h3 id="capas-title" class="font-headline-sm text-headline-sm text-on-primary-container font-extrabold">Capas del mapa</h3>
-              <button aria-label="Cerrar capas" id="capas-close" class="w-9 h-9 rounded-full bg-surface-container-low flex items-center justify-center active:scale-95 transition-all">
-                <span class="material-symbols-outlined text-[20px]">close</span>
-              </button>
+              <div class="flex items-center gap-1.5">
+                <button aria-label="Ajustes de capas" title="Ajustes de capas" id="capas-admin-btn"
+                        class="hidden w-9 h-9 rounded-full bg-surface-container-low text-primary flex items-center justify-center active:scale-95 transition-all">
+                  <span class="material-symbols-outlined text-[20px]">settings</span>
+                </button>
+                <button aria-label="Cerrar capas" id="capas-close" class="w-9 h-9 rounded-full bg-surface-container-low flex items-center justify-center active:scale-95 transition-all">
+                  <span class="material-symbols-outlined text-[20px]">close</span>
+                </button>
+              </div>
             </div>
             <div id="capas-lista" class="mt-1"></div>
           </section>
@@ -1014,6 +1004,101 @@ dialog::backdrop { background: rgba(44, 49, 50, .6); backdrop-filter: blur(2px);
     <p id="contacto-error" class="error"></p>
     <button type="submit" class="w-full h-12 rounded-full bg-primary text-on-primary font-label-lg text-label-lg font-bold shadow-md active:scale-[0.98] transition-all">Guardar contacto</button>
   </form>
+</dialog>
+
+<!-- ==================== ADMIN DE CAPAS / SUBCATEGORÍAS ==================== -->
+<dialog id="capas-admin-dialog" aria-labelledby="capas-admin-title">
+  <div class="bg-surface-container-lowest rounded-t-xl p-space-lg space-y-space-md max-h-[88vh] overflow-y-auto shadow-2xl w-full max-w-lg mx-auto mt-auto">
+    <div class="flex items-center justify-between gap-2">
+      <h2 id="capas-admin-title" class="font-headline-md text-headline-md text-on-primary-container">Administrar capas</h2>
+      <div class="flex items-center gap-1.5">
+        <button type="button" id="capa-nueva-categoria" class="h-9 px-3 rounded-full bg-primary text-on-primary font-label-sm text-label-sm font-bold">Nueva categoría</button>
+        <button type="button" id="capas-admin-close" aria-label="Cerrar" class="w-9 h-9 rounded-full bg-surface-container-low flex items-center justify-center active:scale-95 transition-all">
+          <span class="material-symbols-outlined text-[20px]">close</span>
+        </button>
+      </div>
+    </div>
+    <div id="capas-admin-lista" class="space-y-3"></div>
+  </div>
+</dialog>
+
+<dialog id="capa-form-dialog" aria-labelledby="capa-form-title">
+  <form id="capa-form" class="bg-surface-container-lowest rounded-t-xl p-space-lg space-y-space-md max-h-[88vh] overflow-y-auto shadow-2xl w-full max-w-lg mx-auto mt-auto">
+    <div class="flex items-center justify-between gap-2">
+      <h2 id="capa-form-title" class="font-headline-md text-headline-md text-on-primary-container">Nueva capa</h2>
+      <button type="button" id="capa-form-close" aria-label="Cerrar" class="w-9 h-9 rounded-full bg-surface-container-low flex items-center justify-center active:scale-95 transition-all">
+        <span class="material-symbols-outlined text-[20px]">close</span>
+      </button>
+    </div>
+    <input id="capa-form-tipo" type="hidden" value="subcategoria">
+    <input id="capa-form-id" type="hidden">
+    <div id="capa-category-wrap">
+      <label for="capa-category" class="block font-label-md text-label-md text-on-surface font-semibold mb-1">Categoría</label>
+      <select id="capa-category" class="w-full h-12 px-3 bg-surface rounded-lg text-on-surface border border-outline-variant focus:outline-none focus:ring-2 focus:ring-primary/40"></select>
+    </div>
+    <div class="grid grid-cols-2 gap-3">
+      <div>
+        <label for="capa-name" class="block font-label-md text-label-md text-on-surface font-semibold mb-1">Nombre</label>
+        <input id="capa-name" required maxlength="80" class="w-full h-12 px-3 bg-surface rounded-lg text-on-surface border border-outline-variant focus:outline-none focus:ring-2 focus:ring-primary/40">
+      </div>
+      <div>
+        <label for="capa-slug" class="block font-label-md text-label-md text-on-surface font-semibold mb-1">Slug</label>
+        <input id="capa-slug" required maxlength="41" class="w-full h-12 px-3 bg-surface rounded-lg text-on-surface border border-outline-variant focus:outline-none focus:ring-2 focus:ring-primary/40">
+      </div>
+    </div>
+    <div class="grid grid-cols-2 gap-3">
+      <div>
+        <label for="capa-color" class="block font-label-md text-label-md text-on-surface font-semibold mb-1">Color</label>
+        <input id="capa-color" type="color" value="#006492" class="w-full h-12 p-1 bg-surface rounded-lg border border-outline-variant">
+      </div>
+      <div>
+        <label for="capa-icon" class="block font-label-md text-label-md text-on-surface font-semibold mb-1">Icono</label>
+        <select id="capa-icon" class="w-full h-12 px-3 bg-surface rounded-lg text-on-surface border border-outline-variant focus:outline-none focus:ring-2 focus:ring-primary/40"></select>
+      </div>
+    </div>
+    <div id="capa-sub-wrap" class="space-y-3">
+      <div>
+        <label for="capa-render" class="block font-label-md text-label-md text-on-surface font-semibold mb-1">Comportamiento</label>
+        <select id="capa-render" class="w-full h-12 px-3 bg-surface rounded-lg text-on-surface border border-outline-variant focus:outline-none focus:ring-2 focus:ring-primary/40">
+          <option value="auto">Cambia de icono a punto según zoom</option>
+          <option value="icon">Se mantiene siempre como icono</option>
+        </select>
+      </div>
+      <div>
+        <label for="capa-layer" class="block font-label-md text-label-md text-on-surface font-semibold mb-1">Capa</label>
+        <select id="capa-layer" class="w-full h-12 px-3 bg-surface rounded-lg text-on-surface border border-outline-variant focus:outline-none focus:ring-2 focus:ring-primary/40"></select>
+        <p class="text-[11px] text-on-surface-variant mt-1">Una capa externa solo puede pertenecer a una subcategoría.</p>
+      </div>
+    </div>
+    <div class="grid grid-cols-2 gap-3">
+      <div>
+        <label for="capa-sort" class="block font-label-md text-label-md text-on-surface font-semibold mb-1">Orden</label>
+        <input id="capa-sort" type="number" min="0" max="9999" value="100" class="w-full h-12 px-3 bg-surface rounded-lg text-on-surface border border-outline-variant focus:outline-none focus:ring-2 focus:ring-primary/40">
+      </div>
+      <label class="flex items-end gap-2 pb-3">
+        <input id="capa-active" type="checkbox" checked class="w-5 h-5 accent-primary">
+        <span class="font-body-md text-body-md text-on-surface">Activa</span>
+      </label>
+    </div>
+    <p id="capa-form-error" class="error"></p>
+    <button type="submit" class="w-full h-12 rounded-full bg-primary text-on-primary font-label-lg text-label-lg font-bold shadow-md active:scale-[0.98] transition-all">Guardar</button>
+  </form>
+</dialog>
+
+<dialog id="capa-puntos-dialog" aria-labelledby="capa-puntos-title">
+  <div class="bg-surface-container-lowest rounded-t-xl p-space-lg space-y-space-md max-h-[88vh] overflow-y-auto shadow-2xl w-full max-w-lg mx-auto mt-auto">
+    <div class="flex items-center justify-between gap-2">
+      <h2 id="capa-puntos-title" class="font-headline-md text-headline-md text-on-primary-container">Puntos de la capa</h2>
+      <button type="button" id="capa-puntos-close" aria-label="Cerrar" class="w-9 h-9 rounded-full bg-surface-container-low flex items-center justify-center active:scale-95 transition-all">
+        <span class="material-symbols-outlined text-[20px]">close</span>
+      </button>
+    </div>
+    <p class="text-body-sm text-body-sm text-on-surface-variant">Marca los puntos que se verán en el mapa para todos.</p>
+    <input id="capa-puntos-buscar" type="search" placeholder="Buscar punto…" class="w-full h-10 px-3 bg-surface-container-low rounded-lg text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/40">
+    <div id="capa-puntos-lista" class="space-y-2"></div>
+    <button type="button" id="capa-puntos-guardar" class="w-full h-12 rounded-full bg-primary text-on-primary font-label-lg text-label-lg font-bold">Guardar visibilidad</button>
+    <p id="capa-puntos-error" class="error"></p>
+  </div>
 </dialog>
 
 <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>

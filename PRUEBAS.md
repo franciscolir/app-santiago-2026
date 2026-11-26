@@ -117,9 +117,9 @@ Sin dependencias: solo Node.js ≥ 18. Comprueba:
 | 87 | JW zona horaria | Usa la hora de pared de Chile (`America/Santiago`) | ✅ (UTC 20:30Z → 17:30 en noviembre) |
 | 88 | JW sin consultas | Un temporizador de 60 s actualiza sin consultar Supabase | ✅ (`setInterval(aplicarEstadoJW,60000)`) |
 | 89 | JW clases CSS | Destello y latido con `@keyframes` y `prefers-reduced-motion`, en el **icono interior** (no en el marcador) | ✅ |
-| 90 | Esquema final | `schema.sql` documenta el estado de las migraciones 10–18 sin fingir un `pg_dump` | ✅ (sección 9; fuente de verdad: `sql/`, declarado) |
+| 90 | Esquema final | `schema.sql` documenta el estado de las migraciones 10–20 sin fingir un `pg_dump` | ✅ (sección 9; fuente de verdad: `sql/`, declarado) |
 | 91 | Documentación de cierre | `AGENT.md` §36/§37 y `DOCUMENTACION-MAPA.md` §7 resumen la entrega | ✅ |
-| 92 | Verificador final | La corrida completa sigue en verde tras el cierre | ✅ (384 pruebas · 0 fallos · 2 avisos) |
+| 92 | Verificador final | La corrida completa sigue en verde tras el cierre | ✅ (395 pruebas · 0 fallos · 2 avisos) |
 | 93 | Artefactos | No quedan usuarios, grupos, actividades ni puntos de prueba | ✅ (`principal`, `admin`/`test`, 5 actividades, 6 puntos) |
 | 94 | Rol MANAGER | `role='manager'` administra solo su grupo (evento, actividades, puntos, muro) | ✅ (en vivo: `test` como MANAGER; solo actividades de principal; creó una actividad) |
 | 95 | Rol ADMIN | `role='admin'` ve Grupos/Actividades/Mapa/Emergencia, sin Agenda ni Muro | ✅ (en vivo; 4 pestañas, sin Agenda/Muro) |
@@ -145,20 +145,34 @@ Sin dependencias: solo Node.js ≥ 18. Comprueba:
 | 115 | SOS flotante | Se oculta en Emergencia y reaparece en Agenda/Mapa/Muro | ✅ (`display:none` en Emergencia, `flex` en Agenda) |
 | 116 | Título de la app | Encabezado y login muestran STGO 2026 \| Región 8 | ✅ (también `<title>` y `meta description`) |
 | 117 | PWA | `manifest.webmanifest` con nombre nuevo y short_name STGO 2026 | ✅ |
+| 118 | Nombres 3 líneas | Etiqueta multilínea con textarea y límite visual de 3 líneas | ✅ (en vivo: salto guardado, `white-space:pre-line`, clamp 3) |
+| 119 | Controles laterales | Solo centrar, mi ubicación, capas y cerca de mí | ✅ (sin `+`, `-`, satélite, fullscreen, add point ni gestión) |
+| 120 | Alta por gesto | Clic en zona vacía o pulsación larga abre el punto | ✅ (ambos probados; no abre sobre marcadores/capas) |
+| 121 | Subcategoría | El punto se asigna a categoría → subcategoría y hereda estilo | ✅ (punto de prueba en Transporte/Metro; borrado) |
+| 122 | Ajustes ADMIN | Engranaje visible solo para ADMIN; CRUD categorías/subcapas | ✅ (categoría/subcapa QA creadas y luego eliminadas) |
+| 123 | Capas externas | Lista completa de puntos y visibilidad global por checkbox | ✅ (Metro 126 puntos; ocultar AL persistió y se aplicó a la fuente) |
+| 124 | Cerca de mí | Botón presente con aviso de próxima etapa | ✅ |
+| 125 | Capas propias | Subcategorías sin capa externa aparecen como toggle (Buses) | ✅ |
 
 ---
 
 ## 3. Resultados de la corrida automática
 
-- **2026-11-26 (Emergencia simplificada)**: **384 pruebas · 0 fallos · 2 avisos**. Se verificó
+- **2026-11-26 (Mapa: nombres, controles y subcategorías)**: **395 pruebas · 0 fallos · 2 avisos**.
+  - Nombres multilínea (máx. 3), controles reducidos, alta por clic/pulsación larga,
+    subcategorías/capas, overrides globales, JW siempre icono y placeholder “Cerca de mí”.
+  - En vivo: punto con 3 líneas y subcategoría Metro; ADMIN creó categoría/subcapa QA; ocultó
+    un punto de Metro y la fuente quedó filtrada (154→153); MANAGER no ve el engranaje.
+  - `sw` v27.
+- **2026-11-26 (Emergencia simplificada)**: **395 pruebas · 0 fallos · 2 avisos**. Se verificó
   que la vista solo conserva contactos + botón inferior, que el hero/SOS/estado de red ya no
   existen y que el SOS flotante se oculta en Emergencia y vuelve en las demás pestañas.
-  `sw` v26.
+  `sw` v27.
 - **2026-11-26 (QA 3×10 + seguridad)**: **228 comprobaciones de integración · 0 fallos** con
   `scripts/qa-simulacion.mjs` (3 grupos, 30 usuarios, 1 MANAGER por grupo, eventos solapados,
   actividades de ADMIN/MANAGER, muro, puntos y ataques). Hallazgo corregido: el MANAGER podía
   editar la fila de su grupo por API (`sql/18_endurecer_grupos.sql`).
-- **2026-11-26 (ADMIN/MANAGER)**: **384 pruebas · 0 fallos · 2 avisos** (bloques `[15]` y `[16]`).
+- **2026-11-26 (ADMIN/MANAGER)**: **395 pruebas · 0 fallos · 2 avisos** (bloques `[15]` y `[16]`).
   - Bloque `[15]`: roles `admin/manager/user`, `group_admin` eliminado, `can_manage_group`
     limitado al grupo del MANAGER, `admin_grupos()` sin hash, puntos bloqueados
     (CHECK + trigger), `series_id`, grupo derivado del evento, slug numérico, navegación por
@@ -273,7 +287,7 @@ Sin dependencias: solo Node.js ≥ 18. Comprueba:
 - Avisos no bloqueantes del navegador: Tailwind CDN (aviso conocido de producción) y 3 avisos
   de MapLibre (`Expected value to be of type number, but found null instead`) que provienen del
   estilo OpenFreeMap, no del código de la app.
-- El service worker quedó en `app-santiago-2026-v26` (precache renovada con la jerarquía
+- El service worker quedó en `app-santiago-2026-v27` (precache renovada con la jerarquía
   ADMIN/MANAGER, los puntos bloqueados y los contactos generales).
 - **Limitación del navegador embebido de pruebas**: no dispara `requestAnimationFrame`, por lo
   que MapLibre no repinta (`map.loaded()` queda en `false` y `queryRenderedFeatures()` devuelve

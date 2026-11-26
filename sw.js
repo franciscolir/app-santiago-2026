@@ -41,7 +41,9 @@
 // v24: vista Emergencia simplificada: contactos + botón inferior, sin hero SOS.
 // v25: título de la app STGO 2026 | Región 8 (encabezado, login, PWA).
 // v26: manifest con cache-busting (?v=26) para instalaciones existentes.
-const CACHE_NAME = "app-santiago-2026-v26";
+// v27: nombres de 3 líneas, controles reducidos, alta de punto por gesto,
+// subcategorías/capas, overrides de capas externas y ajustes ADMIN.
+const CACHE_NAME = "app-santiago-2026-v27";
 const APP_SHELL = [
   "./",
   "./index.html",

@@ -160,13 +160,16 @@ body.vista-mapa .mapa-frame { height: 100% !important; min-height: 0 !important;
    `actualizarPuntosSegunZoom()` con la variable --nombre-tam. */
 .map-point-nombre {
   position: absolute; top: 100%; left: 50%; transform: translateX(-50%);
-  margin-top: 3px; padding: 1px 7px; border-radius: 999px;
+  margin-top: 3px; padding: 1px 7px; border-radius: 10px;
   background: rgba(4,33,48,.82); color: #fff;
-  font-size: var(--nombre-tam, 11px); font-weight: 700; line-height: 1.5;
-  white-space: nowrap; max-width: 180px; overflow: hidden; text-overflow: ellipsis;
-  pointer-events: none; display: none;
+  font-size: var(--nombre-tam, 11px); font-weight: 700; line-height: 1.35;
+  white-space: pre-line; text-align: center;
+  max-width: 170px; overflow: hidden;
+  display: none;
+  pointer-events: none;
+  -webkit-box-orient: vertical; -webkit-line-clamp: 3;
 }
-.map-point-con-nombre .map-point-nombre { display: block; }
+.map-point-con-nombre .map-point-nombre { display: -webkit-box; }
 
 /* Al alejar el mapa el icono se transforma en un punto de color que se achica
    hasta desaparecer. Los puntos con "vista fija" no cambian nunca. */

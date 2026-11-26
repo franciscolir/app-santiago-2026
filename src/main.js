@@ -7,7 +7,7 @@ const $ = (s) => document.querySelector(s);
 const $$ = (s) => document.querySelectorAll(s);
 const state = { user:null, profile:null, event:null, activities:[], category:"positive",
   map:null, mapListo:false, markers:null, markerById:new Map(), pendingFit:null, selectedId:null, toastTimer:null,
-  mapPoints:[], pointMarkers:new Map(), pointMode:false, mensajeTipo:null,
+  mapPoints:[], pointMarkers:new Map(), mensajeTipo:null,
   // Grupo activo (UPDATE.md Etapa 1). `groupId` filtra TODAS las consultas;
   // `groups` alimenta el registro y el chip del header.
   groups:[], groupId:null, group:null, groupsListos:false, groupsCargando:false,
@@ -15,6 +15,8 @@ const state = { user:null, profile:null, event:null, activities:[], category:"po
   regGroup:null, regGroupPassword:"",
   // Fase 2: categorías, colores y gestión por categoría.
   categorias:[], categoriasPorSlug:{}, categoriasCargadas:false,
+  subcategorias:[], subcategoriasPorId:{}, overrides:[], capaAdmin:{modo:"categorias",categoria:null,subcategoria:null},
+  geoCapas:{}, geoTranporte:null, capaPuntos:null,
   gestion:{modo:"categorias",categoria:null,buscar:""}, categoriasEditadas:new Map(),
   // Fase 3: JW y actividades.
   jwPuntos:[], puntoParaActividad:false, actividadPendiente:null, puntoBloqueadoOriginal:false,
@@ -136,11 +138,9 @@ async function loadProfile(){
   $("#user-initials").textContent=initials(name);
   // Alta de actividades y puntos: ADMIN general y MANAGER de grupo.
   $("#admin-create-wrap").classList.toggle("hidden",!esGestorDeGrupo());
-  // Alta de puntos: cualquier usuario autenticado (solo personales); el gestor
-  // puede crear generales de su grupo y el ADMIN globales.
-  $("#map-add-point")?.classList.remove("hidden");
-  // Gestión por categoría (colores, visibilidad, borrar): ADMIN o MANAGER.
-  $("#map-puntos-btn")?.classList.toggle("hidden",!esGestorDeGrupo());
+  // Alta de puntos: se hace con clic o pulsación larga en el mapa.
+  // La gestión de capas/puntos se abre desde el engranaje de Capas (solo ADMIN).
+  $("#capas-admin-btn")?.classList.toggle("hidden",!isAdmin());
   // Editar/crear el evento general: ADMIN o MANAGER (el MANAGER solo el suyo).
   $("#event-edit-btn")?.classList.toggle("hidden",!esGestorDeGrupo() || esAdminGeneral());
   if(state.mapListo) renderPuntosMapa();
@@ -1097,12 +1097,39 @@ function renderMap(){
     });
     state.markers=[];
     window.__mapa=state.map;   // enganche de depuración (consola del navegador)
+    // Crear punto: clic en zona vacía o pulsación larga. No se abre al tocar
+    // marcadores/popups ni al hacer clic sobre una capa de datos.
     state.map.on("click",(e)=>{
-      // Modo edición de puntos (mapas.txt §9): el admin ubica el punto con un clic.
-      if(!state.pointMode) return;
-      desactivarModoPunto();
+      if(state.suppressMapClick){ state.suppressMapClick=false; return; }
+      const target=e.originalEvent?.target;
+      if(target?.closest?.(".map-point,.map-pin,.maplibregl-popup,button,input,select,textarea")) return;
+      const propias=(state.map.getStyle()?.layers||[])
+        .filter(l=>/^(lugares-|metro|metrotren)/.test(l.id))
+        .map(l=>l.id).filter(id=>state.map.getLayer(id));
+      if(propias.length && state.map.queryRenderedFeatures(e.point,{layers:propias}).length) return;
       abrirFormPunto(null,e.lngLat.lat,e.lngLat.lng);
     });
+    // Pulsación larga (móvil o mouse): abre el formulario sin depender del click.
+    const canvas=state.map.getCanvas();
+    let pressTimer=null, pressStart=null;
+    const limpiarPress=()=>{ if(pressTimer){clearTimeout(pressTimer);pressTimer=null;} pressStart=null; };
+    canvas.addEventListener("pointerdown",(ev)=>{
+      if(ev.pointerType==="mouse" && ev.button!==0) return;
+      pressStart={x:ev.clientX,y:ev.clientY};
+      const rect=canvas.getBoundingClientRect();
+      const lngLat=state.map.unproject([ev.clientX-rect.left,ev.clientY-rect.top]);
+      pressTimer=setTimeout(()=>{
+        pressTimer=null;
+        state.suppressMapClick=true;
+        abrirFormPunto(null,lngLat.lat,lngLat.lng);
+      },600);
+    });
+    canvas.addEventListener("pointermove",(ev)=>{
+      if(!pressStart||!pressTimer) return;
+      if(Math.hypot(ev.clientX-pressStart.x,ev.clientY-pressStart.y)>10) limpiarPress();
+    });
+    ["pointerup","pointercancel","pointerleave"].forEach(t=>canvas.addEventListener(t,limpiarPress));
+    canvas.addEventListener("contextmenu",(ev)=>ev.preventDefault());
     // Al cambiar el zoom, los iconos se convierten en puntos de color (§5).
     state.map.on("zoom",actualizarPuntosSegunZoom);
     // El arranque se hace con `style.load` (el estilo ya está aplicado y se
@@ -1252,8 +1279,6 @@ function offsetPanel(){
   const yMedio=(arriba+cont.height)/2;
   return [0,Math.round(yMedio-cont.height/2)];
 }
-$("#map-zoom-in").addEventListener("click",()=>state.map?.zoomIn());
-$("#map-zoom-out").addEventListener("click",()=>state.map?.zoomOut());
 // Recentrar en todas las actividades (encuadra el bounds calculado)
 $("#map-recenter").addEventListener("click",()=>{
   const b=markersBounds(); if(!state.map||!b)return;
@@ -1265,7 +1290,9 @@ $("#map-locate").addEventListener("click",()=>{
   if(!gpsPos){ activarGps({centrar:true}); showToast("Buscando tu ubicación…"); return; }
   state.map?.flyTo({center:[gpsPos.lng,gpsPos.lat],zoom:Math.max(state.map.getZoom(),16),duration:600,offset:offsetPanel()});
 });
-$("#map-satellite").addEventListener("click",alternarSatelite);
+$("#map-near-me")?.addEventListener("click",()=>{
+  showToast("Cerca de mí: función en la próxima etapa.");
+});
 $("#map-search").addEventListener("input",renderMapList);
 
 // --- Buscador colapsable (lupa arriba a la izquierda) ------------------------
@@ -1338,14 +1365,12 @@ function applyPendingFit(){
 // primera capa de símbolos, para que los rótulos queden legibles encima.
 let sateliteOn=false;
 function alternarSatelite(){
-  const map=state.map, btn=$("#map-satellite");
+  const map=state.map;
   if(!map||!state.mapListo)return;
   if(sateliteOn){
     if(map.getLayer("satelite-layer"))map.removeLayer("satelite-layer");
     if(map.getSource("satelite"))map.removeSource("satelite");
     sateliteOn=false;
-    btn.classList.remove("bg-primary","text-on-primary");
-    btn.setAttribute("aria-pressed","false");
     return;
   }
   const capas=map.getStyle().layers||[];
@@ -1355,13 +1380,11 @@ function alternarSatelite(){
     tileSize:256,maxzoom:19,attribution:"Esri, Maxar, Earthstar Geographics"});
   map.addLayer({id:"satelite-layer",type:"raster",source:"satelite",paint:{}}, simbolo?simbolo.id:undefined);
   sateliteOn=true;
-  btn.classList.add("bg-primary","text-on-primary");
-  btn.setAttribute("aria-pressed","true");
 }
 
 // ==================== VISTA SATÉLITE POR DEFECTO (mapas.txt §3.1) ====================
 // La capa satélite se inserta en el primer "load" para que el mapa abra en
-// satélite; el botón #map-satellite sigue alternando hacia la vista cartográfica.
+// satélite; se alterna desde la capa "Vista satelital" del panel de capas.
 function activarSateliteInicial(){
   if(sateliteOn) return;
   alternarSatelite();
@@ -1650,16 +1673,20 @@ async function cargarTransporte(){
     fetch("./data/transporte-lineas.geojson").then(r=>{if(!r.ok)throw new Error("HTTP "+r.status);return r.json();}),
   ]);
   if(!state.map) return;
-  map.addSource("transporte-estaciones",{type:"geojson",data:est});
+  state.geoTranporte=est;
+  const estFiltrado=JSON.parse(JSON.stringify(est));
+  if(estFiltrado?.features?.length) estFiltrado.features=estFiltrado.features.filter(f=>!overrideOculto(f.properties?.tipo,f.properties?.gtfs_stop_id));
+  map.addSource("transporte-estaciones",{type:"geojson",data:estFiltrado});
   map.addSource("transporte-lineas",{type:"geojson",data:lineas});
 
   // Colores referenciales por línea (no son los oficiales del Metro).
   const COLOR_LINEA={L1:"#e30613",L2:"#0f7fd4",L3:"#8a9b16",L4:"#f08a00",L4A:"#f08a00",L5:"#5ec4e8",L6:"#8b5fbf",MTN:"#00a19a",MTR:"#0079c2"};
   // Iconos SVG del Metro: al acercar aparece el icono y DEBAJO el nombre de
-  // la estación (sin necesidad de presionarla). El color de la categoría
-  // `metro` (sql/15) se usa en el punto circular al alejar.
-  const colorMetro=colorCategoria("metro","#ffffff");
-  const idIconoMetro=await asegurarIcono("metro","#e30613");
+  // la estación (sin necesidad de presionarla). El color de la subcategoría
+  // `metro` (sql/19) se usa en el punto circular al alejar.
+  const colorMetro=subcategoriaDeCapa("metro")?.color || colorCategoria("metro","#ffffff");
+  const claveMetro=subcategoriaDeCapa("metro")?.icon || "metro";
+  const idIconoMetro=await asegurarIcono(claveMetro,"#e30613");
   const idIconoCombo=await asegurarIcono("metro_combinacion","#f08a00");
   // Líneas: se siguen viendo ALEJADAS (sobreviven a los puntos de color, que
   // se apagan en 10,5) y desaparecen por debajo del zoom 9,3 (pedido el
@@ -1690,7 +1717,7 @@ async function cargarTransporte(){
   insertarBajoSimbolos({id:"metro-combo",type:"circle",source:"transporte-estaciones",
     filter:["all",["==",["get","tipo"],"metro"],["==",["get","combinaciones"],true]],
     minzoom:ZOOM_PUNTO_MIN,maxzoom:ZOOM_ICONO,
-    paint:{"circle-color":colorCategoria("metro","#ffd54f"),
+    paint:{"circle-color":subcategoriaDeCapa("metro")?.color || colorCategoria("metro","#ffd54f"),
             "circle-radius":["step",["zoom"],
               RADIO_PUNTO_MIN+ESCALA_PUNTO,ZOOM_PUNTO_MEDIO,RADIO_PUNTO_MEDIO+ESCALA_PUNTO,ZOOM_PUNTO_MAX,RADIO_PUNTO_MAX+ESCALA_PUNTO],
             "circle-stroke-color":"#181c1d","circle-stroke-width":1.5}});
@@ -1701,7 +1728,7 @@ async function cargarTransporte(){
             "icon-allow-overlap":true,"icon-ignore-placement":true}});
   insertarBajoSimbolos({id:"metrotren-estaciones",type:"circle",source:"transporte-estaciones",
     filter:["==",["get","tipo"],"metrotren"],minzoom:ZOOM_PUNTO_MIN,
-    paint:{"circle-color":colorMetro,
+    paint:{"circle-color":subcategoriaDeCapa("metrotren")?.color || colorMetro,
             "circle-radius":["step",["zoom"],
               RADIO_PUNTO_MIN,ZOOM_PUNTO_MEDIO,RADIO_PUNTO_MEDIO,ZOOM_PUNTO_MAX,RADIO_PUNTO_MAX],
             "circle-stroke-color":"#0079c2","circle-stroke-width":2}});
@@ -1752,18 +1779,33 @@ async function cargarTransporte(){
 // MapLibre (§11: la RM tiene miles de puntos; se agrupan en vez de pintar
 // 10.000 círculos). Al hacer clic en un grupo se hace zoom a su contenido.
 // Los puntos sueltos usan los iconos SVG de /icons (§5: identidad visual).
+// --- filtros globales de puntos externos (sql/19) ---------------------------
+function externalIdDe(layerKey, props){
+  return props?.osm_id || props?.gtfs_stop_id || props?.id || props?.nombre || "";
+}
+function overrideOculto(layerKey, externalId){
+  return (state.overrides||[]).some(o=>o.layer_key===layerKey && o.external_id===String(externalId) && o.visible===false);
+}
+function filtrarGeoOverrides(layerKey, geo){
+  if(!geo?.features?.length) return geo;
+  geo.features=geo.features.filter(f=>!overrideOculto(layerKey,externalIdDe(layerKey,f.properties)));
+  return geo;
+}
+
 async function cargarLugares(capa){
   const map=state.map;
   if(!map||lugaresCargados.has(capa)) return;
   const cfg=CAPAS_LUGARES[capa]; if(!cfg) return;
   const res=await fetch(`./data/lugares/${capa}.geojson`);
   if(!res.ok) throw new Error(`HTTP ${res.status} al cargar ${capa}`);
-  const geo=await res.json();
+  const raw=await res.json();
+  state.geoCapas[capa]=raw;
+  const geo=filtrarGeoOverrides(capa,JSON.parse(JSON.stringify(raw)));
   if(!state.map||state.map.getSource(`lugares-${capa}`)) return;
 
   // Icono SVG de esta capa (se descarga y rasteriza una sola vez por sesión).
-  const claveIcono=ICONO_LUGAR[capa]||"casa";
-  // Color de la categoría configurada en map_categories (sql/15).
+  const claveIcono=iconoDeCapa(capa,ICONO_LUGAR[capa]||"casa");
+  // Color de la subcategoría/capa (sql/19), con respaldo en map_categories.
   const colorLugar=colorDeCapa(capa,cfg.color);
   const idIcono=await asegurarIcono(claveIcono,colorLugar);
 
@@ -2017,15 +2059,32 @@ function pintarInterruptor(it){
 
 function pintarPanelCapas(){
   const root=$("#capas-lista"); if(!root) return;
-  root.innerHTML=CAPAS_DEF.map(g=>`
+  const custom=(state.subcategorias||[]).filter(s=>!s.layer_key && s.slug!=="general" && s.active!==false);
+  const grupos=CAPAS_DEF.map(g=>({
+    grupo:g.grupo,
+    items:g.items.map(it=>{
+      const sub=subcategoriaDeCapa(it.id);
+      return {...it,nombre:sub?.name||it.nombre,color:sub?.color||null};
+    })
+  }));
+  if(custom.length) grupos.push({grupo:"Capas propias",items:custom.map(s=>({
+    id:`sub:${s.id}`,nombre:s.name,color:s.color,customSub:s,defecto:true
+  }))});
+  grupos.forEach(g=>g.items.forEach(it=>{
+    if(it.customSub && capasEstado[it.id]===undefined) capasEstado[it.id]=true;
+  }));
+  root.innerHTML=grupos.map(g=>`
     <div class="mt-3 first:mt-0">
       <p class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wide mb-1.5">${g.grupo}</p>
       <div class="space-y-1">
         ${g.items.map(it=>{
-          const on=capasEstado[it.id];
+          const on=it.customSub?capasEstado[it.id]!==false:capasEstado[it.id];
           return `<button type="button" data-capa="${it.id}" aria-pressed="${on}"
             class="w-full flex items-center justify-between gap-3 px-3 py-2.5 rounded-full bg-surface-container-low active:scale-[0.99] transition-all ${it.pendiente?"opacity-50":""}">
-            <span class="text-body-md text-on-surface text-left">${it.nombre}${it.pendiente?' <span class="text-label-sm text-on-surface-variant">· pronto</span>':""}</span>
+            <span class="flex items-center gap-2 min-w-0 text-body-md text-on-surface text-left">
+              ${it.color?`<span class="w-2.5 h-2.5 rounded-full flex-shrink-0" style="background:${esc(it.color)}"></span>`:""}
+              <span class="truncate">${it.nombre}${it.pendiente?' <span class="text-label-sm text-on-surface-variant">· pronto</span>':""}</span>
+            </span>
             <span class="capa-switch relative shrink-0 w-11 h-6 rounded-full transition-colors ${on?"bg-primary":"bg-surface-variant"}">
               <span class="capa-switch-dot absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${on?"translate-x-[22px]":""}"></span>
             </span>
@@ -2050,9 +2109,22 @@ $("#capas-backdrop").addEventListener("click",cerrarPanelCapas);
 document.addEventListener("keydown",(e)=>{ if(e.key==="Escape") cerrarPanelCapas(); });
 $("#capas-lista").addEventListener("click",(e)=>{
   const fila=e.target.closest("[data-capa]"); if(!fila) return;
-  const it=CAPAS_DEF.flatMap(g=>g.items).find(x=>x.id===fila.dataset.capa);
+  const id=fila.dataset.capa;
+  let it=CAPAS_DEF.flatMap(g=>g.items).find(x=>x.id===id);
+  if(!it && id.startsWith("sub:")){
+    const sub=state.subcategoriasPorId[id.slice(4)];
+    if(sub) it={id,nombre:sub.name,customSub:sub};
+  }
   if(!it) return;
   if(it.pendiente){ showToast("Capa disponible en una próxima etapa."); return; }
+  if(it.customSub){
+    const on=capasEstado[id]!==false;
+    capasEstado[id]=!on;
+    pintarInterruptor(it);
+    guardarPreferenciasCapas();
+    renderPuntosMapa();
+    return;
+  }
   alternarCapa(it,!capasEstado[it.id]);
 });
 
@@ -2093,23 +2165,64 @@ function scopeDe(p){ return p.scope || (p.tipo==="general"?"global":"group"); }
 // Color de una capa de lugares según su categoría (sql/15).
 const CATEGORIA_DE_CAPA={parques:"parque",plazas:"parque",comercio:"mall",salud:"hospital",
   seguridad:"policia",bomberos:"bomberos",servicios:"otros"};
-function colorDeCapa(capa,fallback){ return colorCategoria(CATEGORIA_DE_CAPA[capa],fallback); }
+function colorDeCapa(capa,fallback){ return subcategoriaDeCapa(capa)?.color || colorCategoria(CATEGORIA_DE_CAPA[capa],fallback); }
+function iconoDeCapa(capa,fallback){ const s=subcategoriaDeCapa(capa); return s && ICONOS_MAPA[s.icon] ? s.icon : fallback; }
+
+async function actualizarIconosCapas(){
+  const map=state.map; if(!map||!state.mapListo) return;
+  for(const capa of Object.keys(CAPAS_LUGARES)){
+    if(!lugaresCargados.has(capa)) continue;
+    const clave=iconoDeCapa(capa,ICONO_LUGAR[capa]||"casa");
+    const id=await asegurarIcono(clave,colorDeCapa(capa,"#006492"));
+    if(map.getLayer(`lugares-${capa}-puntos`)) map.setLayoutProperty(`lugares-${capa}-puntos`,"icon-image",id);
+  }
+  if(lugaresCargados.has("transporte") && map.getLayer("metro-estaciones-icono")){
+    const id=await asegurarIcono(iconoDeCapa("metro","metro"),subcategoriaDeCapa("metro")?.color||"#e30613");
+    map.setLayoutProperty("metro-estaciones-icono","icon-image",id);
+  }
+}
 
 async function cargarCategorias(){
   try{
-    const {data,error}=await supabase.from("map_categories")
-      .select("slug,name,icon,color,sort,active").order("sort");
-    if(error) throw error;
-    state.categorias=(data||[]);
+    const [cats,subs,ovs]=await Promise.all([
+      supabase.from("map_categories").select("slug,name,icon,color,sort,active").order("sort"),
+      supabase.from("map_subcategories").select("*").order("sort"),
+      supabase.from("map_layer_point_overrides").select("layer_key,external_id,visible,subcategory_id"),
+    ]);
+    if(cats.error) throw cats.error;
+    state.categorias=(cats.data||[]);
+    state.subcategorias=subs.error?[]:(subs.data||[]);
+    state.overrides=ovs.error?[]:(ovs.data||[]);
     state.categoriasCargadas=true;
   }catch(err){
     console.warn("cargarCategorias: se usa el catálogo de respaldo.",err?.message||err);
     state.categorias=CATEGORIAS_RESPALDO.slice();
     state.categoriasCargadas=false;
+    state.subcategorias=[];
+    state.overrides=[];
   }
   state.categoriasPorSlug=Object.fromEntries(state.categorias.map(c=>[c.slug,c]));
+  state.subcategoriasPorId=Object.fromEntries((state.subcategorias||[]).map(s=>[s.id,s]));
   poblarCategoriasFormulario();
   if(state.mapListo) aplicarColoresCategorias();
+}
+
+function subcategoriaDe(p){
+  if(p?.subcategory_id && state.subcategoriasPorId[p.subcategory_id]) return state.subcategoriasPorId[p.subcategory_id];
+  return (state.subcategorias||[]).find(s=>s.category_slug===p?.category && s.slug==="general") || null;
+}
+function colorDePunto(p){
+  return subcategoriaDe(p)?.color || colorCategoria(p?.category);
+}
+function iconoDePunto(p){
+  return subcategoriaDe(p)?.icon || iconoCategoria(p?.category,p?.icon);
+}
+function modoRenderPunto(p){
+  const sub=subcategoriaDe(p);
+  return (p?.category==="jw" || sub?.category_slug==="jw") ? "icon" : (sub?.render_mode || "auto");
+}
+function subcategoriaDeCapa(layerKey){
+  return (state.subcategorias||[]).find(s=>s.layer_key===layerKey && s.active!==false) || null;
 }
 
 function poblarCategoriasFormulario(){
@@ -2119,6 +2232,24 @@ function poblarCategoriasFormulario(){
   sel.innerHTML=activas.map(c=>`<option value="${esc(c.slug)}">${esc(c.name)}</option>`).join("");
   if(!sel.options.length) sel.innerHTML='<option value="general">General</option>';
   if(actual && [...sel.options].some(o=>o.value===actual)) sel.value=actual;
+  poblarSubcategoriasFormulario(sel.value);
+}
+function subcategoriasDeCategoria(slug){
+  return (state.subcategorias||[])
+    .filter(s=>s.category_slug===slug && s.active!==false)
+    .sort((a,b)=>(a.sort||100)-(b.sort||100));
+}
+function poblarSubcategoriasFormulario(categorySlug, selected=null){
+  const sel=$("#point-subcategory"); if(!sel) return;
+  const lista=subcategoriasDeCategoria(categorySlug);
+  sel.innerHTML=lista.length
+    ? lista.map(s=>`<option value="${esc(s.id)}">${esc(s.name)}</option>`).join("")
+    : '<option value="">General</option>';
+  if(selected && lista.some(s=>s.id===selected)) sel.value=selected;
+  else {
+    const general=lista.find(s=>s.slug==="general") || lista[0];
+    if(general) sel.value=general.id;
+  }
 }
 
 // Actualiza los colores de las capas GeoJSON ya cargadas (lugares, metro y
@@ -2127,18 +2258,18 @@ function aplicarColoresCategorias(){
   const map=state.map; if(!map||!state.mapListo) return;
   Object.entries(CATEGORIA_DE_CAPA).forEach(([capa,slug])=>{
     if(!lugaresCargados.has(capa)) return;
-    const color=colorCategoria(slug,"#006492");
+    const color=colorDeCapa(capa,"#006492");
     ["-cluster","-puntos-mini"].forEach(suf=>{
       const id=`lugares-${capa}${suf}`;
       if(map.getLayer(id)) map.setPaintProperty(id,"circle-color",color);
     });
   });
-  const colorMetro=colorCategoria("metro","#ffffff");
+  const colorMetro=subcategoriaDeCapa("metro")?.color || colorCategoria("metro","#ffffff");
   ["metro-estaciones","metro-combo"].forEach(id=>{
     if(map.getLayer(id)) map.setPaintProperty(id,"circle-color",colorMetro);
   });
   if(map.getLayer("metrotren-estaciones")){
-    map.setPaintProperty("metrotren-estaciones","circle-color",colorCategoria("metro","#ffffff"));
+    map.setPaintProperty("metrotren-estaciones","circle-color",subcategoriaDeCapa("metrotren")?.color || colorCategoria("metro","#ffffff"));
   }
   renderPuntosMapa();
 }
@@ -2267,7 +2398,7 @@ function actualizarPuntosSegunZoom(){
     const esJW=el.dataset.jw==="1";
     // Los JW se muestran siempre con icono (nunca como punto de color) y un
     // 20 % más grandes que el resto (16→24 px pasa a 19,2→28,8 px).
-    const fijo=el.dataset.fijo==="1" || esJW;
+    const fijo=el.dataset.fijo==="1" || esJW || el.dataset.siempreIcono==="icon";
     el.style.setProperty("--icono-tam",(esJW?tamIcono*1.2:tamIcono).toFixed(1)+"px");
     el.style.setProperty("--nombre-tam",tamTexto+"px");
     // Texto: corte NÍTIDO en 12,5 (en 12,4 desaparece y en 12,5 aparece).
@@ -2317,12 +2448,16 @@ function renderPuntosMapa(){
   const map=state.map; if(!map||!state.mapListo) return;
   const admin=esGestorDeGrupo();
   // El admin ve también los deshabilitados (atenuados) para poder ubicarlos.
-  const visibles=state.mapPoints.filter(p=>admin || (p.visible!==false && p.active!==false));
+  const visibles=state.mapPoints.filter(p=>{
+    const sub=subcategoriaDe(p);
+    if(sub && !sub.layer_key && sub.slug!=="general" && capasEstado[`sub:${sub.id}`]===false) return false;
+    return admin || (p.visible!==false && p.active!==false);
+  });
   visibles.forEach(p=>{
     const el=document.createElement("div");
     el.className="map-point map-point-icono";
     const cat=categoriaDe(p.category);
-    const claveIcono=iconoCategoria(p.category,p.icon);
+    const claveIcono=iconoDePunto(p);
     const defIcono=ICONOS_MAPA[claveIcono]||ICONOS_MAPA.place;
     // El SVG se muestra directo como fondo CSS (es vectorial: se ve nítido en
     // cualquier zoom y no necesita rasterizarse).
@@ -2340,13 +2475,14 @@ function renderPuntosMapa(){
       el.style.backgroundImage=urlIcono;
     }
     // Color del punto cuando el mapa se aleja: color de la CATEGORÍA (sql/15).
-    el.style.setProperty("--punto-color",colorCategoria(p.category,"#006492"));
+    el.style.setProperty("--punto-color",colorDePunto(p));
     // "Vista fija": el icono se muestra siempre, a cualquier zoom.
     el.dataset.fijo=p.fijo?"1":"0";
     el.dataset.bloqueado=p.bloqueado?"1":"0";
     if(p.bloqueado) el.classList.add("map-point-bloqueado");
     // JW: siempre icono (nunca punto de color) y +20 % de tamaño.
     el.dataset.jw=p.category==="jw"?"1":"0";
+    el.dataset.siempreIcono=modoRenderPunto(p);
     el.classList.toggle("map-point-jw",p.category==="jw");
     el.classList.toggle("map-point-oculto-admin",admin && (p.visible===false || p.active===false));
     el.style.backgroundSize="contain";
@@ -2391,22 +2527,10 @@ function renderPuntosMapa(){
   aplicarEstadoJW();
 }
 
-// --- modo edición: clic en el mapa para ubicar el punto --------------------
-// Cualquier usuario autenticado puede agregar puntos personales (§9).
-// Solo el admin puede crear puntos GENERALES (visibles para todos).
-function activarModoPunto(){
-  if(!state.user){ showToast("Inicia sesión para agregar puntos."); return; }
-  state.pointMode=true;
-  $("#map-point-mode")?.classList.remove("hidden");
-  showToast(state.puntoParaActividad
-    ? "Toca el mapa para ubicar el punto JW de la actividad."
-    : (esGestorDeGrupo()?"Toca el mapa para ubicar un punto (general o personal).":"Toca el mapa para ubicar un punto personal."));
-}
-function desactivarModoPunto(){
-  state.pointMode=false;
-  $("#map-point-mode")?.classList.add("hidden");
-}
-$("#map-add-point")?.addEventListener("click",activarModoPunto);
+// --- alta de punto: gesto sobre el mapa ------------------------------------
+// Cualquier usuario autenticado puede agregar puntos personales; MANAGER/ADMIN
+// pueden crear generales de su alcance. No hay botón lateral: se usa clic o
+// pulsación larga (ver handler de `state.map.on("click")`).
 
 // --- gestión de puntos por categoría (admin global o de grupo) --------------
 // El admin entra a una categoría, busca, selecciona/deselecciona puntos,
@@ -2426,7 +2550,196 @@ function abrirGestionPuntos(){
   if(!state.categorias.length) cargarCategorias().then(()=>renderGestionPuntos());
 }
 function cerrarGestionPuntos(){ $("#puntos-sheet")?.classList.add("hidden"); }
-$("#map-puntos-btn")?.addEventListener("click",abrirGestionPuntos);
+
+// ==================== ADMIN DE CAPAS / SUBCATEGORÍAS (sql/19) ===============
+function capasExternas(){
+  const out=[
+    {id:"metro",nombre:"Metro"},
+    {id:"metrotren",nombre:"MetroTren"},
+  ];
+  CAPAS_DEF.forEach(g=>g.items.forEach(it=>{
+    if(it.capaLugares) out.push({id:it.id,nombre:it.nombre});
+  }));
+  return out;
+}
+function abrirAdminCapas(){
+  if(!isAdmin()) return;
+  cerrarPanelCapas();
+  renderAdminCapas();
+  $("#capas-admin-dialog")?.showModal();
+}
+function renderAdminCapas(){
+  const root=$("#capas-admin-lista"); if(!root) return;
+  root.innerHTML=(state.categorias||[]).map(c=>{
+    const subs=subcategoriasDeCategoria(c.slug);
+    return `<div class="rounded-xl bg-surface-container-low p-3 space-y-2">
+      <div class="flex items-start justify-between gap-2">
+        <div class="min-w-0">
+          <p class="text-sm font-bold text-on-surface">${esc(c.name)} <span class="text-[11px] font-normal text-on-surface-variant">/${esc(c.slug)}</span></p>
+          <p class="text-[11px] text-on-surface-variant">${subs.length} subcategoría${subs.length===1?"":"s"}</p>
+        </div>
+        <div class="flex gap-1">
+          <button type="button" class="secondary" data-capa-cat-edit="${esc(c.slug)}">Editar</button>
+          <button type="button" class="secondary" data-capa-sub-new="${esc(c.slug)}">+ Sub</button>
+        </div>
+      </div>
+      <div class="space-y-1">
+        ${subs.map(s=>`<div class="flex items-center gap-2 bg-white rounded-lg px-2.5 py-2">
+          <span class="w-3 h-3 rounded-full flex-shrink-0" style="background:${esc(s.color)}"></span>
+          <div class="min-w-0 flex-1">
+            <p class="text-xs font-semibold text-on-surface truncate">${esc(s.name)}</p>
+            <p class="text-[10px] text-on-surface-variant">${esc(s.render_mode==="icon"?"siempre icono":"icono ↔ punto")}${s.layer_key?" · capa "+esc(s.layer_key):""}</p>
+          </div>
+          ${s.layer_key?`<button type="button" class="secondary" data-capa-sub-puntos="${esc(s.id)}">Puntos</button>`:""}
+          <button type="button" class="secondary" data-capa-sub-edit="${esc(s.id)}">Editar</button>
+        </div>`).join("")}
+      </div>
+    </div>`;
+  }).join("") || '<div class="empty">No hay categorías.</div>';
+  root.querySelectorAll("[data-capa-cat-edit]").forEach(b=>b.addEventListener("click",()=>abrirCapaForm("categoria",b.dataset.capaCatEdit)));
+  root.querySelectorAll("[data-capa-sub-new]").forEach(b=>b.addEventListener("click",()=>abrirCapaForm("subcategoria",null,b.dataset.capaSubNew)));
+  root.querySelectorAll("[data-capa-sub-edit]").forEach(b=>b.addEventListener("click",()=>abrirCapaForm("subcategoria",b.dataset.capaSubEdit)));
+  root.querySelectorAll("[data-capa-sub-puntos]").forEach(b=>b.addEventListener("click",()=>abrirCapaPuntos(state.subcategoriasPorId[b.dataset.capaSubPuntos])));
+}
+function abrirCapaForm(tipo,id=null,categorySlug=null){
+  const cat=id && tipo==="categoria"?state.categoriasPorSlug[id]:null;
+  const sub=id && tipo==="subcategoria"?state.subcategoriasPorId[id]:null;
+  $("#capa-form-tipo").value=tipo;
+  $("#capa-form-id").value=id||"";
+  $("#capa-form-title").textContent=id?(tipo==="categoria"?"Editar categoría":"Editar subcategoría"):(tipo==="categoria"?"Nueva categoría":"Nueva subcategoría");
+  $("#capa-form-error").textContent="";
+  $("#capa-category-wrap").classList.toggle("hidden",tipo==="categoria");
+  $("#capa-sub-wrap").classList.toggle("hidden",tipo==="categoria");
+  const selCat=$("#capa-category");
+  selCat.innerHTML=state.categorias.map(c=>`<option value="${esc(c.slug)}">${esc(c.name)}</option>`).join("");
+  if(categorySlug) selCat.value=categorySlug;
+  if(sub) selCat.value=sub.category_slug;
+  const obj=cat||sub||{};
+  $("#capa-name").value=obj.name||"";
+  $("#capa-slug").value=obj.slug||"";
+  $("#capa-slug").readOnly=!!id;
+  $("#capa-color").value=obj.color||"#006492";
+  $("#capa-sort").value=obj.sort??100;
+  $("#capa-active").checked=obj.active!==false;
+  const selIcon=$("#capa-icon");
+  selIcon.innerHTML=Object.entries(ICONOS_MAPA).map(([k,v])=>`<option value="${esc(k)}">${esc(v.label)}</option>`).join("");
+  selIcon.value=obj.icon||"place";
+  $("#capa-render").value=obj.render_mode||(obj.slug==="jw"?"icon":"auto");
+  const selLayer=$("#capa-layer");
+  const externas=capasExternas();
+  if(obj.layer_key && !externas.some(x=>x.id===obj.layer_key)) externas.push({id:obj.layer_key,nombre:obj.layer_key});
+  selLayer.innerHTML='<option value="">Puntos manuales / sin capa</option>'+
+    externas.map(x=>`<option value="${esc(x.id)}">${esc(x.nombre)}</option>`).join("");
+  selLayer.value=obj.layer_key||"";
+  $("#capa-form-dialog")?.showModal();
+}
+$("#capas-admin-close")?.addEventListener("click",()=>$("#capas-admin-dialog")?.close());
+$("#capa-form-close")?.addEventListener("click",()=>$("#capa-form-dialog")?.close());
+$("#capa-nueva-categoria")?.addEventListener("click",()=>abrirCapaForm("categoria"));
+$("#capa-form")?.addEventListener("submit",async e=>{
+  e.preventDefault();
+  if(!isAdmin()) return;
+  const tipo=$("#capa-form-tipo").value, id=$("#capa-form-id").value;
+  const name=$("#capa-name").value.trim();
+  const slug=$("#capa-slug").value.trim().toLowerCase();
+  if(name.length<2||!/^[a-z0-9][a-z0-9_-]{0,40}$/.test(slug)){
+    notifyError($("#capa-form-error"),"Nombre y slug válidos son obligatorios."); return;
+  }
+  const base={name,slug,color:$("#capa-color").value,icon:$("#capa-icon").value,sort:Number($("#capa-sort").value)||100,active:$("#capa-active").checked};
+  let res;
+  if(tipo==="categoria"){
+    res=id
+      ? await supabase.from("map_categories").update(base).eq("slug",id)
+      : await supabase.from("map_categories").insert(base);
+  }else{
+    const payload={...base,category_slug:$("#capa-category").value,render_mode:$("#capa-render").value,
+      layer_key:$("#capa-layer").value||null};
+    if(payload.category_slug==="jw") payload.render_mode="icon";
+    res=id
+      ? await supabase.from("map_subcategories").update(payload).eq("id",id)
+      : await supabase.from("map_subcategories").insert(payload);
+  }
+  if(res.error){ notifyError($("#capa-form-error"),describeError(res.error,"la capa")); return; }
+  $("#capa-form-dialog")?.close();
+  await cargarCategorias();
+  await actualizarIconosCapas();
+  renderAdminCapas();
+  showToast("Capa guardada.");
+});
+
+async function abrirCapaPuntos(sub){
+  if(!isAdmin()||!sub?.layer_key) return;
+  const root=$("#capa-puntos-lista");
+  $("#capa-puntos-title").textContent=`Puntos · ${sub.name}`;
+  $("#capa-puntos-error").textContent="";
+  root.innerHTML='<div class="empty">Cargando…</div>';
+  $("#capa-puntos-dialog")?.showModal();
+  let features=[];
+  try{
+    if(sub.layer_key==="metro"||sub.layer_key==="metrotren"){
+      const geo=state.geoTranporte || await fetch("./data/transporte-estaciones.geojson").then(r=>r.json());
+      features=geo.features.filter(f=>f.properties?.tipo===sub.layer_key);
+    }else{
+      const geo=state.geoCapas[sub.layer_key] || await fetch(`./data/lugares/${sub.layer_key}.geojson`).then(r=>r.json());
+      features=geo.features||[];
+    }
+  }catch(err){ notifyError($("#capa-puntos-error"),describeError(err,"los puntos de la capa")); root.innerHTML=""; return; }
+  const ocultos=new Set((state.overrides||[]).filter(o=>o.layer_key===sub.layer_key&&o.visible===false).map(o=>o.external_id));
+  state.capaPuntos={sub,items:features.map(f=>{
+    const id=externalIdDe(sub.layer_key,f.properties);
+    return {id,name:f.properties?.nombre||id,visible:!ocultos.has(id)};
+  })};
+  renderCapaPuntos();
+}
+function renderCapaPuntos(){
+  const root=$("#capa-puntos-lista"); if(!root||!state.capaPuntos) return;
+  const q=($("#capa-puntos-buscar")?.value||"").trim().toLowerCase();
+  const items=state.capaPuntos.items.filter(x=>!q||x.name.toLowerCase().includes(q));
+  root.innerHTML=items.length?items.map(x=>`<label class="flex items-center gap-2 bg-surface-container-low rounded-lg px-3 py-2">
+    <input type="checkbox" data-capa-punto="${esc(x.id)}" ${x.visible?"checked":""} class="w-5 h-5 accent-primary">
+    <span class="text-sm text-on-surface min-w-0 truncate">${esc(x.name)}</span>
+  </label>`).join(""):'<div class="empty">Sin puntos.</div>';
+  root.querySelectorAll("[data-capa-punto]").forEach(cb=>cb.addEventListener("change",()=>{
+    const it=state.capaPuntos.items.find(x=>x.id===cb.dataset.capaPunto);
+    if(it) it.visible=cb.checked;
+  }));
+}
+$("#capa-puntos-buscar")?.addEventListener("input",renderCapaPuntos);
+$("#capa-puntos-close")?.addEventListener("click",()=>$("#capa-puntos-dialog")?.close());
+$("#capa-puntos-guardar")?.addEventListener("click",async()=>{
+  if(!state.capaPuntos) return;
+  const {sub,items}=state.capaPuntos;
+  // Solo se guardan las EXCEPCIONES (puntos ocultos). Un punto sin fila = visible.
+  const rows=items.filter(x=>!x.visible).map(x=>({layer_key:sub.layer_key,external_id:String(x.id),visible:false,subcategory_id:sub.id,updated_by:state.user.id}));
+  const del=await supabase.from("map_layer_point_overrides").delete().eq("layer_key",sub.layer_key);
+  if(del.error){ notifyError($("#capa-puntos-error"),describeError(del.error,"la visibilidad de la capa")); return; }
+  if(rows.length){
+    const {error}=await supabase.from("map_layer_point_overrides").insert(rows);
+    if(error){ notifyError($("#capa-puntos-error"),describeError(error,"la visibilidad de la capa")); return; }
+  }
+  state.overrides=(state.overrides||[]).filter(o=>o.layer_key!==sub.layer_key).concat(rows.map(r=>({layer_key:r.layer_key,external_id:r.external_id,visible:false,subcategory_id:r.subcategory_id})));
+  await aplicarOverridesMapa();
+  $("#capa-puntos-dialog")?.close();
+  showToast("Visibilidad de la capa guardada.");
+});
+async function aplicarOverridesMapa(){
+  const map=state.map; if(!map||!state.mapListo) return;
+  Object.entries(state.geoCapas).forEach(([capa,raw])=>{
+    const src=map.getSource(`lugares-${capa}`);
+    if(src?.setData) src.setData(filtrarGeoOverrides(capa,JSON.parse(JSON.stringify(raw))));
+  });
+  if(state.geoTranporte){
+    const src=map.getSource("transporte-estaciones");
+    if(src?.setData){
+      const g=JSON.parse(JSON.stringify(state.geoTranporte));
+      g.features=g.features.filter(f=>!overrideOculto(f.properties?.tipo,f.properties?.gtfs_stop_id));
+      src.setData(g);
+    }
+  }
+  aplicarColoresCategorias();
+}
+
+$("#capas-admin-btn")?.addEventListener("click",abrirAdminCapas);
 $("#puntos-close")?.addEventListener("click",cerrarGestionPuntos);
 $("#puntos-backdrop")?.addEventListener("click",cerrarGestionPuntos);
 $("#puntos-volver")?.addEventListener("click",()=>{
@@ -2502,7 +2815,7 @@ function renderPuntosCategoria(){
     return `<p class="text-sm text-on-surface-variant px-1">${buscar?"Sin coincidencias.":"No hay puntos en esta categoría."}</p>`;
   }
   return `<div class="space-y-2">`+items.map(p=>{
-    const icono=ICONOS_MAPA[iconoCategoria(p.category,p.icon)]||ICONOS_MAPA.place;
+    const icono=ICONOS_MAPA[iconoDePunto(p)]||ICONOS_MAPA.place;
     const edit=PUNTOS_EDITADOS.get(p.id);
     const nombre=edit?.name ?? p.name;
     const visible=edit?.visible ?? (p.visible!==false);
@@ -2686,7 +2999,10 @@ async function abrirFormPunto(p=null,lat=null,lng=null){
     selCat.insertAdjacentHTML("beforeend",`<option value="${esc(catSlug)}">${esc(nombreCategoria(catSlug))}</option>`);
   }
   if(selCat) selCat.value=catSlug;
-  seleccionarIcono(iconoCategoria(catSlug,p?.icon));
+  poblarSubcategoriasFormulario(catSlug,p?.subcategory_id);
+  $("#point-icon-block")?.classList.toggle("hidden",!isAdmin());
+  const subSel=p?.subcategory_id || $("#point-subcategory")?.value || "";
+  seleccionarIcono(iconoDePunto({category:catSlug,subcategory_id:subSel,icon:p?.icon}));
   if(!p && state.puntoParaActividad && !$("#point-name").value.trim()){
     $("#point-name").value="Punto JW de actividad";
   }
@@ -2768,8 +3084,13 @@ $("#point-backdrop")?.addEventListener("click",cerrarFormPunto);
 // Al cambiar la categoría se propone su icono por defecto (Fase 2: el icono
 // sale de map_categories, con respaldo en ICONO_PUNTO).
 $("#point-category")?.addEventListener("change",e=>{
-  const cat=categoriaDe(e.target.value);
-  if(cat?.icon) seleccionarIcono(cat.icon);
+  poblarSubcategoriasFormulario(e.target.value);
+  const sub=state.subcategoriasPorId[$("#point-subcategory")?.value];
+  if(sub?.icon) seleccionarIcono(sub.icon);
+});
+$("#point-subcategory")?.addEventListener("change",()=>{
+  const sub=state.subcategoriasPorId[$("#point-subcategory")?.value];
+  if(sub?.icon) seleccionarIcono(sub.icon);
 });
 $("#point-tipo")?.addEventListener("change",actualizarCamposPunto);
 $("#point-scope")?.addEventListener("change",actualizarCamposPunto);
@@ -2797,7 +3118,7 @@ $("#point-form")?.addEventListener("submit",async e=>{
   const bloqueado=!!(isAdmin() && $("#point-bloqueado")?.checked);
   if(bloqueado){ scope="global"; grupoId=null; }
   const payload={name,description:$("#point-description").value.trim(),
-    category:$("#point-category").value,icon:$("#point-icon").value,
+    category:$("#point-category").value,subcategory_id:$("#point-subcategory")?.value||null,icon:$("#point-icon").value,
     latitude:lat,longitude:lng,visible:bloqueado?true:$("#point-visible").checked,tipo:bloqueado?"general":tipo,
     scope,group_id:grupoId,fijo:bloqueado?true:$("#point-fijo").checked};
   if(isAdmin() && (bloqueado || state.puntoBloqueadoOriginal)) payload.bloqueado=bloqueado;
@@ -2850,25 +3171,12 @@ $("#point-delete")?.addEventListener("click",async()=>{
   showToast("Punto eliminado.");
 });
 
-// ==================== PANTALLA COMPLETA (mapas.txt §3.1) ====================
-const marcoMapa=()=>$("#view-mapa .mapa-frame");
-if(!document.fullscreenEnabled && !document.webkitFullscreenEnabled) $("#map-fullscreen")?.classList.add("hidden");
-$("#map-fullscreen").addEventListener("click",()=>{
-  const el=marcoMapa(); if(!el) return;
-  const activo=document.fullscreenElement||document.webkitFullscreenElement;
-  if(activo){ document.exitFullscreen?.()||document.webkitExitFullscreen?.(); return; }
-  let p=null;
-  if(el.requestFullscreen) p=el.requestFullscreen();
-  else if(el.webkitRequestFullscreen) p=el.webkitRequestFullscreen();
-  if(p&&typeof p.catch==="function") p.catch(()=>showToast("Pantalla completa no disponible en este navegador."));
-});
+// ==================== PANTALLA COMPLETA ====================
+// Se retiró el botón lateral; la vista de mapa ya ocupa la pantalla completa
+// de la app. Se conserva el helper de resize si el navegador entra en
+// fullscreen por otro medio.
 ["fullscreenchange","webkitfullscreenchange"].forEach(ev=>document.addEventListener(ev,()=>{
-  const activo=!!(document.fullscreenElement||document.webkitFullscreenElement);
-  const btn=$("#map-fullscreen");
-  btn?.setAttribute("aria-pressed",String(activo));
-  const ico=btn?.querySelector(".material-symbols-outlined");
-  if(ico) ico.textContent=activo?"fullscreen_exit":"fullscreen";
-  setTimeout(()=>state.map?.resize(),120);   // MapLibre debe re-medir el contenedor
+  setTimeout(()=>state.map?.resize(),120);
 }));
 
 // ==================== GPS DEL DISPOSITIVO (informativo) ====================
@@ -3009,7 +3317,6 @@ $("#activity-mark-map")?.addEventListener("click",()=>{
   state.puntoParaActividad=true;
   $("#activity-dialog").close();
   gotoView("mapa");
-  setTimeout(()=>activarModoPunto(),350);
   showToast("Toca el mapa para ubicar el punto JW de la actividad.");
 });
 async function reabrirActividadPendiente(puntoId){

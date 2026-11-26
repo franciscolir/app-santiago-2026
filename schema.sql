@@ -2,10 +2,10 @@
 -- APP SANTIAGO 2026 — schema.sql
 -- Regenerado desde la BD real (Supabase) el 2026-11-23.
 --
--- ACTUALIZACIÓN 2026-11-26: el estado final incorpora las migraciones 10–18
--- (grupos, login/registro, categorías, alcance de puntos, JW, ADMIN/MANAGER y
--- endurecimiento de grupos). La sección 9 resume ese estado; la fuente de verdad
--- son los archivos sql/10, 11, 14, 15, 16, 17 y 18 (más las anteriores 06–09).
+-- ACTUALIZACIÓN 2026-11-26: el estado final incorpora las migraciones 10–20
+-- (grupos, login/registro, categorías, alcance de puntos, JW, ADMIN/MANAGER,
+-- endurecimiento de grupos y subcategorías/capas). La sección 9 resume ese
+-- estado; la fuente de verdad son los archivos sql/10–20 (más 06–09).
 --
 -- Fiel a la base de datos existente: columnas, restricciones, índices,
 -- funciones, políticas RLS y GRANTs tal como están aplicados hoy.
@@ -530,6 +530,7 @@ alter table public.events     add column if not exists group_id uuid;
 alter table public.activities add column if not exists group_id uuid;
 alter table public.activities add column if not exists map_point_id uuid;
 alter table public.activities add column if not exists series_id uuid;
+alter table public.map_points add column if not exists subcategory_id uuid;
 alter table public.wall_posts add column if not exists group_id uuid;
 alter table public.map_points add column if not exists group_id uuid;
 alter table public.map_points add column if not exists scope text not null default 'group';
@@ -604,4 +605,19 @@ alter table public.groups     add column if not exists join_password_hash text;
 --   Se eliminó la política "Admin de grupo edita su grupo": el MANAGER ya no
 --   puede actualizar la fila de groups (nombre, slug, active) por API. La
 --   gestión del grupo queda solo para el ADMIN ("Admin gestiona grupos").
+
+-- 9.9 Subcategorías/capas (sql/19)
+--   map_subcategories: categoría padre, slug, nombre, color, icono,
+--                      render_mode ('auto'|'icon'), layer_key, sort, active.
+--   map_points.subcategory_id: cada punto hereda color/icono/comportamiento.
+--   map_layer_point_overrides: visibilidad GLOBAL de puntos externos por
+--                      layer_key + external_id (osm_id / gtfs_stop_id).
+--   RLS: lectura autenticada; escritura solo ADMIN.
+--   Migración: "general" por categoría y backfill de todos los puntos.
+--   Capas externas vinculadas: metro, metrotren, parques, plazas, comercio,
+--   salud, seguridad, bomberos, servicios.
+
+-- 9.10 JW en subcategorías (sql/20)
+--   Trigger map_subcategories_jw: toda subcategoría de categoría JW fuerza
+--   render_mode='icon' (siempre icono + animaciones).
 

@@ -89,14 +89,15 @@ node scripts/optimizar-iconos.mjs
 
 - Jerarquía **ADMIN / MANAGER** (vista simplificada, grupos, actividades multi-grupo,
   puntos fijos bloqueados y contactos generales): ejecutar
-  **`sql/17_admin_manager.sql`** y luego **`sql/18_endurecer_grupos.sql`** (el MANAGER no
-  puede editar la fila de su grupo por API). Después:
+  **`sql/17_admin_manager.sql`**, luego **`sql/18_endurecer_grupos.sql`**, después
+  **`sql/19_subcategorias_capas.sql`** y **`sql/20_jw_subcategorias.sql`** (subcategorías/capas,
+  overrides de puntos externos y JW siempre icono). Después:
   1. La cuenta **ADMIN** debe tener `role = 'admin'`.
   2. Los gestores de cada grupo usan `role = 'manager'` (el ADMIN los nombra desde
      **Grupos → Miembros**).
   3. Los usuarios normales quedan con `role = 'user'`.
   El archivo migra los antiguos `group_admin = true` a `manager` y elimina la columna.
-  Después, recargar la app (`sw` v26).
+  Después, recargar la app (`sw` v27).
 
 - Separar los cuarteles de bomberos de la capa de seguridad (sin volver a Overpass; es
   idempotente y no sobrescribe nada si ya están separados):

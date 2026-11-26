@@ -4,7 +4,7 @@
 > Última actualización: 2026-11-26.
 >
 > **Estado:** integración con Supabase **resuelta** (§13). Los dos fallos de la §8 están cerrados. Las **9 etapas de `UPDATE.md`** están completadas y documentadas en §29–§36 (Fase 7 cerrada el 2026-11-26). La jerarquía **ADMIN/MANAGER** se documenta en §37 (SQL 17).
-> **`schema.sql`:** snapshot de la BD real del 2026-11-23 (§1–§8) **más** la sección 9 con el estado final de las migraciones 10–18. La fuente de verdad del esquema son los archivos `sql/`.
+> **`schema.sql`:** snapshot de la BD real del 2026-11-23 (§1–§8) **más** la sección 9 con el estado final de las migraciones 10–20. La fuente de verdad del esquema son los archivos `sql/`.
 
 ## 1. Objetivo del proyecto
 
@@ -1637,7 +1637,8 @@ MapLibre 4.7.1 + Supabase + GitHub Pages):
 `sql/06_map_points.sql` → `07_terminales.sql` → `08_puntos_fijos.sql` (si aplica) →
 `09_admin_gestiona_puntos.sql` → `10_grupos.sql` → `11_rls_grupos.sql` →
 `14_registro_perfiles.sql` → `15_categorias_puntos.sql` → `16_jw_actividades.sql` →
-`17_admin_manager.sql` → `18_endurecer_grupos.sql`.
+`17_admin_manager.sql` → `18_endurecer_grupos.sql` → `19_subcategorias_capas.sql` →
+`20_jw_subcategorias.sql`.
 
 Todas son idempotentes. La Fase 7 **no agrega migraciones**: el esquema final se documenta
 en `schema.sql` (sección 9) y en los archivos anteriores. `sql/17` es la migración de la
@@ -1676,7 +1677,7 @@ jerarquía ADMIN/MANAGER (posterior a la Fase 7).
 
 ### Pruebas
 
-- `node scripts/verificar-mapa.mjs` → **384 pruebas · 0 fallos · 2 avisos** (bloques `[1]`–`[16]`).
+- `node scripts/verificar-mapa.mjs` → **395 pruebas · 0 fallos · 2 avisos** (bloques `[1]`–`[16]`).
 - Verificación en navegador por fase: login/registro, RLS de eventos/muro con `test1`,
   colores y puntos, JW (latido/destello en su lugar), evento, agenda, FAB/SOS y animaciones.
   **0 errores de consola** en los flujos normales; los 4xx/5xx esperados de las pruebas
@@ -1691,8 +1692,8 @@ jerarquía ADMIN/MANAGER (posterior a la Fase 7).
 | `src/config.js` | `SUPABASE_URL`, clave publicable y `EMERGENCY_URL` (todas públicas). |
 | `index.html` | Vistas, diálogos (actividad, punto, evento), agenda, FAB y SOS. |
 | `styles.css` | Categorías/colores, JW, mapas, agenda, FAB/SOS y `@keyframes` de destello/latido. |
-| `sw.js` | Service worker, precache `v26`. |
-| `scripts/verificar-mapa.mjs` | Verificador (384 pruebas, bloques `[1]`–`[16]`). |
+| `sw.js` | Service worker, precache `v27`. |
+| `scripts/verificar-mapa.mjs` | Verificador (395 pruebas, bloques `[1]`–`[16]`). |
 | `sql/06`–`sql/16` | Migraciones idempotentes (mapa, terminales, admin, grupos, RLS, perfiles, categorías, JW). |
 | `supabase/functions/login-username` | Login por usuario+contraseña con grupo automático (v2). |
 | `supabase/functions/register-profile` | Registro con contraseña de grupo (`validar-grupo`, `sugerir-usuario`, `registrar`). |
@@ -1707,9 +1708,9 @@ jerarquía ADMIN/MANAGER (posterior a la Fase 7).
 3. **Corte +30 → siguiente** en vivo: cubierto por las pruebas puras del módulo de tiempo.
 4. **Selección individual en capas externas** (parques/salud/comercio de OSM): se mantiene el
    interruptor por categoría; la gestión individual aplica a `map_points` (decisión de alcance).
-5. **`schema.sql` no es un `pg_dump` en vivo**: la sección 9 consolida las migraciones 10–18;
+5. **`schema.sql` no es un `pg_dump` en vivo**: la sección 9 consolida las migraciones 10–20;
    la fuente de verdad son los archivos `sql/`.
-6. Limpieza de caché del service worker tras cada despliegue (hoy `v26`).
+6. Limpieza de caché del service worker tras cada despliegue (hoy `v27`).
 7. `UPDATE.md` es del usuario y quedó **sin rastrear**.
 
 ### Artefactos de prueba
@@ -1776,9 +1777,9 @@ de su grupo.
 
 ### Verificación
 
-- `node scripts/verificar-mapa.mjs` → **384 pruebas · 0 fallos · 2 avisos** (bloques `[15]` y
+- `node scripts/verificar-mapa.mjs` → **395 pruebas · 0 fallos · 2 avisos** (bloques `[15]` y
   `[16]`).
-- `sw.js` → **v26**.
+- `sw.js` → **v27**.
 - **QA de integración (2026-11-26)**: `scripts/qa-simulacion.mjs` → **228 comprobaciones · 0
   fallos** con 3 grupos, 30 usuarios (10 por grupo), 1 MANAGER por grupo, 3 eventos solapados,
   actividades de ADMIN/MANAGER, 30 publicaciones de muro, puntos y ataques.
@@ -1816,8 +1817,8 @@ sistema externo.
   “Abrir sistema de emergencia”.
 - El **SOS flotante** global (`#sos-fab`) se oculta únicamente en la vista Emergencia para no
   duplicar la acción; sigue disponible en Agenda/Mapa/Muro.
-- `sw` → **v26**.
-- `scripts/verificar-mapa.mjs` → **384 pruebas · 0 fallos · 2 avisos**, con comprobación de que
+- `sw` → **v27**.
+- `scripts/verificar-mapa.mjs` → **395 pruebas · 0 fallos · 2 avisos**, con comprobación de que
   no quedan `sosButton`, `ACTIVAR PROTOCOLO`, `crisis_alert` ni `net-status`, y de que siguen
   `#emergency-contacts` y `#emergency-open-link`.
 - En vivo: la vista muestra únicamente contactos + botón; el flotante desaparece en
@@ -1834,8 +1835,61 @@ Se reemplazó el título visible y de PWA:
 - `manifest.webmanifest`: `name` = **STGO 2026 | Región 8**, `short_name` = **STGO 2026**.
 - `alt` del logo actualizado.
 
-`sw` → **v26**. `scripts/verificar-mapa.mjs` → **384 pruebas · 0 fallos · 2 avisos** (incluye
+`sw` → **v27**. `scripts/verificar-mapa.mjs` → **395 pruebas · 0 fallos · 2 avisos** (incluye
 la comprobación del encabezado/título y del manifest).
+
+---
+
+## 40. Vista mapa: nombres, controles, subcategorías y capas (2026-11-26)
+
+### Nombres
+
+- Máximo **3 líneas** visibles (`white-space: pre-line` + `-webkit-line-clamp: 3`).
+- El formulario de punto usa **textarea** para insertar saltos manuales.
+
+### Controles laterales
+
+Quedaron solo: **Centrar · Mi ubicación · Capas · Cerca de mí**.
+Se eliminaron `+`, `-`, satélite, pantalla completa, agregar punto y gestión de puntos.
+El satélite se sigue alternando desde la capa “Vista satelital”.
+
+### Alta de punto
+
+- **Clic en zona vacía** del mapa o **pulsación larga** (600 ms) abre el formulario.
+- No se abre sobre marcadores, popups, controles ni capas de datos.
+- No hay botón “Agregar punto”.
+- “Cerca de mí” queda como placeholder con aviso de próxima etapa.
+
+### Subcategorías/capas (`sql/19`, `sql/20`)
+
+- `map_categories` → `map_subcategories` (subcategoría = capa).
+- Campos: color, icono, `render_mode` (`auto`/`icon`), `layer_key`, orden, activo.
+- `map_points.subcategory_id`; backfill a la subcategoría “General” de cada categoría.
+- Overrides globales de puntos externos:
+  `map_layer_point_overrides(layer_key, external_id, visible, …)`.
+  Solo se guardan las **excepciones ocultas**; sin fila = visible.
+- RLS: lectura autenticada, escritura solo ADMIN.
+- JW: trigger `map_subcategories_jw` fuerza `render_mode='icon'`; todos los puntos JW
+  siguen vinculables a actividades.
+
+### UI de capas
+
+- Engranaje **solo ADMIN** en el título de “Capas del mapa”.
+- ADMIN: CRUD de categorías/subcategorías, color, icono, comportamiento, capa y puntos
+  externos visibles.
+- MANAGER/usuarios: solo encienden/apagan capas completas; no ven ajustes.
+- Nombres de capas externas salen de su subcategoría (Metro, MetroTren, Parques, Plazas…).
+- Los puntos manuales usan color/icono/comportamiento de su subcategoría.
+- Capas propias sin `layer_key` aparecen como toggles adicionales (p. ej. Buses).
+
+### Pendiente
+
+- “Cerca de mí”: implementar radio + PostGIS/Haversine. PostGIS está disponible (3.3.7)
+  pero no instalado; para GeoJSON se puede usar Haversine en cliente.
+- El cambio de icono de capas externas se aplica a lugares y Metro; MetroTren solo usa
+  círculos.
+- La visibilidad externa se aplica a la fuente al guardar; si la capa no está cargada se
+  aplica al encenderla.
 
 
 
