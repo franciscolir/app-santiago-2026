@@ -119,7 +119,7 @@ Sin dependencias: solo Node.js ≥ 18. Comprueba:
 | 89 | JW clases CSS | Destello y latido con `@keyframes` y `prefers-reduced-motion`, en el **icono interior** (no en el marcador) | ✅ |
 | 90 | Esquema final | `schema.sql` documenta el estado de las migraciones 10–18 sin fingir un `pg_dump` | ✅ (sección 9; fuente de verdad: `sql/`, declarado) |
 | 91 | Documentación de cierre | `AGENT.md` §36/§37 y `DOCUMENTACION-MAPA.md` §7 resumen la entrega | ✅ |
-| 92 | Verificador final | La corrida completa sigue en verde tras el cierre | ✅ (381 pruebas · 0 fallos · 2 avisos) |
+| 92 | Verificador final | La corrida completa sigue en verde tras el cierre | ✅ (382 pruebas · 0 fallos · 2 avisos) |
 | 93 | Artefactos | No quedan usuarios, grupos, actividades ni puntos de prueba | ✅ (`principal`, `admin`/`test`, 5 actividades, 6 puntos) |
 | 94 | Rol MANAGER | `role='manager'` administra solo su grupo (evento, actividades, puntos, muro) | ✅ (en vivo: `test` como MANAGER; solo actividades de principal; creó una actividad) |
 | 95 | Rol ADMIN | `role='admin'` ve Grupos/Actividades/Mapa/Emergencia, sin Agenda ni Muro | ✅ (en vivo; 4 pestañas, sin Agenda/Muro) |
@@ -141,16 +141,22 @@ Sin dependencias: solo Node.js ≥ 18. Comprueba:
 | 111 | QA IDOR | Actividad/post/punto de otro grupo no se lee ni modifica | ✅ (0 filas/403) |
 | 112 | QA hallazgo | MANAGER podía actualizar la fila de su grupo por API | ✅ corregido con `sql/18_endurecer_grupos.sql` (204 sin filas; nombre intacto) |
 | 113 | QA limpieza | Se borran grupos, 60 usuarios, eventos, actividades, muro y puntos QA | ✅ (quedan 5 actividades, 6 puntos, 1 grupo, 2 perfiles) |
+| 114 | Emergencia simplificada | Solo contactos + botón inferior; sin hero, SOS grande ni estado de red | ✅ (DOM: no `sosButton`/`crisis_alert`/`net-status`; sí contactos y enlace) |
+| 115 | SOS flotante | Se oculta en Emergencia y reaparece en Agenda/Mapa/Muro | ✅ (`display:none` en Emergencia, `flex` en Agenda) |
 
 ---
 
 ## 3. Resultados de la corrida automática
 
+- **2026-11-26 (Emergencia simplificada)**: **382 pruebas · 0 fallos · 2 avisos**. Se verificó
+  que la vista solo conserva contactos + botón inferior, que el hero/SOS/estado de red ya no
+  existen y que el SOS flotante se oculta en Emergencia y vuelve en las demás pestañas.
+  `sw` v24.
 - **2026-11-26 (QA 3×10 + seguridad)**: **228 comprobaciones de integración · 0 fallos** con
   `scripts/qa-simulacion.mjs` (3 grupos, 30 usuarios, 1 MANAGER por grupo, eventos solapados,
   actividades de ADMIN/MANAGER, muro, puntos y ataques). Hallazgo corregido: el MANAGER podía
   editar la fila de su grupo por API (`sql/18_endurecer_grupos.sql`).
-- **2026-11-26 (ADMIN/MANAGER)**: **381 pruebas · 0 fallos · 2 avisos** (bloques `[15]` y `[16]`).
+- **2026-11-26 (ADMIN/MANAGER)**: **382 pruebas · 0 fallos · 2 avisos** (bloques `[15]` y `[16]`).
   - Bloque `[15]`: roles `admin/manager/user`, `group_admin` eliminado, `can_manage_group`
     limitado al grupo del MANAGER, `admin_grupos()` sin hash, puntos bloqueados
     (CHECK + trigger), `series_id`, grupo derivado del evento, slug numérico, navegación por
@@ -265,7 +271,7 @@ Sin dependencias: solo Node.js ≥ 18. Comprueba:
 - Avisos no bloqueantes del navegador: Tailwind CDN (aviso conocido de producción) y 3 avisos
   de MapLibre (`Expected value to be of type number, but found null instead`) que provienen del
   estilo OpenFreeMap, no del código de la app.
-- El service worker quedó en `app-santiago-2026-v23` (precache renovada con la jerarquía
+- El service worker quedó en `app-santiago-2026-v24` (precache renovada con la jerarquía
   ADMIN/MANAGER, los puntos bloqueados y los contactos generales).
 - **Limitación del navegador embebido de pruebas**: no dispara `requestAnimationFrame`, por lo
   que MapLibre no repinta (`map.loaded()` queda en `false` y `queryRenderedFeatures()` devuelve

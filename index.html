@@ -732,46 +732,8 @@ dialog::backdrop { background: rgba(44, 49, 50, .6); backdrop-filter: blur(2px);
 
     <!-- ==================== VISTA EMERGENCIA ==================== -->
     <section id="view-emergencia" class="view view-section hidden flex-col w-full pb-8">
-      <!-- Estado de red (real: navigator.onLine) -->
-      <div class="px-margin pt-3 pb-2">
-        <div class="bg-surface-container-lowest rounded-lg p-3 shadow-sm flex items-center justify-between gap-space-sm" style="border: 1px solid rgb(206, 232, 242);">
-          <div class="flex items-center gap-2 min-w-0">
-            <span id="net-dot" class="relative flex h-3 w-3 flex-shrink-0">
-              <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-error opacity-75"></span>
-              <span class="relative inline-flex rounded-full h-3 w-3 bg-error"></span>
-            </span>
-            <div class="min-w-0">
-              <p class="font-label-sm text-label-sm uppercase tracking-wider text-on-surface-variant font-bold">Estado de red</p>
-              <p class="font-headline-sm text-headline-sm text-on-surface truncate" id="net-status" role="status">Comprobando…</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- HERO SOS -->
-      <section class="px-margin mb-5">
-        <div class="bg-surface-container-lowest rounded-lg p-4 shadow-md relative overflow-hidden flex flex-col items-center text-center" style="border: 1px solid rgb(206, 232, 242);">
-          <div class="absolute inset-0 bg-gradient-to-b from-error/5 via-transparent to-error/10 pointer-events-none"></div>
-          <div class="flex items-center gap-1.5 px-3 py-1 bg-error-container text-on-error-container rounded-full font-label-sm text-label-sm mb-3 font-bold uppercase tracking-wider">
-            <span class="material-symbols-outlined text-[16px] animate-pulse">crisis_alert</span>
-            Protocolo de seguridad
-          </div>
-          <p class="font-headline-lg-mobile text-headline-lg-mobile text-on-surface font-extrabold max-w-xs mb-1">ACTIVAR PROTOCOLO DE EMERGENCIA</p>
-          <p class="font-body-sm text-body-sm text-on-surface-variant max-w-xs mb-4">Abre el sistema externo de emergencia. Si necesitas la red interna, usa los contactos de abajo.</p>
-          <div class="relative flex items-center justify-center my-2">
-            <div class="absolute w-36 h-36 rounded-full bg-error/15 animate-ping" style="animation-duration: 2.2s;"></div>
-            <div class="absolute w-44 h-44 rounded-full bg-error/10 pointer-events-none"></div>
-            <button class="relative z-10 w-32 h-32 rounded-full bg-error text-on-error flex flex-col items-center justify-center shadow-lg active:scale-95 transition-all select-none focus:outline-none ring-4 ring-error/40" id="sosButton">
-              <span class="material-symbols-outlined text-[42px] leading-none mb-1">campaign</span>
-              <span class="font-headline-md text-headline-md tracking-wider font-black">SOS</span>
-              <span class="font-label-sm text-label-sm opacity-90 uppercase">Pulsar</span>
-            </button>
-          </div>
-        </div>
-      </section>
-
       <!-- Contactos (reales: tabla emergency_contacts) -->
-      <section class="px-margin mb-6">
+      <section class="px-margin pt-4 mb-6">
         <div class="flex items-center justify-between mb-2.5 gap-2">
           <h3 class="font-headline-sm text-headline-sm text-on-surface">Contactos de emergencia</h3>
           <div class="flex items-center gap-2">
@@ -787,7 +749,6 @@ dialog::backdrop { background: rgba(44, 49, 50, .6); backdrop-filter: blur(2px);
       <!-- Enlace al sitio externo (X-Frame-Options: DENY) -->
       <section class="px-margin mb-4">
         <div class="bg-surface-container-lowest rounded-lg p-4 shadow-sm" style="border: 1px solid rgb(206, 232, 242);">
-          <p class="font-body-sm text-body-sm text-on-surface-variant mb-3">El sitio externo no permite mostrarse dentro de la aplicación (bloquea el iframe). Ábrelo en una pestaña nueva:</p>
           <a id="emergency-open-link" class="h-12 w-full rounded-full bg-error text-on-error font-label-lg text-label-lg font-bold flex items-center justify-center gap-2 shadow-md active:scale-[0.98] transition-all" href="https://auxilio-rm-go.base44.app/" target="_blank" rel="noopener">
             <span class="material-symbols-outlined text-[20px]">emergency</span>
             <span>Abrir sistema de emergencia ↗</span>

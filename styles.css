@@ -243,6 +243,10 @@ dialog { border: 0; padding: 0; margin: 0; max-width: 100%; max-height: 100%; wi
 dialog[open] { display: flex; flex-direction: column; justify-content: flex-end; }
 dialog::backdrop { background: rgba(44,49,50,.6); backdrop-filter: blur(2px); }
 
+/* La vista Emergencia quedó reducida a contactos + botón inferior: el SOS
+   flotante global se oculta allí para no duplicar la acción. */
+body.vista-emergencia #sos-fab { display: none; }
+
 /* ==================== ADMIN / MANAGER (sql/17) ==================== */
 body.modo-admin .nav-item[data-view='grupos'] { order: 1; }
 body.modo-admin .nav-item[data-view='actividades'] { order: 2; }

@@ -1676,7 +1676,7 @@ jerarquía ADMIN/MANAGER (posterior a la Fase 7).
 
 ### Pruebas
 
-- `node scripts/verificar-mapa.mjs` → **381 pruebas · 0 fallos · 2 avisos** (bloques `[1]`–`[16]`).
+- `node scripts/verificar-mapa.mjs` → **382 pruebas · 0 fallos · 2 avisos** (bloques `[1]`–`[16]`).
 - Verificación en navegador por fase: login/registro, RLS de eventos/muro con `test1`,
   colores y puntos, JW (latido/destello en su lugar), evento, agenda, FAB/SOS y animaciones.
   **0 errores de consola** en los flujos normales; los 4xx/5xx esperados de las pruebas
@@ -1691,8 +1691,8 @@ jerarquía ADMIN/MANAGER (posterior a la Fase 7).
 | `src/config.js` | `SUPABASE_URL`, clave publicable y `EMERGENCY_URL` (todas públicas). |
 | `index.html` | Vistas, diálogos (actividad, punto, evento), agenda, FAB y SOS. |
 | `styles.css` | Categorías/colores, JW, mapas, agenda, FAB/SOS y `@keyframes` de destello/latido. |
-| `sw.js` | Service worker, precache `v23`. |
-| `scripts/verificar-mapa.mjs` | Verificador (381 pruebas, bloques `[1]`–`[16]`). |
+| `sw.js` | Service worker, precache `v24`. |
+| `scripts/verificar-mapa.mjs` | Verificador (382 pruebas, bloques `[1]`–`[16]`). |
 | `sql/06`–`sql/16` | Migraciones idempotentes (mapa, terminales, admin, grupos, RLS, perfiles, categorías, JW). |
 | `supabase/functions/login-username` | Login por usuario+contraseña con grupo automático (v2). |
 | `supabase/functions/register-profile` | Registro con contraseña de grupo (`validar-grupo`, `sugerir-usuario`, `registrar`). |
@@ -1709,7 +1709,7 @@ jerarquía ADMIN/MANAGER (posterior a la Fase 7).
    interruptor por categoría; la gestión individual aplica a `map_points` (decisión de alcance).
 5. **`schema.sql` no es un `pg_dump` en vivo**: la sección 9 consolida las migraciones 10–18;
    la fuente de verdad son los archivos `sql/`.
-6. Limpieza de caché del service worker tras cada despliegue (hoy `v23`).
+6. Limpieza de caché del service worker tras cada despliegue (hoy `v24`).
 7. `UPDATE.md` es del usuario y quedó **sin rastrear**.
 
 ### Artefactos de prueba
@@ -1776,9 +1776,9 @@ de su grupo.
 
 ### Verificación
 
-- `node scripts/verificar-mapa.mjs` → **381 pruebas · 0 fallos · 2 avisos** (bloques `[15]` y
+- `node scripts/verificar-mapa.mjs` → **382 pruebas · 0 fallos · 2 avisos** (bloques `[15]` y
   `[16]`).
-- `sw.js` → **v23**.
+- `sw.js` → **v24**.
 - **QA de integración (2026-11-26)**: `scripts/qa-simulacion.mjs` → **228 comprobaciones · 0
   fallos** con 3 grupos, 30 usuarios (10 por grupo), 1 MANAGER por grupo, 3 eventos solapados,
   actividades de ADMIN/MANAGER, 30 publicaciones de muro, puntos y ataques.
@@ -1800,6 +1800,28 @@ de su grupo.
   (`admin` = ADMIN, `test` = MANAGER).
 - `login-username` y `register-profile` se redesplegaron sin `group_admin` (el SQL 17 elimina
   la columna; sin este cambio el login fallaba).
+
+---
+
+## 38. Vista Emergencia simplificada (2026-11-26)
+
+Petición: dejar en Emergencia **solo la lista de contactos y el botón inferior** que abre el
+sistema externo.
+
+- Se eliminó el hero completo: `crisis_alert`, “Protocolo de seguridad”, “ACTIVAR PROTOCOLO
+  DE EMERGENCIA”, el texto explicativo y el botón circular **SOS/Pulsar** (`#sosButton`).
+- Se eliminó también el bloque “Estado de red” (`#net-status`, `#net-dot`); los avisos
+  online/offline siguen funcionando mediante `updateNetStatus()` con guardas.
+- Se quitó el párrafo sobre X-Frame-Options del bloque inferior; queda solo el botón
+  “Abrir sistema de emergencia”.
+- El **SOS flotante** global (`#sos-fab`) se oculta únicamente en la vista Emergencia para no
+  duplicar la acción; sigue disponible en Agenda/Mapa/Muro.
+- `sw` → **v24**.
+- `scripts/verificar-mapa.mjs` → **382 pruebas · 0 fallos · 2 avisos**, con comprobación de que
+  no quedan `sosButton`, `ACTIVAR PROTOCOLO`, `crisis_alert` ni `net-status`, y de que siguen
+  `#emergency-contacts` y `#emergency-open-link`.
+- En vivo: la vista muestra únicamente contactos + botón; el flotante desaparece en
+  Emergencia y vuelve al cambiar de pestaña; **0 errores de consola**.
 
 
 

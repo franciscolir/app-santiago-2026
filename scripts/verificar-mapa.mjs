@@ -681,7 +681,7 @@ console.log("[9] Acceso: login por usuario, grupo automático y registro");
   check(/\$\("#agenda-active-day"\)\?\.classList\.add\("hidden"\)/.test(main),
     "agenda: la tarjeta del día activo se oculta si HOY no tiene actividades",
     "el encabezado del día anterior puede quedar visible");
-  check(/app-santiago-2026-v23/.test(sw),
+  check(/app-santiago-2026-v24/.test(sw),
     "service worker: v23 (ADMIN/MANAGER + puntos bloqueados)", "el SW no se renovó");
 }
 
@@ -889,12 +889,18 @@ console.log("[13] Fase 5: agenda con todos los días, FAB y SOS");
         /target="_blank"/.test(html) && /rel="noopener"/.test(html),
     "SOS: botón flotante rojo en pestaña nueva", "falta el SOS flotante");
   check(/\$\("#sos-fab"\)\?\.setAttribute\("href",EMERGENCY_URL\)/.test(main) &&
-        /function abrirEmergencia/.test(main) &&
-        /\$\("#sosButton"\)\.addEventListener\("click",abrirEmergencia\)/.test(main),
-    "SOS: abre EMERGENCY_URL (flotante y botón grande)", "el SOS no abre la URL configurada");
+        /id="emergency-open-link"/.test(html) &&
+        /Abrir sistema de emergencia/.test(html),
+    "SOS: el botón flotante y el enlace inferior abren EMERGENCY_URL",
+    "el SOS no abre la URL configurada");
+  check(!/sosButton|ACTIVAR PROTOCOLO|Protocolo de seguridad|crisis_alert|net-status/.test(html) &&
+        /id="emergency-contacts"/.test(html) &&
+        /id="emergency-open-link"/.test(html),
+    "Emergencia: solo contactos + botón inferior (sin hero SOS)",
+    "quedaron restos del hero/estado de red");
   check(/bottom: calc\(4\.5rem \+ env\(safe-area-inset-bottom/.test(html),
     "SOS/FAB: sobre la barra de navegación (safe area)", "no respetan la barra inferior");
-  check(/app-santiago-2026-v23/.test(sw),
+  check(/app-santiago-2026-v24/.test(sw),
     "service worker: v23", "el SW no se renovó");
 }
 
@@ -952,7 +958,7 @@ console.log("[14] Fase 6: animaciones JW (destello y latido)");
     "JW: temporizador de 60 s (sin consultas a Supabase)", "no hay temporizador");
   check(/aplicarEstadoJW\(\);\s*\}/.test(main),
     "JW: el estado se reaplica al renderizar los puntos", "no se aplica al render");
-  check(/app-santiago-2026-v23/.test(leerTexto("sw.js") || ""),
+  check(/app-santiago-2026-v24/.test(leerTexto("sw.js") || ""),
     "service worker: v23", "el SW no se renovó");
 }
 

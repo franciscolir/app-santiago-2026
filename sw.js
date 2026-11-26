@@ -38,7 +38,8 @@
 // marcador no se desplaza.
 // v23: jerarquía ADMIN/MANAGER, vista de grupos/actividades, puntos bloqueados
 // y contactos generales de emergencia (sql/17).
-const CACHE_NAME = "app-santiago-2026-v23";
+// v24: vista Emergencia simplificada: contactos + botón inferior, sin hero SOS.
+const CACHE_NAME = "app-santiago-2026-v24";
 const APP_SHELL = [
   "./",
   "./index.html",

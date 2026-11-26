@@ -725,6 +725,7 @@ function gotoView(name){
   // En la vista Mapa se oculta el header de la app para que el mapa use
   // todo el espacio de la pantalla.
   document.body.classList.toggle("vista-mapa",name==="mapa");
+  document.body.classList.toggle("vista-emergencia",name==="emergencia");
   if(name==="mapa")setTimeout(()=>{
     if(!state.map) renderMap();          // mapa perezoso: se crea al abrir la pestaña
     else state.map.resize();
@@ -3258,17 +3259,14 @@ $("#sos-fab")?.setAttribute("href",EMERGENCY_URL);
 // Estado de red REAL (navigator.onLine), no inventado.
 function updateNetStatus(){
   const online=navigator.onLine;
-  $("#net-status").textContent=online?"Conectado":"Sin conexión";
+  const status=$("#net-status");
+  if(status) status.textContent=online?"Conectado":"Sin conexión";
   $("#net-dot")?.querySelectorAll("span").forEach(s=>{s.style.background=online?"#2e7d32":"#ba1a1a";});
 }
 window.addEventListener("online",()=>{updateNetStatus();showToast("Conexión restablecida.");});
 window.addEventListener("offline",()=>{updateNetStatus();showToast("Sin conexión: los datos pueden estar desactualizados.");});
-// El botón grande y el SOS flotante abren el sistema externo de emergencia.
-function abrirEmergencia(){
-  const w=window.open(EMERGENCY_URL,"_blank");
-  if(w) w.opener=null; else window.location.href=EMERGENCY_URL;
-}
-$("#sosButton").addEventListener("click",abrirEmergencia);
+// El botón inferior de la vista abre el sistema externo de emergencia.
+$("#sos-fab")?.setAttribute("href",EMERGENCY_URL);
 
 updateNetStatus();
 boot().catch(e=>{console.error("boot fatal:",e);showLogin();});
