@@ -4,7 +4,7 @@ import "./pwa.js";
 
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => document.querySelectorAll(s);
-const state = { user:null, profile:null, event:null, activities:[], category:"positive", filter:"mine",
+const state = { user:null, profile:null, event:null, activities:[], category:"positive",
   map:null, mapListo:false, markers:null, markerById:new Map(), pendingFit:null, selectedId:null, toastTimer:null,
   mapPoints:[], pointMarkers:new Map(), pointMode:false, mensajeTipo:null,
   // Grupo activo (UPDATE.md Etapa 1). `groupId` filtra TODAS las consultas;
@@ -532,80 +532,62 @@ $("#event-form")?.addEventListener("submit",async e=>{
 });
 
 const hasMine = (a)=>(a.activity_assignments||[]).some(x=>x.user_id===state.user?.id);
-function syncFilterControls(){
-  $$(".filter-tab").forEach(x=>{
-    const active=x.dataset.filter===state.filter;
-    x.classList.toggle("active",active);
-    x.setAttribute("aria-pressed",String(active));
-  });
-}
-function setFilter(f){
-  state.filter=f; state.filterTouched=true;
-  syncFilterControls();
-  renderAgenda();
-}
-$$(".filter-tab").forEach(b=>b.addEventListener("click",()=>setFilter(b.dataset.filter)));
 
 function renderAgenda(){
   const root=$("#agenda-list"); if(!root) return;
-  const mine=state.activities.filter(hasMine);
-  $("#count-mine").textContent=mine.length;
-  $("#count-all").textContent=state.activities.length;
-  // Sin actividades asignadas y el usuario aún no eligió pestaña: mostrar "Todas" para no dejar la agenda vacía.
-  if(!state.filterTouched && state.filter==="mine" && !mine.length && state.activities.length) state.filter="all";
-  syncFilterControls();
   root.setAttribute("aria-busy","false");
-  const list=state.filter==="mine"?mine:state.activities;
   const today=todayStr();
-
-  // Contenedores de la nueva estructura (diseño agenda.html).
   const past=$("#agenda-past-days");
   const activeList=$("#agenda-active-list");
   const upcoming=$("#agenda-upcoming-days");
   const useNewLayout=!!(past&&activeList&&upcoming);
 
-  if(!list.length){
-    if(useNewLayout){ activeList.innerHTML='<div class="empty">No hay actividades registradas.</div>'; }
-    else { root.innerHTML=state.filter==="mine"
-      ? '<div class="empty">No tienes actividades asignadas todavía.<br><button class="secondary mt-2" id="goto-all" type="button">Ver todas las actividades</button></div>'
-      : '<div class="empty">No hay actividades registradas.</div>'; }
-    $("#goto-all")?.addEventListener("click",()=>setFilter("all"));
-    return;
+  // TODOS los días del evento, incluidos los que no tienen actividades.
+  const fechas=[];
+  if(state.event){
+    for(let d=state.event.start_date; d<=state.event.end_date; d=sumarDias(d,1)) fechas.push(d);
   }
-
-  // Agrupar por fecha.
   const byDate=new Map();
-  for(const a of list){ if(!byDate.has(a.activity_date))byDate.set(a.activity_date,[]); byDate.get(a.activity_date).push(a); }
-  const fechas=[...byDate.keys()].sort();
+  for(const a of state.activities){
+    if(!byDate.has(a.activity_date)) byDate.set(a.activity_date,[]);
+    byDate.get(a.activity_date).push(a);
+  }
+  const itemsDe=(date)=>byDate.get(date)||[];
+  const progreso=(items)=>{
+    const mineThatDay=items.filter(hasMine);
+    const done=mineThatDay.filter(a=>(a.activity_assignments||[]).find(x=>x.user_id===state.user.id)?.status==="completed").length;
+    return {mineThatDay,done,pct:mineThatDay.length?Math.round(done/mineThatDay.length*100):0};
+  };
+  const mes=(dt)=>dt.toLocaleDateString("es-CL",{month:"short"}).toUpperCase();
 
   if(useNewLayout){
     past.innerHTML=""; activeList.innerHTML=""; upcoming.innerHTML="";
-    // La tarjeta del día activo se oculta y solo reaparece si HOY tiene
-    // actividades (evita encabezados/fechas viejas al cambiar de grupo).
+    // La tarjeta del día activo se oculta y solo reaparece si HOY está en el evento.
     $("#agenda-active-day")?.classList.add("hidden");
     for(const date of fechas){
-      const items=byDate.get(date);
+      const items=itemsDe(date);
       const dt=new Date(date+"T12:00:00");
       const isToday=date===today;
-      const mineThatDay=items.filter(hasMine);
-      const done=mineThatDay.filter(a=>(a.activity_assignments||[]).find(x=>x.user_id===state.user.id)?.status==="completed").length;
-      const pct=mineThatDay.length?Math.round(done/mineThatDay.length*100):0;
-      const itemsHtml=items.map(activityCard).join("");
+      const {mineThatDay,done,pct}=progreso(items);
+      const itemsHtml=items.length
+        ? items.map(activityCard).join("")
+        : '<div class="empty">Sin actividades registradas.</div>';
 
       if(isToday){
-        // Día activo: tarjeta completa con nodo integrado.
+        // Día activo: tarjeta completa, expandido por defecto.
         activeList.innerHTML=itemsHtml;
         $("#active-day-num").textContent=dt.getDate();
-        $("#active-day-month").textContent=dt.toLocaleDateString("es-CL",{month:"short"}).toUpperCase();
-        $("#active-day-label").textContent=esc(cap(dateFmt.format(dt)));
+        $("#active-day-month").textContent=mes(dt);
+        $("#active-day-label").textContent=cap(dateFmt.format(dt));
+        $("#active-day-subtitle").textContent=items[0]?.description||"Sin actividades programadas";
         $("#active-day-count").textContent=items.length+" Actividad"+(items.length===1?"":"es");
-        $("#active-day-progress").textContent=done+"/"+mineThatDay.length+" completadas";
+        $("#active-day-progress").textContent=done+" de "+mineThatDay.length+" completadas";
         $("#active-day-progress-bar").style.width=pct+"%";
         $("#agenda-active-day")?.classList.remove("hidden");
       } else {
-        const dayNode=dt<today?past:upcoming;
+        const isPast=date<today;
+        const dayNode=isPast?past:upcoming;
         const dayId="day-"+date.replace(/-/g,"");
-        const isPast=dt<today;
         const icon=isPast?"done":"expand_more";
         const cls=isPast?"border-[#CEE8F2] bg-surface-container":"border-[#b1e0ff] bg-surface-container-lowest";
         const titleColor=isPast?"#33647e":"#006492";
@@ -615,9 +597,9 @@ function renderAgenda(){
           <div class="relative flex items-start gap-3.5 group min-w-0">
             <div class="w-13 h-13 min-w-[52px] min-h-[52px] rounded-full flex flex-col items-center justify-center shadow-sm border-2 ${cls} transition-all flex-shrink-0" style="background-color: ${isPast?"#eaeff0":"#ffffff"};">
               <span class="text-[20px] font-black leading-none" style="color: ${titleColor};">${dt.getDate()}</span>
-              <span class="text-[9px] font-bold uppercase tracking-wider leading-none mt-0.5" style="color: ${badgeTextColor};">OCT</span>
+              <span class="text-[9px] font-bold uppercase tracking-wider leading-none mt-0.5" style="color: ${badgeTextColor};">${mes(dt)}</span>
             </div>
-            <div class="flex-1 min-w-0 bg-surface-container-lowest rounded-lg p-3 shadow-sm border transition-all duration-200" style="border-color: ${isPast?"#CEE8F2":"#CEE8F2"};">
+            <div class="flex-1 min-w-0 bg-surface-container-lowest rounded-lg p-3 shadow-sm border transition-all duration-200" style="border-color: #CEE8F2;">
               <button class="w-full min-w-0 flex items-center justify-between gap-2 text-left focus:outline-none" type="button" data-day="${dayId}">
                 <div class="min-w-0 pr-2">
                   <div class="flex items-center gap-2 flex-wrap">
@@ -627,7 +609,7 @@ function renderAgenda(){
                       ${items.length} actividad${items.length===1?"":"es"}
                     </span>
                   </div>
-                  <p class="font-body-sm text-[12px] truncate mt-0.5" style="color: #3f4850;">${esc(items[0].description||"")}</p>
+                  <p class="font-body-sm text-[12px] truncate mt-0.5" style="color: #3f4850;">${esc(items[0]?.description||"Sin actividades")}</p>
                 </div>
                 <span class="material-symbols-outlined text-outline flex-shrink-0 transition-transform duration-200" id="${dayId}-icon">${icon}</span>
               </button>
@@ -638,8 +620,6 @@ function renderAgenda(){
           </div>`;
       }
     }
-    // Botones de toggle de días pasados/futuros (sin onclick inline: main.js
-    // es un módulo y sus funciones no son globales en el ámbito de la página).
     const enlazarDias=(raiz)=>raiz.querySelectorAll("button[data-day]").forEach(b=>{
       const id=b.getAttribute("data-day"); if(id) b.addEventListener("click",()=>toggleDay(id));
     });
@@ -647,13 +627,12 @@ function renderAgenda(){
     enlazarDias(upcoming);
     [past,activeList,upcoming].forEach(enlazarTarjetasActividad);
   } else {
-    // Fallback: lista simple.
-    root.innerHTML=[...byDate.entries()].map(([date,items])=>{
+    // Fallback: lista simple con todos los días del evento.
+    root.innerHTML=fechas.map(date=>{
+      const items=itemsDe(date);
       const dt=new Date(date+"T12:00:00");
       const isToday=date===today;
-      const mineThatDay=items.filter(hasMine);
-      const done=mineThatDay.filter(a=>(a.activity_assignments||[]).find(x=>x.user_id===state.user.id)?.status==="completed").length;
-      const pct=mineThatDay.length?Math.round(done/mineThatDay.length*100):0;
+      const {mineThatDay,done,pct}=progreso(items);
       const progress=mineThatDay.length
         ? `<div class="day-progress"><div class="day-track"><div class="day-bar" style="width:${pct}%"></div></div><span>${done}/${mineThatDay.length} completadas</span></div>`
         : `<span class="day-count">${items.length} actividad${items.length===1?"":"es"}</span>`;
@@ -662,7 +641,7 @@ function renderAgenda(){
           <span class="day-title${isToday?" is-today":""}">${isToday?"HOY":esc(cap(dateFmt.format(dt)))}</span>
           ${progress}
         </div>
-        ${items.map(activityCard).join("")}
+        ${items.length?items.map(activityCard).join(""):'<div class="empty">Sin actividades registradas.</div>'}
       </section>`;
     }).join("");
     enlazarTarjetasActividad(root);
@@ -2763,6 +2742,8 @@ async function loadEmergencyContacts(){
 }
 // El sitio externo envía X-Frame-Options: DENY, así que no puede ir en iframe: se abre en pestaña nueva.
 $("#emergency-open-link")?.setAttribute("href",EMERGENCY_URL);
+// SOS flotante: enlace directo al sistema externo (pestaña nueva, sin opener).
+$("#sos-fab")?.setAttribute("href",EMERGENCY_URL);
 // Estado de red REAL (navigator.onLine), no inventado.
 function updateNetStatus(){
   const online=navigator.onLine;
@@ -2771,8 +2752,12 @@ function updateNetStatus(){
 }
 window.addEventListener("online",()=>{updateNetStatus();showToast("Conexión restablecida.");});
 window.addEventListener("offline",()=>{updateNetStatus();showToast("Sin conexión: los datos pueden estar desactualizados.");});
-// Sin backend de alertas: se informa con honestidad en lugar de fingir que se envió.
-$("#sosButton").addEventListener("click",()=>showToast("SOS: aún no hay alertas automáticas. Llama o mensajea a los contactos de emergencia."));
+// El botón grande y el SOS flotante abren el sistema externo de emergencia.
+function abrirEmergencia(){
+  const w=window.open(EMERGENCY_URL,"_blank");
+  if(w) w.opener=null; else window.location.href=EMERGENCY_URL;
+}
+$("#sosButton").addEventListener("click",abrirEmergencia);
 
 updateNetStatus();
 boot().catch(e=>{console.error("boot fatal:",e);showLogin();});

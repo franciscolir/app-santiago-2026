@@ -106,9 +106,7 @@ tailwind.config = {
 .wall-tab { flex: 1; padding: 9px 12px; border-radius: 999px; font-size: 13px; font-weight: 700; background: #eaeff0; color: #3f4850; border: 0; cursor: pointer; }
 .wall-tab.selected { background: #006492; color: #fff; }
 /* Filtro Mis Actividades / Todas */
-.filter-tab { background: transparent; border: 0; cursor: pointer; color: #3f4850; }
-.filter-tab:hover { color: #181c1d; }
-.filter-tab.active { background: #b1e0ff; color: #004262; font-weight: 700; box-shadow: 0 1px 3px rgba(2, 64, 89, .12); }
+/* (Sin filtro Mis/Todas: la agenda muestra todas las actividades del grupo.) */
 /* Navegación inferior */
 .nav-item { background: transparent; border: 0; cursor: pointer; color: #5f6871; }
 .nav-item:hover { color: #181c1d; }
@@ -275,7 +273,7 @@ dialog::backdrop { background: rgba(44, 49, 50, .6); backdrop-filter: blur(2px);
   <main class="flex flex-col relative w-full pt-20 pb-safe bg-surface flex-1">
 
     <!-- ==================== VISTA AGENDA ==================== -->
-    <section id="view-agenda" class="view view-section active flex flex-col w-full px-margin pb-safe space-y-space-md">
+    <section id="view-agenda" class="view view-section active flex flex-col w-full px-margin pb-28 space-y-space-md">
       <!-- Header Banner & Event Context -->
       <section class="bg-surface-container-lowest rounded-lg p-space-md shadow-sm space-y-space-sm" style="border: 1px solid rgb(206, 232, 242); box-shadow: rgba(2, 64, 89, 0.06) 0px 2px 10px;">
         <div class="flex items-center justify-between gap-space-xs">
@@ -296,26 +294,16 @@ dialog::backdrop { background: rgba(44, 49, 50, .6); backdrop-filter: blur(2px);
         <div id="event-info"></div>
       </section>
 
-      <!-- Quick Floating Action Strip: Add Activity Trigger (Coordinators) -->
+      <!-- Cronograma (el botón de alta es un FAB fijo abajo a la derecha) -->
       <div class="flex items-center justify-between gap-2 px-1 flex-wrap">
         <span class="font-label-md text-label-md text-on-surface-variant uppercase tracking-wider min-w-0">Cronograma General</span>
-        <div id="admin-create-wrap" class="admin-only hidden">
-          <button id="new-activity-btn" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-full bg-primary-container text-on-primary-container font-label-md text-label-md font-bold shadow-sm active:scale-95 transition-transform" type="button">
-            <span class="material-symbols-outlined text-[18px]">add_circle</span>
-            <span>Nueva Actividad</span>
-          </button>
-        </div>
       </div>
 
-      <!-- Segmented Filter Switch -->
-      <div class="bg-surface-container p-1 rounded-full flex items-center gap-1 shadow-inner" role="group" aria-label="Filtrar actividades">
-        <button class="filter-tab flex-1 py-2 px-3 rounded-full font-label-md text-label-md transition-all duration-200 text-center flex items-center justify-center gap-1.5" id="tab-mine" data-filter="mine" type="button" aria-pressed="true">
-          <span class="material-symbols-outlined text-[18px]" aria-hidden="true">person</span>
-          <span>Mis Actividades (<span id="count-mine">0</span>)</span>
-        </button>
-        <button class="filter-tab flex-1 py-2 px-3 rounded-full font-label-md text-label-md transition-all duration-200 text-center flex items-center justify-center gap-1.5" id="tab-all" data-filter="all" type="button" aria-pressed="false">
-          <span class="material-symbols-outlined text-[18px]" aria-hidden="true">groups</span>
-          <span>Todas (<span id="count-all">0</span>)</span>
+      <!-- FAB: Nueva actividad (solo admin), fijo abajo a la derecha -->
+      <div id="admin-create-wrap" class="admin-only hidden fixed right-4 z-[900]" style="bottom: calc(4.5rem + env(safe-area-inset-bottom, 0px));">
+        <button id="new-activity-btn" type="button" aria-label="Nueva actividad" title="Nueva actividad"
+                class="w-14 h-14 rounded-full bg-primary text-on-primary shadow-lg flex items-center justify-center active:scale-95 transition-all">
+          <span class="material-symbols-outlined text-[26px]">add</span>
         </button>
       </div>
 
@@ -335,7 +323,7 @@ dialog::backdrop { background: rgba(44, 49, 50, .6); backdrop-filter: blur(2px);
                 <div class="flex items-center gap-3 min-w-0">
                   <div class="w-13 h-13 min-w-[52px] min-h-[52px] rounded-full flex flex-col items-center justify-center shadow-lg ring-4 ring-[#CEE8F2] relative flex-shrink-0" style="background: linear-gradient(135deg, #4bb2f2 0%, #006492 100%); color: #ffffff;">
                     <span class="text-[22px] font-black leading-none text-white tracking-tight" id="active-day-num">14</span>
-                    <span class="text-[9px] font-extrabold uppercase tracking-widest leading-none mt-0.5 text-white/90" id="active-day-month">OCT</span>
+                    <span class="text-[9px] font-extrabold uppercase tracking-widest leading-none mt-0.5 text-white/90" id="active-day-month"></span>
                     <span class="absolute -bottom-1 w-3 h-3 rounded-full bg-[#f9bd14] ring-2 ring-white animate-pulse"></span>
                   </div>
                   <div class="min-w-0 flex flex-col">
@@ -727,7 +715,7 @@ dialog::backdrop { background: rgba(44, 49, 50, .6); backdrop-filter: blur(2px);
             Protocolo de seguridad
           </div>
           <p class="font-headline-lg-mobile text-headline-lg-mobile text-on-surface font-extrabold max-w-xs mb-1">ACTIVAR PROTOCOLO DE EMERGENCIA</p>
-          <p class="font-body-sm text-body-sm text-on-surface-variant max-w-xs mb-4">Aún no hay un sistema de alertas conectado. Mientras tanto, contacta directamente a las personas de la red interna.</p>
+          <p class="font-body-sm text-body-sm text-on-surface-variant max-w-xs mb-4">Abre el sistema externo de emergencia. Si necesitas la red interna, usa los contactos de abajo.</p>
           <div class="relative flex items-center justify-center my-2">
             <div class="absolute w-36 h-36 rounded-full bg-error/15 animate-ping" style="animation-duration: 2.2s;"></div>
             <div class="absolute w-44 h-44 rounded-full bg-error/10 pointer-events-none"></div>
@@ -803,6 +791,14 @@ dialog::backdrop { background: rgba(44, 49, 50, .6); backdrop-filter: blur(2px);
       </button>
     </div>
   </nav>
+
+  <!-- SOS flotante: fijo abajo a la izquierda, sobre la barra de navegación -->
+  <a id="sos-fab" href="#" target="_blank" rel="noopener" aria-label="Emergencia SOS" title="Emergencia SOS"
+     class="fixed left-4 z-[900] w-16 h-16 rounded-full text-white shadow-[0_10px_24px_rgba(242,80,80,.45)] flex flex-col items-center justify-center active:scale-95 transition-all no-underline"
+     style="bottom: calc(4.5rem + env(safe-area-inset-bottom, 0px)); background-color: #F25050;">
+    <span class="material-symbols-outlined text-[22px] leading-none">campaign</span>
+    <span class="text-[10px] font-black tracking-wider leading-none mt-0.5">SOS</span>
+  </a>
 </div>
 
 <!-- ==================== DIÁLOGO DE ACTIVIDAD (admin) ==================== -->

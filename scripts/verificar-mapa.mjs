@@ -681,8 +681,8 @@ console.log("[9] Acceso: login por usuario, grupo automático y registro");
   check(/\$\("#agenda-active-day"\)\?\.classList\.add\("hidden"\)/.test(main),
     "agenda: la tarjeta del día activo se oculta si HOY no tiene actividades",
     "el encabezado del día anterior puede quedar visible");
-  check(/app-santiago-2026-v19/.test(sw),
-    "service worker: v19 (precache renovada con la Fase 4)", "el SW no se renovó");
+  check(/app-santiago-2026-v20/.test(sw),
+    "service worker: v20 (precache renovada con la Fase 5)", "el SW no se renovó");
 }
 
 // ------------------- 10. Fase 2: categorías, colores y alcance (2026-11-26) -----
@@ -857,6 +857,45 @@ console.log("[12] Fase 4: evento general editable");
     "falta la política de escritura del evento");
   check(/id="event-dialog-title"/.test(html) && /Editar evento"|Crear evento/.test(main),
     "evento: título dinámico Editar/Crear", "el diálogo no distingue editar/crear");
+}
+
+// ------------------- 13. Fase 5: agenda completa, FAB y SOS (2026-11-26) -----
+console.log("[13] Fase 5: agenda con todos los días, FAB y SOS");
+{
+  const main = leerTexto("src/main.js") || "";
+  const html = leerTexto("index.html") || "";
+  const sw = leerTexto("sw.js") || "";
+
+  check(!/filter-tab|tab-mine|tab-all|count-mine|count-all/.test(html) &&
+        !/state\.filter|syncFilterControls/.test(main),
+    "agenda: sin filtro Mis/Todas", "quedó el filtro de actividades");
+  check(/for\(let d=state\.event\.start_date; d<=state\.event\.end_date; d=sumarDias\(d,1\)\)/.test(main),
+    "agenda: genera todos los días del evento", "solo se muestran días con actividades");
+  check(/const isPast=date<today;/.test(main) && /const dayNode=isPast\?past:upcoming;/.test(main),
+    "agenda: los días pasados van al bloque de pasados", "se comparan Date y string (todos caen en próximos)");
+  check(/Sin actividades registradas/.test(main) && /Sin actividades programadas/.test(main),
+    "agenda: días sin actividades con mensaje", "falta el mensaje de día vacío");
+  check(/\$\("#active-day-subtitle"\)\.textContent=items\[0\]\?\.description/.test(main),
+    "agenda: subtítulo del día activo dinámico", "el subtítulo sigue estático");
+  check(/const mes=\(dt\)=>dt\.toLocaleDateString\("es-CL",\{month:"short"\}\)\.toUpperCase\(\)/.test(main) &&
+        !/>OCT</.test(html),
+    "agenda: mes real en las tarjetas de día", "quedó el mes fijo OCT");
+  check(/id="view-agenda"[^>]*pb-28/.test(html),
+    "agenda: espacio inferior para el FAB", "la agenda no reserva espacio para el FAB");
+  check(/id="admin-create-wrap"[^>]*fixed right-4/.test(html) &&
+        /id="new-activity-btn"[^>]*w-14 h-14 rounded-full/.test(html),
+    "FAB: Nueva actividad circular fija a la derecha", "el botón no es un FAB fijo");
+  check(/id="sos-fab"/.test(html) && /#F25050/i.test(html) &&
+        /target="_blank"/.test(html) && /rel="noopener"/.test(html),
+    "SOS: botón flotante rojo en pestaña nueva", "falta el SOS flotante");
+  check(/\$\("#sos-fab"\)\?\.setAttribute\("href",EMERGENCY_URL\)/.test(main) &&
+        /function abrirEmergencia/.test(main) &&
+        /\$\("#sosButton"\)\.addEventListener\("click",abrirEmergencia\)/.test(main),
+    "SOS: abre EMERGENCY_URL (flotante y botón grande)", "el SOS no abre la URL configurada");
+  check(/bottom: calc\(4\.5rem \+ env\(safe-area-inset-bottom/.test(html),
+    "SOS/FAB: sobre la barra de navegación (safe area)", "no respetan la barra inferior");
+  check(/app-santiago-2026-v20/.test(sw),
+    "service worker: v20", "el SW no se renovó");
 }
 
 // ---------------------------------------------------------------- resumen ----

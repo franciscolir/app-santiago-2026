@@ -1497,5 +1497,51 @@ Cubre la Etapa 5. **No requiere SQL nuevo**: `events.group_id` (sql/10) y la pol
 2. RLS con admin de grupo / usuario normal (solo hay admins globales).
 3. `schema.sql` desactualizado (Fase 7).
 
+---
+
+## 34. Fase 5 de `UPDATE.md`: agenda completa, FAB y SOS (2026-11-26)
+
+Cubre la Etapa 6. **Sin SQL nuevo.**
+
+### Agenda
+
+- **Filtro Mis/Todas eliminado** (HTML, CSS y JS): la agenda muestra directamente todas las
+  actividades del grupo.
+- **Todos los días del evento**: se recorre `start_date → end_date` con `sumarDias()`. Los
+  días pasados y futuros quedan compactos; **hoy** se muestra expandido; todos son
+  expandibles. Los días sin actividades aparecen con “Sin actividades” y, al abrir,
+  “Sin actividades registradas.”.
+- El **mes** y el **subtítulo** del día activo son dinámicos (antes “OCT” y una frase fija).
+- **Bug corregido**: `dt<today` comparaba un `Date` con un string (siempre `false`), así que
+  los días pasados se pintaban como próximos. Ahora `isPast = date < today`.
+- La agenda reserva espacio inferior (`pb-28`) para el FAB.
+
+### FAB y SOS
+
+- **FAB “Nueva actividad”**: circular de 56 px, fijo abajo-derecha, sobre la barra de
+  navegación (`bottom: calc(4.5rem + env(safe-area-inset-bottom))`), visible solo para admin.
+  Reemplaza el botón de texto anterior.
+- **SOS flotante**: enlace circular de 64 px, fijo abajo-izquierda, `#F25050`, megáfono + “SOS”,
+  visible en todas las vistas de la app. Abre `EMERGENCY_URL` en **pestaña nueva**
+  (`target="_blank" rel="noopener"`; `href` desde `config.js`).
+- El **botón grande de Emergencia** también abre la URL (`abrirEmergencia()` con
+  `window.open` y fallback); el texto se actualizó.
+- El FAB y el SOS no se solapan: quedan 8 px sobre la barra, uno a cada lado.
+
+### Verificación
+
+- `node scripts/verificar-mapa.mjs` → **331 pruebas · 0 fallos · 2 avisos** (bloque `[13]`
+  con 12 comprobaciones).
+- En vivo: **3 días pasados** (23, 24, 25), **hoy 26 expandido** y **4 futuros** (27–30);
+  el 25 (0 actividades) expande “Sin actividades registradas.”; el FAB abre la actividad;
+  FAB/SOS 8 px sobre la nav, derecha/izquierda, sin solape; SOS con `href`, `_blank` y
+  `noopener`; el botón grande llama a la URL; **0 errores JS**.
+- `sw.js` → **v20**.
+
+### Pendiente
+
+1. RLS con admin de grupo / usuario normal (solo hay admins globales).
+2. `schema.sql` desactualizado (Fase 7).
+
 
 

@@ -102,11 +102,27 @@ Sin dependencias: solo Node.js ≥ 18. Comprueba:
 | 72 | Validación del evento | Nombre obligatorio y término ≥ inicio; el error no guarda | ✅ (“La fecha de término no puede ser anterior…” y no guardó) |
 | 73 | Crear evento si no hay | El mismo diálogo crea uno publicado con `group_id`/`created_by` | ⏳ (ruta cubierta por el verificador; en vivo ya existe un evento) |
 | 74 | Rango y badge | La banda y “Día X de Y” se recalculan al cambiar las fechas | ✅ (23 nov – 1 dic · Día 4 de 9; luego restaurado a 30 nov · Día 4 de 8) |
+| 75 | Sin filtro Mis/Todas | La agenda muestra todas las actividades del grupo; el control desaparece | ✅ (no quedan `#tab-mine`/`#tab-all` ni el estado `filter`) |
+| 76 | Todos los días | Del inicio al término, incluidos los días sin actividades | ✅ (3 pasados + hoy + 4 futuros) |
+| 77 | Día actual expandido | Hoy se muestra en la tarjeta completa; los demás compactos | ✅ (26 nov · 1 Actividad · subtítulo dinámico) |
+| 78 | Días vacíos | Los días sin actividades se ven compactos (“0 actividades”) y expanden “Sin actividades registradas.” | ✅ (el 25 expande el mensaje) |
+| 79 | FAB Nueva actividad | Botón circular fijo abajo-derecha, sobre la barra, visible solo al admin | ✅ (56 px; abre el diálogo) |
+| 80 | SOS flotante | Botón circular `#F25050` abajo-izquierda, visible en mapa/agenda/muro | ✅ (64 px; 8 px sobre la nav; sin solape con el FAB) |
+| 81 | SOS abre la URL | Pestaña nueva con `noopener`; el botón grande también | ✅ (`href` = EMERGENCY_URL; `_blank`/`noopener`; `abrirEmergencia` en el grande) |
+| 82 | Pasados vs futuros | Los días anteriores a hoy usan el bloque y estilo de pasados | ✅ (bug `dt<today` corregido; 3 en pasados) |
 
 ---
 
 ## 3. Resultados de la corrida automática
 
+- **2026-11-26 (Fase 5: agenda completa, FAB y SOS)**: **331 pruebas · 0 fallos · 2 avisos**.
+  - Bloque `[13]` (12 comprobaciones): sin filtro Mis/Todas, todos los días del evento,
+    pasados/futuros, día activo dinámico, días vacíos, mes real, FAB circular, SOS flotante
+    con `#F25050`/`_blank`/`noopener`, `EMERGENCY_URL` y posición sobre la barra.
+  - En vivo: **3 pasados + hoy 26 + 4 futuros**; el 25 (0 actividades) expande “Sin
+    actividades registradas.”; el FAB abre la actividad; FAB/SOS 8 px sobre la nav, derecha/
+    izquierda, sin solape; SOS con URL/pestaña nueva; **0 errores JS**.
+  - Bug corregido: `dt<today` (Date vs string) mandaba todos los días a “próximos”.
 - **2026-11-26 (Fase 4: evento general editable)**: **319 pruebas · 0 fallos · 2 avisos**.
   - Bloque `[12]` (9 comprobaciones): botón y diálogo del evento, `update`/`insert` publicado
     con `group_id`/`created_by`, validaciones y visibilidad por rol, sobre la RLS de `sql/11`.
