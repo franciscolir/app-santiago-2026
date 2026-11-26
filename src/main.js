@@ -2789,6 +2789,11 @@ function renderCapaPuntos(){
   }));
 }
 $("#capa-puntos-buscar")?.addEventListener("input",renderCapaPuntos);
+$("#capa-puntos-ninguno")?.addEventListener("click",()=>{
+  if(!state.capaPuntos) return;
+  state.capaPuntos.items.forEach(x=>{ x.visible=false; });
+  renderCapaPuntos();
+});
 $("#capa-puntos-close")?.addEventListener("click",()=>$("#capa-puntos-dialog")?.close());
 $("#capa-puntos-guardar")?.addEventListener("click",async()=>{
   if(!state.capaPuntos) return;

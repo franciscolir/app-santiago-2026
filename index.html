@@ -1094,7 +1094,10 @@ dialog::backdrop { background: rgba(44, 49, 50, .6); backdrop-filter: blur(2px);
       </button>
     </div>
     <p class="text-body-sm text-body-sm text-on-surface-variant">Marca los puntos que se verán en el mapa para todos.</p>
-    <input id="capa-puntos-buscar" type="search" placeholder="Buscar punto…" class="w-full h-10 px-3 bg-surface-container-low rounded-lg text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/40">
+    <div class="flex items-center gap-2">
+      <input id="capa-puntos-buscar" type="search" placeholder="Buscar punto…" class="flex-1 min-w-0 h-10 px-3 bg-surface-container-low rounded-lg text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/40">
+      <button type="button" id="capa-puntos-ninguno" class="h-10 px-3 rounded-full bg-surface-container-low text-error font-label-sm text-label-sm font-bold whitespace-nowrap active:scale-[0.98] transition-all">Deseleccionar todo</button>
+    </div>
     <div id="capa-puntos-lista" class="space-y-2"></div>
     <button type="button" id="capa-puntos-guardar" class="w-full h-12 rounded-full bg-primary text-on-primary font-label-lg text-label-lg font-bold">Guardar visibilidad</button>
     <p id="capa-puntos-error" class="error"></p>

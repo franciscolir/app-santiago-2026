@@ -48,7 +48,8 @@
 // v30: salud separada en Hospitales públicos y SAPU/SAR.
 // v31: categorías eliminables con subcategorías huérfanas y panel de capas
 //      generado desde categorías/subcategorías.
-const CACHE_NAME = "app-santiago-2026-v31";
+// v32: botón "Deseleccionar todo" en puntos externos.
+const CACHE_NAME = "app-santiago-2026-v32";
 const APP_SHELL = [
   "./",
   "./index.html",

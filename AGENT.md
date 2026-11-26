@@ -1677,7 +1677,7 @@ jerarquía ADMIN/MANAGER (posterior a la Fase 7).
 
 ### Pruebas
 
-- `node scripts/verificar-mapa.mjs` → **401 pruebas · 0 fallos · 2 avisos** (bloques `[1]`–`[16]`).
+- `node scripts/verificar-mapa.mjs` → **402 pruebas · 0 fallos · 2 avisos** (bloques `[1]`–`[16]`).
 - Verificación en navegador por fase: login/registro, RLS de eventos/muro con `test1`,
   colores y puntos, JW (latido/destello en su lugar), evento, agenda, FAB/SOS y animaciones.
   **0 errores de consola** en los flujos normales; los 4xx/5xx esperados de las pruebas
@@ -1692,8 +1692,8 @@ jerarquía ADMIN/MANAGER (posterior a la Fase 7).
 | `src/config.js` | `SUPABASE_URL`, clave publicable y `EMERGENCY_URL` (todas públicas). |
 | `index.html` | Vistas, diálogos (actividad, punto, evento), agenda, FAB y SOS. |
 | `styles.css` | Categorías/colores, JW, mapas, agenda, FAB/SOS y `@keyframes` de destello/latido. |
-| `sw.js` | Service worker, precache `v31`. |
-| `scripts/verificar-mapa.mjs` | Verificador (401 pruebas, bloques `[1]`–`[16]`). |
+| `sw.js` | Service worker, precache `v32`. |
+| `scripts/verificar-mapa.mjs` | Verificador (402 pruebas, bloques `[1]`–`[16]`). |
 | `sql/06`–`sql/16` | Migraciones idempotentes (mapa, terminales, admin, grupos, RLS, perfiles, categorías, JW). |
 | `supabase/functions/login-username` | Login por usuario+contraseña con grupo automático (v2). |
 | `supabase/functions/register-profile` | Registro con contraseña de grupo (`validar-grupo`, `sugerir-usuario`, `registrar`). |
@@ -1710,7 +1710,7 @@ jerarquía ADMIN/MANAGER (posterior a la Fase 7).
    interruptor por categoría; la gestión individual aplica a `map_points` (decisión de alcance).
 5. **`schema.sql` no es un `pg_dump` en vivo**: la sección 9 consolida las migraciones 10–22;
    la fuente de verdad son los archivos `sql/`.
-6. Limpieza de caché del service worker tras cada despliegue (hoy `v31`).
+6. Limpieza de caché del service worker tras cada despliegue (hoy `v32`).
 7. `UPDATE.md` es del usuario y quedó **sin rastrear**.
 
 ### Artefactos de prueba
@@ -1777,9 +1777,9 @@ de su grupo.
 
 ### Verificación
 
-- `node scripts/verificar-mapa.mjs` → **401 pruebas · 0 fallos · 2 avisos** (bloques `[15]` y
+- `node scripts/verificar-mapa.mjs` → **402 pruebas · 0 fallos · 2 avisos** (bloques `[15]` y
   `[16]`).
-- `sw.js` → **v31**.
+- `sw.js` → **v32**.
 - **QA de integración (2026-11-26)**: `scripts/qa-simulacion.mjs` → **228 comprobaciones · 0
   fallos** con 3 grupos, 30 usuarios (10 por grupo), 1 MANAGER por grupo, 3 eventos solapados,
   actividades de ADMIN/MANAGER, 30 publicaciones de muro, puntos y ataques.
@@ -1817,8 +1817,8 @@ sistema externo.
   “Abrir sistema de emergencia”.
 - El **SOS flotante** global (`#sos-fab`) se oculta únicamente en la vista Emergencia para no
   duplicar la acción; sigue disponible en Agenda/Mapa/Muro.
-- `sw` → **v31**.
-- `scripts/verificar-mapa.mjs` → **401 pruebas · 0 fallos · 2 avisos**, con comprobación de que
+- `sw` → **v32**.
+- `scripts/verificar-mapa.mjs` → **402 pruebas · 0 fallos · 2 avisos**, con comprobación de que
   no quedan `sosButton`, `ACTIVAR PROTOCOLO`, `crisis_alert` ni `net-status`, y de que siguen
   `#emergency-contacts` y `#emergency-open-link`.
 - En vivo: la vista muestra únicamente contactos + botón; el flotante desaparece en
@@ -1835,7 +1835,7 @@ Se reemplazó el título visible y de PWA:
 - `manifest.webmanifest`: `name` = **STGO 2026 | Región 8**, `short_name` = **STGO 2026**.
 - `alt` del logo actualizado.
 
-`sw` → **v31**. `scripts/verificar-mapa.mjs` → **401 pruebas · 0 fallos · 2 avisos** (incluye
+`sw` → **v32**. `scripts/verificar-mapa.mjs` → **402 pruebas · 0 fallos · 2 avisos** (incluye
 la comprobación del encabezado/título y del manifest).
 
 ---
@@ -1893,6 +1893,8 @@ El satélite se sigue alternando desde la capa “Vista satelital”.
 - **Panel de Capas**: ya no usa grupos estáticos. Se genera desde `map_categories` y
   `map_subcategories`: cada categoría es una sección y cada subcategoría/capa una fila.
   Las huérfanas aparecen en “Sin categoría”; las capas de aplicación quedan al final.
+- **Deseleccionar todo** en la lista de puntos externos: desmarca todos los puntos de la capa
+  (no solo los filtrados por la búsqueda); el cambio se confirma con “Guardar visibilidad”.
 
 ### Pendiente
 
