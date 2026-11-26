@@ -1543,5 +1543,52 @@ Cubre la Etapa 6. **Sin SQL nuevo.**
 1. RLS con admin de grupo / usuario normal (solo hay admins globales).
 2. `schema.sql` desactualizado (Fase 7).
 
+---
+
+## 35. Fase 6 de `UPDATE.md`: animaciones JW (2026-11-26)
+
+Cubre la Etapa 8. **Sin SQL nuevo.**
+
+### Módulo puro (`src/jw-tiempo.js`)
+
+- `ahoraChile(fecha)` → `{ fecha, hora, iso }` con `Intl` en `America/Santiago` y
+  `hourCycle:"h23"`: la hora de pared de Chile, sin depender de la zona del dispositivo.
+- `estadoJW(actividades, ahoraIso)` → `destello` / `latido` / `null`:
+  - **latido**: desde 30 min antes del inicio (incluido) hasta el inicio.
+  - **destello**: desde el inicio hasta **30 min después del término**.
+  - **8.1**: actividad programada para **hoy** y aún fuera de la ventana de latido →
+    destello.
+  - **8.3**: después del +30 se deja de destacar y se pasa a la **siguiente** actividad de
+    hoy; si no hay otra, el punto deja de animarse.
+  - Canceladas o sin hora de inicio se ignoran.
+  - Compara **hora de pared** (`Date.UTC` sobre los strings), no offsets: evita desfases por
+    zona horaria/DST.
+
+### Frontend
+
+- `aplicarEstadoJW()` recorre los marcadores JW, arma las actividades de cada punto
+  (`map_point_id`) y aplica las clases `.jw-destello` / `.jw-latido` + `dataset.jwEstado`.
+- Un `setInterval(…, 60000)` actualiza sin recargar y **sin consultar Supabase**; también se
+  aplica al renderizar los puntos y al recargar las actividades.
+- CSS: `@keyframes jw-destello` (escala 1,08 + halo ámbar) y `jw-latido` (1,22/1,14, tipo
+  corazón), con `prefers-reduced-motion`.
+
+### Verificación
+
+- `node scripts/verificar-mapa.mjs` → **348 pruebas · 0 fallos · 2 avisos** (bloque `[14]`
+  con 17 comprobaciones; importa el módulo puro y prueba −30, inicio, +30, siguiente, otro
+  día, cancelada y UTC−3).
+- En vivo: actividad a **14 min** del inicio → `jw-latido` (animación `jw-latido`, icono
+  24,3 px); editada a **en curso** (12:00–12:30) → `jw-destello` (animación `jw-destello`).
+  Artefactos borrados: 5 actividades, 6 puntos, JW 0/0. **0 errores JS**.
+- `sw.js` → **v21**.
+
+### Pendiente
+
+1. El corte tras el +30 y el paso a la siguiente están cubiertos por las pruebas puras; en
+   vivo requeriría esperar la hora.
+2. RLS con admin de grupo / usuario normal (solo hay admins globales).
+3. `schema.sql` desactualizado (Fase 7).
+
 
 

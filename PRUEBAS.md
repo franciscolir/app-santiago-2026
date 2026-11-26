@@ -110,11 +110,24 @@ Sin dependencias: solo Node.js ≥ 18. Comprueba:
 | 80 | SOS flotante | Botón circular `#F25050` abajo-izquierda, visible en mapa/agenda/muro | ✅ (64 px; 8 px sobre la nav; sin solape con el FAB) |
 | 81 | SOS abre la URL | Pestaña nueva con `noopener`; el botón grande también | ✅ (`href` = EMERGENCY_URL; `_blank`/`noopener`; `abrirEmergencia` en el grande) |
 | 82 | Pasados vs futuros | Los días anteriores a hoy usan el bloque y estilo de pasados | ✅ (bug `dt<today` corregido; 3 en pasados) |
+| 83 | JW latido | 30 min antes del inicio el punto late (tipo corazón) | ✅ (en vivo a 14 min: `jw-latido`, 24,3 px) |
+| 84 | JW destello hoy | Una actividad de hoy destella desde antes de su ventana | ✅ (pruebas puras: 12:00 para 18:00 → destello) |
+| 85 | JW durante/después | Durante la actividad y 30 min después → destello | ✅ (en vivo en curso → `jw-destello`; +30 en pruebas puras) |
+| 86 | JW al terminar +30 | Después del +30 se apaga o pasa a la siguiente de hoy | ✅ (pruebas puras: 19:31 → null; con otra a las 21:00 → destello/latido) |
+| 87 | JW zona horaria | Usa la hora de pared de Chile (`America/Santiago`) | ✅ (UTC 20:30Z → 17:30 en noviembre) |
+| 88 | JW sin consultas | Un temporizador de 60 s actualiza sin consultar Supabase | ✅ (`setInterval(aplicarEstadoJW,60000)`) |
+| 89 | JW clases CSS | Destello y latido con `@keyframes` y `prefers-reduced-motion` | ✅ |
 
 ---
 
 ## 3. Resultados de la corrida automática
 
+- **2026-11-26 (Fase 6: animaciones JW)**: **348 pruebas · 0 fallos · 2 avisos**.
+  - Bloque `[14]` (17 comprobaciones): `estadoJW`/`ahoraChile` con fechas fijas (−30, inicio,
+    +30, siguiente, otro día, cancelada, UTC−3), temporizador de 60 s sin consultas,
+    `aplicarEstadoJW` en el render y `@keyframes`.
+  - En vivo: actividad a 14 min → `jw-latido` (icono 24,3 px); editada a en curso →
+    `jw-destello`; artefactos borrados (5 actividades, 6 puntos, JW 0/0); **0 errores JS**.
 - **2026-11-26 (Fase 5: agenda completa, FAB y SOS)**: **331 pruebas · 0 fallos · 2 avisos**.
   - Bloque `[13]` (12 comprobaciones): sin filtro Mis/Todas, todos los días del evento,
     pasados/futuros, día activo dinámico, días vacíos, mes real, FAB circular, SOS flotante

@@ -10,7 +10,7 @@
 // =============================================================================
 import { readFileSync, existsSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -681,8 +681,8 @@ console.log("[9] Acceso: login por usuario, grupo automático y registro");
   check(/\$\("#agenda-active-day"\)\?\.classList\.add\("hidden"\)/.test(main),
     "agenda: la tarjeta del día activo se oculta si HOY no tiene actividades",
     "el encabezado del día anterior puede quedar visible");
-  check(/app-santiago-2026-v20/.test(sw),
-    "service worker: v20 (precache renovada con la Fase 5)", "el SW no se renovó");
+  check(/app-santiago-2026-v21/.test(sw),
+    "service worker: v21 (precache renovada con la Fase 6)", "el SW no se renovó");
 }
 
 // ------------------- 10. Fase 2: categorías, colores y alcance (2026-11-26) -----
@@ -894,8 +894,55 @@ console.log("[13] Fase 5: agenda con todos los días, FAB y SOS");
     "SOS: abre EMERGENCY_URL (flotante y botón grande)", "el SOS no abre la URL configurada");
   check(/bottom: calc\(4\.5rem \+ env\(safe-area-inset-bottom/.test(html),
     "SOS/FAB: sobre la barra de navegación (safe area)", "no respetan la barra inferior");
-  check(/app-santiago-2026-v20/.test(sw),
-    "service worker: v20", "el SW no se renovó");
+  check(/app-santiago-2026-v21/.test(sw),
+    "service worker: v21", "el SW no se renovó");
+}
+
+// ------------------- 14. Fase 6: animaciones JW (2026-11-26) -----------------
+console.log("[14] Fase 6: animaciones JW (destello y latido)");
+{
+  const main = leerTexto("src/main.js") || "";
+  const css = leerTexto("styles.css") || "";
+  const { estadoJW, ahoraChile } = await import(pathToFileURL(join(ROOT, "src/jw-tiempo.js")).href);
+  const act = (o = {}) => ({ fecha: "2026-11-26", inicio: "18:00", fin: "19:00", ...o });
+
+  check(estadoJW([act()], "2026-11-26T17:00").estado === "destello",
+    "JW: actividad de hoy antes del latido → destello", "no destella");
+  check(estadoJW([act()], "2026-11-26T17:30").estado === "latido",
+    "JW: 30 minutos antes → latido", "no late a −30");
+  check(estadoJW([act()], "2026-11-26T18:00").estado === "destello",
+    "JW: al inicio → destello", "no destella al inicio");
+  check(estadoJW([act()], "2026-11-26T19:29").estado === "destello",
+    "JW: al término +30 → destello", "se apaga antes del +30");
+  check(estadoJW([act()], "2026-11-26T19:31").estado === null,
+    "JW: después del +30 sin otra → se apaga", "sigue destacado");
+  check(estadoJW([act(), act({ inicio: "21:00", fin: "22:00" })], "2026-11-26T19:31").estado === "destello",
+    "JW: después del +30 pasa a la siguiente de hoy", "no resalta la siguiente");
+  check(estadoJW([act({ inicio: "21:00", fin: "22:00" })], "2026-11-26T20:30").estado === "latido",
+    "JW: latido de la siguiente 30 min antes", "no late la siguiente");
+  check(estadoJW([act()], "2026-11-27T10:00").estado === null,
+    "JW: otro día no se destaca", "destella fuera de su día");
+  check(estadoJW([act({ cancelada: true })], "2026-11-26T18:10").estado === null,
+    "JW: actividad cancelada no anima", "anima una cancelada");
+  check(estadoJW([act()], "2026-11-26T12:00").estado === "destello",
+    "JW: actividad de hoy sin hora cercana → destello", "no destella de día");
+
+  const ch = ahoraChile(new Date("2026-11-26T20:30:00Z"));
+  check(ch.fecha === "2026-11-26" && ch.hora === "17:30",
+    "JW: hora de Chile (UTC-3 en noviembre)", `dio ${ch.iso}`);
+
+  check(/@keyframes jw-destello/.test(css) && /@keyframes jw-latido/.test(css),
+    "JW: keyframes de destello y latido", "faltan las animaciones CSS");
+  check(/\.map-point-jw\.jw-destello/.test(css) && /\.map-point-jw\.jw-latido/.test(css),
+    "JW: clases de animación en el marcador", "faltan las clases");
+  check(/import \{ ahoraChile, estadoJW \} from "\.\/jw-tiempo\.js"/.test(main),
+    "JW: el frontend usa el módulo de tiempo", "no importa jw-tiempo");
+  check(/setInterval\(aplicarEstadoJW,60000\)/.test(main),
+    "JW: temporizador de 60 s (sin consultas a Supabase)", "no hay temporizador");
+  check(/aplicarEstadoJW\(\);\s*\}/.test(main),
+    "JW: el estado se reaplica al renderizar los puntos", "no se aplica al render");
+  check(/app-santiago-2026-v21/.test(leerTexto("sw.js") || ""),
+    "service worker: v21", "el SW no se renovó");
 }
 
 // ---------------------------------------------------------------- resumen ----

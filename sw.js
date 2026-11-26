@@ -33,7 +33,8 @@
 // v19: Fase 4: evento general editable (nombre, descripción y fechas).
 // v20: Fase 5: agenda con todos los días del evento, sin filtro Mis/Todas,
 // FAB de nueva actividad y SOS flotante.
-const CACHE_NAME = "app-santiago-2026-v20";
+// v21: Fase 6: animaciones JW (destello y latido por fecha/hora de Chile).
+const CACHE_NAME = "app-santiago-2026-v21";
 const APP_SHELL = [
   "./",
   "./index.html",

@@ -1,5 +1,6 @@
 import { supabase } from "./supabase.js";
 import { EMERGENCY_URL } from "./config.js";
+import { ahoraChile, estadoJW } from "./jw-tiempo.js";
 import "./pwa.js";
 
 const $ = (s) => document.querySelector(s);
@@ -136,6 +137,7 @@ async function loadProfile(){
   // Editar/crear el evento general: admin global o de grupo.
   $("#event-edit-btn")?.classList.toggle("hidden",!esAdminDeGrupo());
   if(state.mapListo) renderPuntosMapa();
+  iniciarAnimacionesJW();
 }
 // Muestra el chip del grupo en el header. Si la lista de grupos aún no llegó,
 // se completa cuando termina cargarGruposRegistro().
@@ -1850,6 +1852,36 @@ async function cargarPuntosJW(){
   state.jwPuntos=(data||[]).filter(p=>!state.groupId || p.scope==="global" || p.group_id===state.groupId);
 }
 
+// --- animaciones JW (Fase 6) ------------------------------------------------
+// Se calcula con la hora de Chile y las actividades ya cargadas: no consulta
+// Supabase. Un temporizador de 60 s actualiza destello/latido sin recargar.
+let temporizadorJW=null;
+function aplicarEstadoJW(){
+  if(!state.user || !state.mapListo) return;
+  const ahora=ahoraChile();
+  state.pointMarkers.forEach((m,id)=>{
+    const el=m.getElement&&m.getElement(); if(!el || el.dataset.jw!=="1") return;
+    const acts=(state.activities||[])
+      .filter(a=>a.map_point_id===id)
+      .map(a=>({
+        titulo:a.title,
+        fecha:a.activity_date,
+        inicio:timeFmt(a.start_time),
+        fin:timeFmt(a.end_time),
+        cancelada:a.status==="cancelled",
+      }));
+    const {estado}=estadoJW(acts,ahora.iso);
+    el.classList.toggle("jw-destello",estado==="destello");
+    el.classList.toggle("jw-latido",estado==="latido");
+    el.dataset.jwEstado=estado||"";
+  });
+}
+function iniciarAnimacionesJW(){
+  if(temporizadorJW) return;
+  aplicarEstadoJW();
+  temporizadorJW=setInterval(aplicarEstadoJW,60000);
+}
+
 // Comportamiento de los marcadores según el zoom (3 momentos, 2026-11-25):
 //   1) Muy alejado  → punto diminuto, casi imperceptible.
 //   2) Acercándose  → el punto crece poco hasta su tamaño actual y ahí se
@@ -2014,6 +2046,7 @@ function renderPuntosMapa(){
   // Respeta el interruptor del panel para los marcadores de punto
   // (`display` en línea: no depende de las utilidades de Tailwind).
   state.pointMarkers.forEach(m=>m.getElement().style.display=capasEstado.puntos?"":"none");
+  aplicarEstadoJW();
 }
 
 // --- modo edición: clic en el mapa para ubicar el punto --------------------
