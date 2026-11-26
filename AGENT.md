@@ -1390,9 +1390,7 @@ categoría y visibilidad global/grupo.
 
 ### Pendiente
 
-1. Re-ejecutar `sql/15_categorias_puntos.sql` (o ejecutar
-   `update public.map_points set group_id = null where scope = 'global';`) para limpiar el
-   `group_id` de los puntos globales.
+1. ✅ `group_id` de los puntos globales limpiado vía API admin: **6/6 globales con `group_id = null`**.
 2. Probar la RLS de puntos con un usuario normal y con un admin de grupo (crear uno temporal
    si se quiere verificar en vivo; los únicos perfiles actuales son admins globales).
 3. `schema.sql` sigue desactualizado (se regenerará en la Fase 7 del plan).
