@@ -2,6 +2,11 @@
 -- APP SANTIAGO 2026 — schema.sql
 -- Regenerado desde la BD real (Supabase) el 2026-11-23.
 --
+-- ACTUALIZACIÓN 2026-11-26: el estado final incorpora las migraciones 10–16
+-- (grupos, login/registro, categorías, alcance de puntos y JW). La sección 9
+-- resume ese estado; la fuente de verdad son los archivos sql/10, 11, 14, 15
+-- y 16 (más las anteriores 06–09).
+--
 -- Fiel a la base de datos existente: columnas, restricciones, índices,
 -- funciones, políticas RLS y GRANTs tal como están aplicados hoy.
 -- Origen: queries A–E, G y H de AGENT.md §15.
@@ -483,3 +488,100 @@ execute function public.handle_new_user();
 -- select grantee, table_name, privilege_type
 -- from information_schema.role_table_grants
 -- where table_schema = 'public' order by table_name, grantee, privilege_type;
+
+-- ============================================================================
+-- 9) ESTADO FINAL 2026-11-26 — migraciones 10–16
+--
+-- Las secciones 1–8 son el snapshot del 2026-11-23. Desde entonces se aplicaron,
+-- en este orden: sql/10_grupos.sql, sql/11_rls_grupos.sql,
+-- sql/14_registro_perfiles.sql, sql/15_categorias_puntos.sql y
+-- sql/16_jw_actividades.sql (además de 06–09 del mapa).
+--
+-- Este bloque RESUME el estado final; NO es un pg_dump en vivo. Para una base
+-- nueva, ejecutar los archivos sql/ en orden. Para el detalle exacto de
+-- columnas, restricciones, políticas y GRANT, esos archivos son la fuente.
+-- ============================================================================
+
+-- 9.1 Tablas nuevas
+create table if not exists public.groups (
+  id uuid primary key default gen_random_uuid(),
+  slug text not null unique,
+  name text not null,
+  description text,
+  active boolean not null default true,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.map_categories (
+  slug text primary key,
+  name text not null,
+  icon text not null default 'place',
+  color text not null default '#006492',
+  sort integer not null default 100,
+  active boolean not null default true,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+-- 9.2 Columnas agregadas / ajustadas
+alter table public.profiles   add column if not exists group_id uuid;
+alter table public.profiles   add column if not exists group_admin boolean not null default false;
+alter table public.events     add column if not exists group_id uuid;
+alter table public.activities add column if not exists group_id uuid;
+alter table public.activities add column if not exists map_point_id uuid;
+alter table public.wall_posts add column if not exists group_id uuid;
+alter table public.map_points add column if not exists group_id uuid;
+alter table public.map_points add column if not exists scope text not null default 'group';
+alter table public.groups     add column if not exists join_password_hash text;
+-- profiles: índice único (group_id, lower(username)) + trigger de identidad.
+-- map_points: category pasa a FK de map_categories; se elimina el CHECK antiguo
+-- de categoría/iconos; scope en ('global','group'); group_id NOT NULL si no es global.
+
+-- 9.3 Funciones / RPC
+--   groups:        auth_group(), can_manage_group(uuid), grupos_publicos(),
+--                  grupos_para_registro().
+--   registro:      definir_password_grupo(text,text),
+--                  verificar_password_grupo(text,text)  [solo service_role].
+--   triggers:      handle_new_user() (actualizado), set_groups_updated_at(),
+--                  set_map_categories_updated_at(), asignar_grupo_autor(),
+--                  asignar_grupo_actividad(), asignar_grupo_punto(),
+--                  proteger_identidad_perfil(), validar_punto_actividad().
+
+-- 9.4 Triggers
+--   groups_updated_at, map_categories_updated_at, profiles_proteger_identidad,
+--   events_asignar_grupo, activities_asignar_grupo, wall_posts_asignar_grupo,
+--   map_points_asignar_grupo, activities_validar_punto.
+
+-- 9.5 Políticas RLS (nombres)
+--   groups:               Miembros consultan su grupo · Admin gestiona grupos ·
+--                         Admin de grupo edita su grupo.
+--   profiles:             Admin gestiona perfiles · Usuarios consultan perfiles de su grupo.
+--   events:               Admin o admin de grupo gestiona eventos ·
+--                         Usuarios consultan eventos de su grupo.
+--   activities:           Admin o admin de grupo gestiona actividades ·
+--                         Usuarios consultan actividades de su grupo.
+--   activity_assignments: Admin o admin de grupo crea/elimina · Admin, autor o
+--                         admin de grupo actualiza estado · Usuarios consultan
+--                         asignaciones de su grupo.
+--   activity_user_details: Admin o admin de grupo gestiona instrucciones ·
+--                         Usuario consulta sus instrucciones del grupo.
+--   activity_attachments: Admin o admin de grupo gestiona adjuntos ·
+--                         Usuarios consultan adjuntos de su grupo.
+--   wall_posts:           Usuarios leen el muro de su grupo · Usuarios publican
+--                         en su grupo · Autor o admin de grupo elimina su publicación.
+--   map_points:           Puntos visibles por grupo o globales · Autor gestiona
+--                         sus puntos personales · Admin de grupo gestiona puntos
+--                         personales de su grupo · Admin o admin de grupo
+--                         gestiona puntos generales · Admin global gestiona todos.
+--   map_categories:       Categorías visibles para autenticados · Admin gestiona
+--                         las categorías.
+
+-- 9.6 GRANTs (resumen)
+--   groups:        select/insert/update/delete por columna a authenticated
+--                  (el hash de la contraseña de grupo queda fuera); service_role
+--                  completo; anon usa grupos_publicos()/grupos_para_registro().
+--   map_categories: select/insert/update/delete a authenticated (RLS admin).
+--   map_points:    select/insert/update/delete a authenticated (RLS por alcance).
+--   verificar_password_grupo: solo service_role.
+

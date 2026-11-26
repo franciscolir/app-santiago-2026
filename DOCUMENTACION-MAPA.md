@@ -223,22 +223,42 @@ marcadores HTML:
 | `id` | `uuid` | PK, `gen_random_uuid()` |
 | `name` | `text` | obligatorio, 1–120 caracteres |
 | `description` | `text` | detalle opcional |
-| `category` | `text` | `general`, `seguridad`, `salud`, `educacion`, `transporte`, `comercio`, `areas_verdes`, `otro` |
+| `category` | `text` | FK a `map_categories`: general, mall, policía, bomberos, hospital, centro de salud, metro, parque, kiosco, expositor, otros, JW **+ las antiguas conservadas** (seguridad, salud, educación, transporte, comercio, áreas verdes, otro) |
 | `subcategory` | `text` | subcategoría §8 |
 | `icon` | `text` | clave del icono elegido (catálogo SVG, ver §1.4) |
 | `latitude` / `longitude` | `double precision` | check dentro de la RM (PostGIS no está disponible) |
 | `address`, `comuna`, `source`, `external_id` | `text` | procedencia del dato |
-| `active`, `visible` | `boolean` | flags de publicación |
+| `active`, `visible` | `boolean` | flags de publicación / selección individual |
 | `tipo` | `text` | `personal` \| `general` |
 | `fijo` | `boolean` | vista fija: el punto muestra siempre su icono (por defecto `false`) |
+| `group_id` | `uuid` | FK a `groups`; obligatorio para `scope='group'` (los globales lo dejan `NULL`) |
+| `scope` | `text` | `global` (todos los grupos) \| `group` (grupo de `group_id`) |
 | `created_by` | `uuid` | FK a `profiles(id)` |
 | `created_at`, `updated_at` | `timestamptz` | trigger `set_map_points_updated_at()` |
 
-Índices: `visible`, `tipo`, `created_by`, `(latitude, longitude)`, `category` y **único
-parcial** sobre `external_id` (permite reimportar sin duplicar).
+Índices: `visible`, `tipo`, `created_by`, `(latitude, longitude)`, `category`, `group_id`,
+`scope` y **único parcial** sobre `external_id` (permite reimportar sin duplicar).
 
-No se modificó ninguna tabla existente (`activities`, `profiles`, `wall_posts`,
-`activity_assignments`, `emergency_contacts`).
+### `public.map_categories` (nueva) — `sql/15_categorias_puntos.sql`
+
+`slug` (PK), `name`, `icon` (clave del catálogo), `color` (`#rrggbb`), `sort`, `active`.
+Semilla con las categorías nuevas y las antiguas conservadas; el color se usa en el punto
+circular al alejar (también en las capas externas por slug).
+
+### `public.groups` (nueva) — `sql/10_grupos.sql`
+
+`id`, `slug` único, `name`, `description`, `active`, `join_password_hash` (bcrypt, fuera de
+los GRANT de la app). El grupo `principal` agrupa a los usuarios/datos existentes.
+
+### Otras tablas modificadas
+
+- `profiles`: `group_id` (NOT NULL) y `group_admin`; índice único `lower(username)`; trigger
+  que impide cambiar `username`/`group_id` a los no administradores.
+- `events`, `activities` y `wall_posts`: `group_id` (NOT NULL, FK) con políticas por grupo.
+- `activities`: `map_point_id` (FK a `map_points`, `ON DELETE SET NULL`) + trigger que exige
+  categoría **JW** y mismo grupo/global.
+- `map_points.category` dejó de ser un CHECK y es FK; se eliminó el CHECK antiguo de iconos
+  (no conocía `salon` y otros SVG nuevos).
 
 ---
 
@@ -423,8 +443,20 @@ Detalle en `PRUEBAS.md`.
   de colapso **arriba** y la columna limitada a `100dvh - 7rem` con scroll. Medido en
   vivo: toggle (856, 12) y botones en x = 860, y = 62…430 (46 px de paso); 0 errores
   de consola.
-- El service worker quedó en `app-santiago-2026-v12` (los iconos SVG se sirven cache-first
-  y la precache se renovó con la columna vertical de los controles del 2026-11-26).
+- **Fases 5–7 de `UPDATE.md` (2026-11-26)**, `node scripts/verificar-mapa.mjs` →
+  **352 pruebas · 0 fallos · 2 avisos**. Bloques nuevos: `[12]` agenda (todos los días,
+  sin filtro Mis/Todas, pasado/hoy/futuro, FAB y SOS), `[13]` evento editable y `[14]`
+  animaciones JW (módulo puro de tiempo con zona `America/Santiago`, −30/inicio/+30,
+  paso a la siguiente, canceladas, `setInterval` de 60 s sin consultas y animación en el
+  icono interior). En vivo: agenda con 3 días pasados + hoy + 4 futuros, FAB/SOS sin
+  solape, evento 23–30 nov (Día 4 de 8), JW con `jw-latido` a 14 min y `jw-destello` en
+  curso, **el icono se infla en su lugar** (marcador con `animation: none`; icono interior
+  escala con el mismo centro), artefactos borrados y **0 errores JS**.
+- **Fase 7 (cierre)**: `schema.sql` incorpora la sección 9 con el estado final de las
+  migraciones 10–16 (no es un `pg_dump` en vivo; la fuente de verdad son los `sql/`),
+  `AGENT.md` §36 resume la entrega y `PRUEBAS.md` suma las filas 83–89.
+- El service worker quedó en `app-santiago-2026-v22` (precache renovada con las
+  animaciones JW y el icono interior).
 
 ---
 

@@ -117,6 +117,10 @@ Sin dependencias: solo Node.js ≥ 18. Comprueba:
 | 87 | JW zona horaria | Usa la hora de pared de Chile (`America/Santiago`) | ✅ (UTC 20:30Z → 17:30 en noviembre) |
 | 88 | JW sin consultas | Un temporizador de 60 s actualiza sin consultar Supabase | ✅ (`setInterval(aplicarEstadoJW,60000)`) |
 | 89 | JW clases CSS | Destello y latido con `@keyframes` y `prefers-reduced-motion`, en el **icono interior** (no en el marcador) | ✅ |
+| 90 | Esquema final | `schema.sql` documenta el estado de las migraciones 10–16 sin fingir un `pg_dump` | ✅ (sección 9; fuente de verdad: `sql/`, declarado) |
+| 91 | Documentación de cierre | `AGENT.md` §36 y `DOCUMENTACION-MAPA.md` §7 resumen la entrega | ✅ |
+| 92 | Verificador final | La corrida completa sigue en verde tras el cierre | ✅ (352 pruebas · 0 fallos · 2 avisos) |
+| 93 | Artefactos | No quedan usuarios, grupos, actividades ni puntos de prueba | ✅ (`principal`, `admin`/`test`, 5 actividades, 6 puntos) |
 
 ---
 
@@ -225,9 +229,8 @@ Sin dependencias: solo Node.js ≥ 18. Comprueba:
 - Avisos no bloqueantes del navegador: Tailwind CDN (aviso conocido de producción) y 3 avisos
   de MapLibre (`Expected value to be of type number, but found null instead`) que provienen del
   estilo OpenFreeMap, no del código de la app.
-- El service worker quedó en `app-santiago-2026-v12` (precache renovada tras la
-  calibración de momentos, el −15 % en los puntos y la columna vertical de los
-  controles; los iconos SVG siguen en cache-first).
+- El service worker quedó en `app-santiago-2026-v22` (precache renovada con las animaciones
+  JW y el icono interior; los iconos SVG siguen en cache-first).
 - **Limitación del navegador embebido de pruebas**: no dispara `requestAnimationFrame`, por lo
   que MapLibre no repinta (`map.loaded()` queda en `false` y `queryRenderedFeatures()` devuelve
   0). Se verificó por otra vía que el estilo se aplica, que `ne2_shaded` se elimina y que las
@@ -238,20 +241,18 @@ Sin dependencias: solo Node.js ≥ 18. Comprueba:
 
 ## 4. Pendiente de verificación por el administrador
 
-Requiere credenciales del proyecto Supabase (no hay `service_role` en el entorno):
+Las migraciones `sql/06`–`sql/16` **ya están aplicadas** (incluidas `10_grupos`,
+`11_rls_grupos`, `14_registro_perfiles`, `15_categorias_puntos` y `16_jw_actividades`), y las
+Edge Functions `login-username` (v2) y `register-profile` desplegadas.
 
-1. Ejecutar `sql/06_map_points.sql` en el **SQL Editor** de Supabase.
-2. Ejecutar `sql/07_terminales.sql` (siembra las 4 terminales de bus).
-   - Si aparece el error **42P10** (`there is no unique or exclusion constraint matching the
-     ON CONFLICT specification`), significa que el índice único de `external_id` es parcial:
-     hay que usar `on conflict (external_id) where external_id is not null`. La versión
-     actual de `sql/07_terminales.sql` ya lo trae corregido.
-3. (Opcional) Ejecutar `sql/08_puntos_fijos.sql` si la tabla `map_points` ya existía antes
-   de esta versión: agrega la columna `fijo` (vista fija). `sql/06` ya la incluye.
-4. Ejecutar **`sql/09_admin_gestiona_puntos.sql`**: permite que el administrador renombre,
-   muestre/oculte y **borre cualquier punto** del mapa (incluidos los personales de otros
-   usuarios). Sin esta política, el botón “Guardar” de la hoja de gestión fallaría con
-   error 42501 sobre puntos que no son suyos.
-5. Repetir las pruebas 11–15, 23 y 40 con dos cuentas: una `admin` y otra normal.
-6. Verificar que el usuario normal recibe error al intentar insertar un punto `tipo='general'`
-   (la política `Admin gestiona puntos generales` debe rechazarlo).
+Queda pendiente, por falta de perfiles no globales (hoy solo existen `admin` y `test`):
+
+1. Repetir las pruebas 11–15, 23 y 40 con una cuenta **normal** y con un **admin de grupo**.
+2. Verificar que el usuario normal recibe error al intentar insertar un punto
+   `tipo='general'` o `scope='global'`.
+3. Verificar que el admin de grupo puede gestionar puntos/evento de su grupo pero **no** los
+   globales ni los de otro grupo.
+4. Probar el alta de evento cuando no existe ninguno (la ruta `insert` está cubierta por el
+   verificador, pero siempre hay un evento en la base).
+5. Observar en vivo el corte **+30 → siguiente actividad** de las animaciones JW (la lógica
+   está cubierta por las pruebas puras del bloque `[14]`).

@@ -3,8 +3,8 @@
 > Documento de continuidad para agentes de programación. Léelo completo antes de modificar el repositorio.
 > Última actualización: 2026-11-26.
 >
-> **Estado:** integración con Supabase **resuelta** (§13). Los dos fallos de la §8 están cerrados.
-> **`schema.sql`:** regenerado desde la BD real el 2026-11-23 con **todas** las queries de §15 (§13.3). Único hueco sin contraparte real: Storage (H = 0 filas → no existen políticas de adjuntos).
+> **Estado:** integración con Supabase **resuelta** (§13). Los dos fallos de la §8 están cerrados. Las **9 etapas de `UPDATE.md`** están completadas y documentadas en §29–§36 (Fase 7 cerrada el 2026-11-26).
+> **`schema.sql`:** snapshot de la BD real del 2026-11-23 (§1–§8) **más** la sección 9 con el estado final de las migraciones 10–16. La fuente de verdad del esquema son los archivos `sql/`.
 
 ## 1. Objetivo del proyecto
 
@@ -1596,6 +1596,125 @@ Cubre la Etapa 8. **Sin SQL nuevo.**
    vivo requeriría esperar la hora.
 2. RLS con admin de grupo / usuario normal (solo hay admins globales).
 3. `schema.sql` desactualizado (Fase 7).
+
+---
+
+## 36. Fase 7 de `UPDATE.md`: cierre, validación y entrega (2026-11-26)
+
+### Resumen de cambios
+
+Se completaron las 9 etapas de `UPDATE.md` **sin cambiar la arquitectura** (JS Vanilla +
+MapLibre 4.7.1 + Supabase + GitHub Pages):
+
+- **§29–§30** · Grupos, RLS por grupo, login por usuario+contraseña con grupo automático y
+  registro progresivo con contraseña de grupo (usuario único **global**, decisión del
+  usuario; la prueba 8 del documento de acceso no aplica).
+- **§31** · Categorías de puntos (nuevas + antiguas conservadas), color por categoría,
+  gestión individual por categoría y alcance global/grupo.
+- **§32** · Categoría **JW**: siempre icono, +20 %, popup con actividades y flujo “Marcar
+  actividad en el mapa”.
+- **§33** · Evento general editable (nombre, descripción, fechas) por grupo.
+- **§34** · Agenda con **todos los días** del evento, sin filtro Mis/Todas, FAB de nueva
+  actividad y SOS flotante.
+- **§35** · Animaciones JW (destello/latido) con hora de Chile, cada 60 s y **en su lugar**
+  (icono interior con origen centrado, no el marcador).
+- **Fase 7** · Validación, consolidación de `schema.sql`, documentación y entrega.
+
+### Tablas creadas/modificadas
+
+| Tabla | Cambio |
+|---|---|
+| `groups` | **Nueva** (`sql/10`): `id`, `slug` único, `name`, `description`, `active`. |
+| `map_categories` | **Nueva** (`sql/15`): `slug` PK, `name`, `icon`, `color` (#rrggbb), `sort`, `active`. |
+| `profiles` | `group_id` (NOT NULL, FK), `group_admin`; índice `group_id`; índice único `lower(username)`; trigger de identidad. |
+| `events` | `group_id` (NOT NULL, FK), backfill; políticas por grupo. |
+| `activities` | `group_id` (NOT NULL, FK), `map_point_id` (FK `ON DELETE SET NULL`); trigger que exige categoría JW y grupo/global. |
+| `wall_posts` | `group_id` (NOT NULL, FK), políticas por grupo. |
+| `map_points` | `group_id`, `scope` (`global`/`group`), `category` como FK a `map_categories`; trigger de compatibilidad; RLS por alcance; CHECK antiguo de iconos eliminado. |
+
+### Migraciones SQL (orden de ejecución)
+
+`sql/06_map_points.sql` → `07_terminales.sql` → `08_puntos_fijos.sql` (si aplica) →
+`09_admin_gestiona_puntos.sql` → `10_grupos.sql` → `11_rls_grupos.sql` →
+`14_registro_perfiles.sql` → `15_categorias_puntos.sql` → `16_jw_actividades.sql`.
+
+Todas son idempotentes. La Fase 7 **no agrega migraciones**: el esquema final se documenta
+en `schema.sql` (sección 9) y en los archivos anteriores.
+
+### Edge Functions
+
+- `login-username` (v2): login por usuario + contraseña; `404 USER_NOT_FOUND` para ofrecer el
+  registro; grupo automático.
+- `register-profile` (nueva): `validar-grupo`, `sugerir-usuario`, `registrar`; contraseña de
+  grupo con bcrypt en la BD; crea el usuario en Auth y devuelve la sesión.
+- Ambas con **Verify JWT desactivado** y las variables `APP_SUPABASE_*`.
+
+### RLS implementadas
+
+- **Grupos/acceso**: `groups` (miembros/admin), `profiles` (mismo grupo/self/admin),
+  `events`, `activities`, `activity_assignments`, `activity_user_details`,
+  `activity_attachments` y `wall_posts` por `group_id = auth_group()`; escritura por
+  `can_manage_group()`; trigger que impide cambiar `username`/`group_id` a los no admin.
+- **Puntos**: lectura por grupo/global; autor para personales; admin de grupo para su grupo;
+  admin global para todo; el admin de grupo no puede crear puntos globales.
+- **Categorías**: lectura para autenticados; escritura solo admin global.
+- **Pendiente de verificación en vivo** (no se marca como completado): acceso con un usuario
+  normal y con un admin de grupo (hoy solo existen `admin` y `test`, ambos globales).
+
+### Validación §9 del documento (`UPDATE.md`)
+
+| Bloque | Estado |
+|---|---|
+| 9.1 Grupos | ✅ Grupos creados, pertenencia, login y separación de agenda/muro; ⏳ RLS de puntos con usuario normal. |
+| 9.2 Mapa | ✅ Filtros de categorías intactos, gestión individual, persistencia, globales/de grupo, admin de grupo en UI/RLS; ⏳ prueba con usuario normal. |
+| 9.3 JW | ✅ Puntos JW creados/gestionados, actividades vinculadas, “Marcar en el mapa”, ubicación y visualización. |
+| 9.4 Agenda | ✅ Evento editable, actividades por evento, filtro eliminado, FAB, días pasados visibles, hoy expandido, compactos y expandibles. |
+| 9.5 Animaciones | ✅ Destello hoy/en curso/+30, latido −30, siguiente, zona horaria (pruebas puras); el +30 en vivo queda cubierto por las pruebas. |
+| 9.6 Entrega | ✅ Este apartado + `PRUEBAS.md` + `DOCUMENTACION-MAPA.md` + `README.md`. |
+
+### Pruebas
+
+- `node scripts/verificar-mapa.mjs` → **352 pruebas · 0 fallos · 2 avisos** (bloques `[1]`–`[14]`).
+- Verificación en navegador por fase: login/registro, RLS de eventos/muro con `test1`,
+  colores y puntos, JW (latido/destello en su lugar), evento, agenda, FAB/SOS y animaciones.
+  **0 errores de consola** en los flujos normales; los 4xx/5xx esperados de las pruebas
+  negativas (usuario inexistente, contraseña mala, nombre tomado) no son fallos.
+
+### Archivos de la entrega
+
+| Archivo | Rol |
+|---|---|
+| `src/main.js` | Toda la lógica del frontend (acceso, grupos, puntos, JW, actividades, evento, agenda, muro, animaciones). |
+| `src/jw-tiempo.js` | Módulo puro de tiempo de Chile y estado de animación JW. |
+| `src/config.js` | `SUPABASE_URL`, clave publicable y `EMERGENCY_URL` (todas públicas). |
+| `index.html` | Vistas, diálogos (actividad, punto, evento), agenda, FAB y SOS. |
+| `styles.css` | Categorías/colores, JW, mapas, agenda, FAB/SOS y `@keyframes` de destello/latido. |
+| `sw.js` | Service worker, precache `v22`. |
+| `scripts/verificar-mapa.mjs` | Verificador (352 pruebas, bloques `[1]`–`[14]`). |
+| `sql/06`–`sql/16` | Migraciones idempotentes (mapa, terminales, admin, grupos, RLS, perfiles, categorías, JW). |
+| `supabase/functions/login-username` | Login por usuario+contraseña con grupo automático (v2). |
+| `supabase/functions/register-profile` | Registro con contraseña de grupo (`validar-grupo`, `sugerir-usuario`, `registrar`). |
+| `AGENT.md`, `PRUEBAS.md`, `DOCUMENTACION-MAPA.md`, `README.md`, `schema.sql` | Crónica, pruebas, documentación técnica, puesta en marcha y esquema final. |
+
+### Pendientes / limitaciones honestas
+
+1. **RLS con usuario normal y admin de grupo**: políticas aplicadas, sin prueba en vivo por
+   falta de perfiles no globales.
+2. **Alta de evento sin evento existente**: la ruta `insert` está cubierta por el verificador;
+   no se probó en vivo porque siempre hay un evento.
+3. **Corte +30 → siguiente** en vivo: cubierto por las pruebas puras del módulo de tiempo.
+4. **Selección individual en capas externas** (parques/salud/comercio de OSM): se mantiene el
+   interruptor por categoría; la gestión individual aplica a `map_points` (decisión de alcance).
+5. **`schema.sql` no es un `pg_dump` en vivo**: la sección 9 consolida las migraciones 10–16;
+   la fuente de verdad son los archivos `sql/`.
+6. Limpieza de caché del service worker tras cada despliegue (hoy `v22`).
+7. `UPDATE.md` es del usuario y quedó **sin rastrear**.
+
+### Artefactos de prueba
+
+Eliminados: usuario `test1`, grupo `prueba_acceso`, actividad/punto JW de prueba y grupo
+`prueba_acceso`; quedan el grupo `principal`, los perfiles `admin`/`test`, las 5 actividades
+de prueba y los 6 puntos (4 terminales + 2 generales).
 
 
 
