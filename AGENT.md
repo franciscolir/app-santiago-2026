@@ -1570,18 +1570,25 @@ Cubre la Etapa 8. **Sin SQL nuevo.**
   (`map_point_id`) y aplica las clases `.jw-destello` / `.jw-latido` + `dataset.jwEstado`.
 - Un `setInterval(…, 60000)` actualiza sin recargar y **sin consultar Supabase**; también se
   aplica al renderizar los puntos y al recargar las actividades.
-- CSS: `@keyframes jw-destello` (escala 1,08 + halo ámbar) y `jw-latido` (1,22/1,14, tipo
-  corazón), con `prefers-reduced-motion`.
+- **En su lugar**: el marcador raíz lo posiciona MapLibre con `transform`; por eso la
+  animación se aplica a un **icono interior** (`.map-point-jw-anim`,
+  `position:absolute; inset:0; transform-origin:50% 50%`) y **nunca al marcador**. El icono se
+  infla/desinfla alrededor de su centro; el marcador no se desplaza.
+- CSS: `@keyframes jw-destello` (`transform: scale(1.08)` + halo ámbar) y `jw-latido`
+  (`transform: scale(1.22/1.14)`, tipo corazón), con `prefers-reduced-motion`.
 
 ### Verificación
 
-- `node scripts/verificar-mapa.mjs` → **348 pruebas · 0 fallos · 2 avisos** (bloque `[14]`
-  con 17 comprobaciones; importa el módulo puro y prueba −30, inicio, +30, siguiente, otro
-  día, cancelada y UTC−3).
+- `node scripts/verificar-mapa.mjs` → **352 pruebas · 0 fallos · 2 avisos** (bloque `[14]`
+  con 21 comprobaciones; importa el módulo puro y prueba −30, inicio, +30, siguiente, otro
+  día, cancelada, UTC−3 y que la animación va en el icono interior con origen centrado).
 - En vivo: actividad a **14 min** del inicio → `jw-latido` (animación `jw-latido`, icono
   24,3 px); editada a **en curso** (12:00–12:30) → `jw-destello` (animación `jw-destello`).
+  Comprobado que el marcador raíz tiene `animation-name: none` y su `transform` es solo la
+  posición de MapLibre; el icono interior (`jw-latido`/`jw-destello`) escala con
+  `transform: scale(...)` y **el mismo centro** (691,331) → se infla en su lugar.
   Artefactos borrados: 5 actividades, 6 puntos, JW 0/0. **0 errores JS**.
-- `sw.js` → **v21**.
+- `sw.js` → **v22**.
 
 ### Pendiente
 

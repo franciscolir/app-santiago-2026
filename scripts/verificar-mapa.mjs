@@ -681,8 +681,8 @@ console.log("[9] Acceso: login por usuario, grupo automático y registro");
   check(/\$\("#agenda-active-day"\)\?\.classList\.add\("hidden"\)/.test(main),
     "agenda: la tarjeta del día activo se oculta si HOY no tiene actividades",
     "el encabezado del día anterior puede quedar visible");
-  check(/app-santiago-2026-v21/.test(sw),
-    "service worker: v21 (precache renovada con la Fase 6)", "el SW no se renovó");
+  check(/app-santiago-2026-v22/.test(sw),
+    "service worker: v22 (precache renovada con la Fase 6)", "el SW no se renovó");
 }
 
 // ------------------- 10. Fase 2: categorías, colores y alcance (2026-11-26) -----
@@ -894,8 +894,8 @@ console.log("[13] Fase 5: agenda con todos los días, FAB y SOS");
     "SOS: abre EMERGENCY_URL (flotante y botón grande)", "el SOS no abre la URL configurada");
   check(/bottom: calc\(4\.5rem \+ env\(safe-area-inset-bottom/.test(html),
     "SOS/FAB: sobre la barra de navegación (safe area)", "no respetan la barra inferior");
-  check(/app-santiago-2026-v21/.test(sw),
-    "service worker: v21", "el SW no se renovó");
+  check(/app-santiago-2026-v22/.test(sw),
+    "service worker: v22", "el SW no se renovó");
 }
 
 // ------------------- 14. Fase 6: animaciones JW (2026-11-26) -----------------
@@ -935,14 +935,25 @@ console.log("[14] Fase 6: animaciones JW (destello y latido)");
     "JW: keyframes de destello y latido", "faltan las animaciones CSS");
   check(/\.map-point-jw\.jw-destello/.test(css) && /\.map-point-jw\.jw-latido/.test(css),
     "JW: clases de animación en el marcador", "faltan las clases");
+  check(/\.map-point-jw\.jw-latido \.map-point-jw-anim/.test(css) &&
+        /@keyframes jw-latido\s*\{[\s\S]{0,220}transform: scale\(1\.22\)/.test(css),
+    "JW: el latido escala el icono interior EN SU LUGAR",
+    "el latido anima el marcador posicionado (puede desplazarse)");
+  check(/transform-origin: 50% 50%/.test(css),
+    "JW: origen de animación centrado", "el icono no escala desde el centro");
+  check(!/\.map-point-jw\.jw-(destello|latido)\s*\{[^}]*animation/.test(css),
+    "JW: no se anima el marcador (solo el icono interior)",
+    "el marcador con transform de MapLibre recibe la animación");
+  check(/classList\.toggle\("jw-latido"/.test(main) && /map-point-jw-anim/.test(main),
+    "JW: el marcador crea el icono interior animable", "falta el icono interior");
   check(/import \{ ahoraChile, estadoJW \} from "\.\/jw-tiempo\.js"/.test(main),
     "JW: el frontend usa el módulo de tiempo", "no importa jw-tiempo");
   check(/setInterval\(aplicarEstadoJW,60000\)/.test(main),
     "JW: temporizador de 60 s (sin consultas a Supabase)", "no hay temporizador");
   check(/aplicarEstadoJW\(\);\s*\}/.test(main),
     "JW: el estado se reaplica al renderizar los puntos", "no se aplica al render");
-  check(/app-santiago-2026-v21/.test(leerTexto("sw.js") || ""),
-    "service worker: v21", "el SW no se renovó");
+  check(/app-santiago-2026-v22/.test(leerTexto("sw.js") || ""),
+    "service worker: v22", "el SW no se renovó");
 }
 
 // ---------------------------------------------------------------- resumen ----

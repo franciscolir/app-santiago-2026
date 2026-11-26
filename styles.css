@@ -184,22 +184,37 @@ body.vista-mapa .mapa-frame { height: 100% !important; min-height: 0 !important;
 .map-point-oculto-admin { opacity: .45; filter: grayscale(.35); }
 
 /* JW (Fase 6): destello (hoy / en curso / +30 min) y latido (30 min antes).
-   El tamaño base +20 % lo fija actualizarPuntosSegunZoom() con --icono-tam. */
+   El tamaño base +20 % lo fija actualizarPuntosSegunZoom() con --icono-tam.
+   OJO: el marcador raíz lo posiciona MapLibre con `transform`; por eso la
+   animación va en un icono INTERIOR (.map-point-jw-anim) con origen centrado:
+   el icono se infla/desinfla EN SU LUGAR, sin desplazarse. */
+.map-point-jw-anim {
+  position: absolute;
+  inset: 0;
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+  transform-origin: 50% 50%;
+  transform: scale(1);
+  will-change: transform;
+  pointer-events: none;
+}
 @keyframes jw-destello {
-  0%, 100% { scale: 1; filter: drop-shadow(0 0 0 rgba(242,183,5,0)); }
-  50% { scale: 1.08; filter: drop-shadow(0 0 9px rgba(242,183,5,.95)); }
+  0%, 100% { transform: scale(1); filter: drop-shadow(0 0 0 rgba(242,183,5,0)); }
+  50% { transform: scale(1.08); filter: drop-shadow(0 0 9px rgba(242,183,5,.95)); }
 }
 @keyframes jw-latido {
-  0%, 100% { scale: 1; }
-  15% { scale: 1.22; }
-  30% { scale: 1; }
-  45% { scale: 1.14; }
-  60% { scale: 1; }
+  0%, 100% { transform: scale(1); }
+  15% { transform: scale(1.22); }
+  30% { transform: scale(1); }
+  45% { transform: scale(1.14); }
+  60% { transform: scale(1); }
 }
-.map-point-jw.jw-destello { animation: jw-destello 2.4s ease-in-out infinite; }
-.map-point-jw.jw-latido { animation: jw-latido 1.3s ease-in-out infinite; }
+.map-point-jw.jw-destello .map-point-jw-anim { animation: jw-destello 2.4s ease-in-out infinite; }
+.map-point-jw.jw-latido .map-point-jw-anim { animation: jw-latido 1.3s ease-in-out infinite; }
 @media (prefers-reduced-motion: reduce) {
-  .map-point-jw.jw-destello, .map-point-jw.jw-latido { animation: none; }
+  .map-point-jw.jw-destello .map-point-jw-anim,
+  .map-point-jw.jw-latido .map-point-jw-anim { animation: none; }
 }
 /* En modo punto no se muestra el nombre (el icono ya no está). */
 .map-point-punto .map-point-nombre { display: none !important; }

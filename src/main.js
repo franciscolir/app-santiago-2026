@@ -2002,7 +2002,19 @@ function renderPuntosMapa(){
     const defIcono=ICONOS_MAPA[claveIcono]||ICONOS_MAPA.place;
     // El SVG se muestra directo como fondo CSS (es vectorial: se ve nítido en
     // cualquier zoom y no necesita rasterizarse).
-    el.style.backgroundImage=`url('./icons/${defIcono.svg}')`;
+    const urlIcono=`url('./icons/${defIcono.svg}')`;
+    const esJW=p.category==="jw";
+    if(esJW){
+      // Icono interior: el latido/destello escala ESTE elemento (origen
+      // centrado) y no el marcador, que MapLibre posiciona con `transform`.
+      const anim=document.createElement("span");
+      anim.className="map-point-jw-anim";
+      anim.setAttribute("aria-hidden","true");
+      anim.style.backgroundImage=urlIcono;
+      el.appendChild(anim);
+    }else{
+      el.style.backgroundImage=urlIcono;
+    }
     // Color del punto cuando el mapa se aleja: color de la CATEGORÍA (sql/15).
     el.style.setProperty("--punto-color",colorCategoria(p.category,"#006492"));
     // "Vista fija": el icono se muestra siempre, a cualquier zoom.
