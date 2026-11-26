@@ -43,7 +43,8 @@
 // v26: manifest con cache-busting (?v=26) para instalaciones existentes.
 // v27: nombres de 3 líneas, controles reducidos, alta de punto por gesto,
 // subcategorías/capas, overrides de capas externas y ajustes ADMIN.
-const CACHE_NAME = "app-santiago-2026-v27";
+// v28: comportamiento "siempre icono" también en capas externas.
+const CACHE_NAME = "app-santiago-2026-v28";
 const APP_SHELL = [
   "./",
   "./index.html",

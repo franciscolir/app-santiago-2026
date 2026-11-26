@@ -163,11 +163,11 @@ Sin dependencias: solo Node.js ≥ 18. Comprueba:
     subcategorías/capas, overrides globales, JW siempre icono y placeholder “Cerca de mí”.
   - En vivo: punto con 3 líneas y subcategoría Metro; ADMIN creó categoría/subcapa QA; ocultó
     un punto de Metro y la fuente quedó filtrada (154→153); MANAGER no ve el engranaje.
-  - `sw` v27.
+  - `sw` v28.
 - **2026-11-26 (Emergencia simplificada)**: **395 pruebas · 0 fallos · 2 avisos**. Se verificó
   que la vista solo conserva contactos + botón inferior, que el hero/SOS/estado de red ya no
   existen y que el SOS flotante se oculta en Emergencia y vuelve en las demás pestañas.
-  `sw` v27.
+  `sw` v28.
 - **2026-11-26 (QA 3×10 + seguridad)**: **228 comprobaciones de integración · 0 fallos** con
   `scripts/qa-simulacion.mjs` (3 grupos, 30 usuarios, 1 MANAGER por grupo, eventos solapados,
   actividades de ADMIN/MANAGER, muro, puntos y ataques). Hallazgo corregido: el MANAGER podía
@@ -287,7 +287,7 @@ Sin dependencias: solo Node.js ≥ 18. Comprueba:
 - Avisos no bloqueantes del navegador: Tailwind CDN (aviso conocido de producción) y 3 avisos
   de MapLibre (`Expected value to be of type number, but found null instead`) que provienen del
   estilo OpenFreeMap, no del código de la app.
-- El service worker quedó en `app-santiago-2026-v27` (precache renovada con la jerarquía
+- El service worker quedó en `app-santiago-2026-v28` (precache renovada con la jerarquía
   ADMIN/MANAGER, los puntos bloqueados y los contactos generales).
 - **Limitación del navegador embebido de pruebas**: no dispara `requestAnimationFrame`, por lo
   que MapLibre no repinta (`map.loaded()` queda en `false` y `queryRenderedFeatures()` devuelve

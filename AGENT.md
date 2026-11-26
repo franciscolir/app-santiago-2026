@@ -1692,7 +1692,7 @@ jerarquía ADMIN/MANAGER (posterior a la Fase 7).
 | `src/config.js` | `SUPABASE_URL`, clave publicable y `EMERGENCY_URL` (todas públicas). |
 | `index.html` | Vistas, diálogos (actividad, punto, evento), agenda, FAB y SOS. |
 | `styles.css` | Categorías/colores, JW, mapas, agenda, FAB/SOS y `@keyframes` de destello/latido. |
-| `sw.js` | Service worker, precache `v27`. |
+| `sw.js` | Service worker, precache `v28`. |
 | `scripts/verificar-mapa.mjs` | Verificador (395 pruebas, bloques `[1]`–`[16]`). |
 | `sql/06`–`sql/16` | Migraciones idempotentes (mapa, terminales, admin, grupos, RLS, perfiles, categorías, JW). |
 | `supabase/functions/login-username` | Login por usuario+contraseña con grupo automático (v2). |
@@ -1710,7 +1710,7 @@ jerarquía ADMIN/MANAGER (posterior a la Fase 7).
    interruptor por categoría; la gestión individual aplica a `map_points` (decisión de alcance).
 5. **`schema.sql` no es un `pg_dump` en vivo**: la sección 9 consolida las migraciones 10–20;
    la fuente de verdad son los archivos `sql/`.
-6. Limpieza de caché del service worker tras cada despliegue (hoy `v27`).
+6. Limpieza de caché del service worker tras cada despliegue (hoy `v28`).
 7. `UPDATE.md` es del usuario y quedó **sin rastrear**.
 
 ### Artefactos de prueba
@@ -1779,7 +1779,7 @@ de su grupo.
 
 - `node scripts/verificar-mapa.mjs` → **395 pruebas · 0 fallos · 2 avisos** (bloques `[15]` y
   `[16]`).
-- `sw.js` → **v27**.
+- `sw.js` → **v28**.
 - **QA de integración (2026-11-26)**: `scripts/qa-simulacion.mjs` → **228 comprobaciones · 0
   fallos** con 3 grupos, 30 usuarios (10 por grupo), 1 MANAGER por grupo, 3 eventos solapados,
   actividades de ADMIN/MANAGER, 30 publicaciones de muro, puntos y ataques.
@@ -1817,7 +1817,7 @@ sistema externo.
   “Abrir sistema de emergencia”.
 - El **SOS flotante** global (`#sos-fab`) se oculta únicamente en la vista Emergencia para no
   duplicar la acción; sigue disponible en Agenda/Mapa/Muro.
-- `sw` → **v27**.
+- `sw` → **v28**.
 - `scripts/verificar-mapa.mjs` → **395 pruebas · 0 fallos · 2 avisos**, con comprobación de que
   no quedan `sosButton`, `ACTIVAR PROTOCOLO`, `crisis_alert` ni `net-status`, y de que siguen
   `#emergency-contacts` y `#emergency-open-link`.
@@ -1835,7 +1835,7 @@ Se reemplazó el título visible y de PWA:
 - `manifest.webmanifest`: `name` = **STGO 2026 | Región 8**, `short_name` = **STGO 2026**.
 - `alt` del logo actualizado.
 
-`sw` → **v27**. `scripts/verificar-mapa.mjs` → **395 pruebas · 0 fallos · 2 avisos** (incluye
+`sw` → **v28**. `scripts/verificar-mapa.mjs` → **395 pruebas · 0 fallos · 2 avisos** (incluye
 la comprobación del encabezado/título y del manifest).
 
 ---

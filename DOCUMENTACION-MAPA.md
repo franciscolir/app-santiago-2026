@@ -461,15 +461,15 @@ Detalle en `PRUEBAS.md`.
   normal. `group_admin` desaparece. Se agregan grupos con número y contraseña, actividades
   multi-grupo (`series_id`), puntos fijos bloqueados (solo ADMIN, siempre visibles) y
   contactos generales de emergencia editables por el ADMIN. `sql/18` cierra la edición de la
-  fila de `groups` al MANAGER. `sw` v27.
+  fila de `groups` al MANAGER. `sw` v28.
 - **Emergencia simplificada**: la vista conserva solo la lista de contactos y el botón
   “Abrir sistema de emergencia”; se eliminó el hero/SOS grande y el estado de red, y el SOS
   flotante se oculta dentro de esa vista.
 - **Mapa: nombres y capas**: etiquetas de hasta 3 líneas con textarea; controles laterales
   reducidos a centrar/ubicación/capas/cerca de mí; alta de punto por clic o pulsación larga;
   subcategorías = capas con color/icono/comportamiento; overrides globales de puntos externos;
-  ajustes de capas solo para ADMIN. `sql/19` y `sql/20`; `sw` v27.
-- El service worker quedó en `app-santiago-2026-v27` (precache renovada con la jerarquía
+  ajustes de capas solo para ADMIN. `sql/19` y `sql/20`; `sw` v28.
+- El service worker quedó en `app-santiago-2026-v28` (precache renovada con la jerarquía
   ADMIN/MANAGER, los puntos bloqueados y los contactos generales).
 
 ---

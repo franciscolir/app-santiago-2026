@@ -1772,6 +1772,7 @@ async function cargarTransporte(){
     map.on("mouseleave",ids,()=>map.getCanvas().style.cursor="");};
   cursorPuntero(["metro-estaciones","metro-estaciones-icono","metro-combo","metro-combo-icono","metrotren-estaciones"]);
   // La visibilidad de las capas de transporte la fija el panel de capas.
+  aplicarComportamientoCapa("transporte");
   aplicarCapas();
 }
 
@@ -1790,6 +1791,38 @@ function filtrarGeoOverrides(layerKey, geo){
   if(!geo?.features?.length) return geo;
   geo.features=geo.features.filter(f=>!overrideOculto(layerKey,externalIdDe(layerKey,f.properties)));
   return geo;
+}
+
+function modoCapa(layerKey){ return subcategoriaDeCapa(layerKey)?.render_mode || "auto"; }
+function aplicarComportamientoCapa(capa){
+  const map=state.map; if(!map||!state.mapListo) return;
+  if(CAPAS_LUGARES[capa]){
+    const fuente=`lugares-${capa}`;
+    const item=CAPAS_DEF.flatMap(g=>g.items).find(it=>it.capaLugares===capa);
+    const on=item?capasEstado[item.id]!==false:true;
+    const icono=map.getLayer(`${fuente}-puntos`);
+    const mini=map.getLayer(`${fuente}-puntos-mini`);
+    if(modoCapa(capa)==="icon"){
+      if(icono) map.setLayerZoomRange(`${fuente}-puntos`,ZOOM_PUNTO_MIN,24);
+      if(mini) map.setLayoutProperty(`${fuente}-puntos-mini`,"visibility","none");
+    }else{
+      if(icono) map.setLayerZoomRange(`${fuente}-puntos`,ZOOM_ICONO,24);
+      if(mini) map.setLayoutProperty(`${fuente}-puntos-mini`,"visibility",on?"visible":"none");
+    }
+  }
+  if(capa==="transporte"){
+    const iconMode=modoCapa("metro")==="icon";
+    ["metro-estaciones-icono","metro-combo-icono"].forEach(id=>{
+      if(map.getLayer(id)) map.setLayerZoomRange(id,iconMode?ZOOM_PUNTO_MIN:ZOOM_ICONO,24);
+    });
+    ["metro-estaciones","metro-combo"].forEach(id=>{
+      if(map.getLayer(id)) map.setLayoutProperty(id,"visibility",iconMode||capasEstado.metro===false?"none":"visible");
+    });
+  }
+}
+function aplicarComportamientosCapas(){
+  Object.keys(CAPAS_LUGARES).forEach(aplicarComportamientoCapa);
+  aplicarComportamientoCapa("transporte");
 }
 
 async function cargarLugares(capa){
@@ -1896,6 +1929,7 @@ async function cargarLugares(capa){
   map.on("mouseleave",`${fuente}-cluster`,()=>map.getCanvas().style.cursor="");
 
   lugaresCargados.add(capa);
+  aplicarComportamientoCapa(capa);
   aplicarCapas();
 }
 
@@ -1985,6 +2019,8 @@ function aplicarCapas(){
       });
     }
   }));
+  Object.keys(CAPAS_LUGARES).forEach(aplicarComportamientoCapa);
+  aplicarComportamientoCapa("transporte");
 }
 
 // Alterna una capa: refleja el estado al instante y carga la fuente si toca.
@@ -2663,6 +2699,7 @@ $("#capa-form")?.addEventListener("submit",async e=>{
   $("#capa-form-dialog")?.close();
   await cargarCategorias();
   await actualizarIconosCapas();
+  aplicarComportamientosCapas();
   renderAdminCapas();
   showToast("Capa guardada.");
 });
