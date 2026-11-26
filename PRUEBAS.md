@@ -84,11 +84,29 @@ Sin dependencias: solo Node.js ≥ 18. Comprueba:
 | 54 | Alternativas de nombre | Si el nombre está tomado, se ofrecen alternativas comprobadas como botones; el usuario debe confirmar | ✅ (chips `test1…test5`; al elegir uno solo se rellena el campo, no se crea solo) |
 | 55 | Grupo automático en reingresos | El perfil guarda el grupo; el login lo recupera de la BD y no lo pide | ✅ (en vivo: `test1` reingresó sin grupo → “Grupo de prueba de acceso”) |
 | 56 | Contraseña de grupo protegida | Hash bcrypt; la app no puede leerlo ni escribirlo; solo `service_role` verifica | ✅ (GRANT por columna; `verificar_password_grupo` da 42501 a `authenticated`) |
+| 57 | Categorías de puntos | Catálogo en BD: nuevas (mall, policía, bomberos, hospital, centro de salud, metro, parque, kiosco, expositor, otros, JW) + **conserva las antiguas** (seguridad, salud, educación, transporte, comercio, áreas verdes, otro) | ⏳ (`sql/15` listo; falta ejecutarlo) |
+| 58 | Color por categoría | El punto circular y las capas externas (incluido el metro) usan el color de la categoría; al guardar se refresca el mapa | ⏳ (UI y código listos; falta aplicar `sql/15`) |
+| 59 | Gestión individual | Lista por categoría con buscador, seleccionar todos/deseleccionar, contador y guardado persistente | ✅ (probado en modo respaldo: 2/2 general y 4/4 transporte, “sur” → 1, contador y checks) |
+| 60 | Alcance global/grupo | Los puntos generales pueden ser globales o de grupo; los personales quedan en el grupo del autor | ⏳ (columnas/RLS listos; falta aplicar y probar) |
+| 61 | Admin de grupo | Modera los puntos de su grupo y no puede editar los globales | ✅ (UI `puntoGestionable`; RLS en `sql/15`) |
+| 62 | RLS de puntos | Usuarios normales ven globales + su grupo; el admin de grupo, su grupo; el admin global, todo | ⏳ (políticas listas; probar con un usuario normal tras `sql/15`) |
+| 63 | Puntos personales | El botón de alta está disponible para cualquier autenticado y crea solo puntos personales | ✅ (test1 ve el botón; el formulario fuerza personal) |
 
 ---
 
 ## 3. Resultados de la corrida automática
 
+- **2026-11-26 (Fase 2: categorías, colores y alcance de puntos)**: **291 pruebas · 0 fallos · 2 avisos**.
+  - Bloque `[10]` (26 comprobaciones): `map_categories` y su semilla, color validado, FK de
+    categoría, columnas `group_id`/`scope`, backfill de los generales a global, trigger de
+    compatibilidad, RLS por alcance, administración de categorías, color en las capas,
+    formulario con alcance/grupo, hoja con buscador/contador/seleccionar todos y atenuado del
+    admin.
+  - Navegador **antes** de `sql/15` (modo respaldo): 6 puntos (2 generales + 4 terminales),
+    categorías con `2/2` y `4/4`, buscador `sur` → 1, seleccionar/deseleccionar y contador,
+    formulario con alcance global/grupo; **0 errores JS** (el 404 es la tabla pendiente).
+  - Pendiente: aplicar `sql/15_categorias_puntos.sql` y verificar colores reales, guardado y
+    RLS con un usuario normal.
 - **2026-11-26 (nuevo acceso y registro de perfiles, verificado en vivo)**: **267 pruebas · 0 fallos · 2 avisos**.
   - Bloque `[9]` con **53 comprobaciones**: login por usuario con grupo automático, `sql/14`
     (hash bcrypt, RPC de verificación solo para `service_role`, `grupos_para_registro`, GRANT

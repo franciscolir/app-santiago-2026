@@ -172,16 +172,29 @@ marcadores HTML:
   etiqueta `.map-point-nombre` **debajo del icono**, visible desde el zoom 12,5
   (`.map-point-con-nombre`), sin necesidad de presionarlos.
 
-### 1.9 Gestión de puntos por el administrador (2026-11-25)
+### 1.9 Gestión de puntos por categoría (2026-11-26, Fase 2)
 
-- Botón **“Gestionar puntos”** (`#map-puntos-btn`, solo admin) en la fila de controles del
-  mapa; abre la hoja `#puntos-sheet` con la lista **por tipo**: *Puntos generales* y
-  *Puntos personales*.
-- En cada fila: **cambiar el nombre** (input), **mostrar/desmostrar en el mapa** (checkbox
-  `visible`) y **borrar** (botón de papelera). Nada se escribe en Supabase hasta presionar
-  **Guardar** (`#puntos-guardar`): se envían solo los cambios y los borrados.
-- Para que el admin pueda moderar también los puntos personales de otros usuarios hace
-  falta **`sql/09_admin_gestiona_puntos.sql`** (política “Admin gestiona todos los puntos”).
+- Botón **“Gestionar puntos”** (`#map-puntos-btn`, admin global o de grupo) → hoja
+  `#puntos-sheet`.
+- **Vista de categorías**: una fila por categoría con icono, nombre, `visibles/total` y
+  selector de color (solo el admin global; el admin de grupo ve la muestra). Las categorías y
+  colores viven en `map_categories` (`sql/15_categorias_puntos.sql`).
+- **Detalle de la categoría**: buscador por nombre (`#puntos-buscar`), contador
+  (`#puntos-resumen`), **seleccionar todos / deseleccionar todos** (`#puntos-todos`,
+  `#puntos-ninguno`), renombrar, **ubicar en el mapa** (`data-punto-ubicar`) y borrar. Los
+  cambios se aplican con **Guardar** en bloque (visibilidad, nombres, colores y borrados).
+- **Color por categoría**: el círculo del punto al alejar y las capas GeoJSON (parques,
+  comercio, salud, seguridad, bomberos, servicios, metro y MetroTren) usan
+  `map_categories.color`; al guardar, `aplicarColoresCategorias()` actualiza las capas ya
+  cargadas.
+- **Alcance**: cada punto general es `global` (todos los grupos) o de `group` (un grupo); los
+  personales quedan en el grupo de su autor. El admin global elige grupo/alcance en el
+  formulario; el admin de grupo solo puede crear/gestionar los de su grupo y ve los globales
+  en modo lectura. Los usuarios normales solo crean puntos personales.
+- El admin ve atenuados (`.map-point-oculto-admin`) los puntos deshabilitados para poder
+  ubicarlos; el resto de los usuarios no los recibe.
+- Requiere **`sql/15_categorias_puntos.sql`**; sin él la app usa el catálogo de respaldo y
+  mantiene el comportamiento anterior (con aviso en consola).
 
 ### 1.10 Agenda y muro (2026-11-25)
 

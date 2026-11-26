@@ -500,8 +500,22 @@ dialog::backdrop { background: rgba(44, 49, 50, .6); backdrop-filter: blur(2px);
                 <span class="font-label-md text-label-md text-on-surface-variant">Tipo de punto</span>
                 <select id="point-tipo" class="mt-1 w-full bg-surface-container-low rounded-lg px-3 py-2.5 font-body-md text-body-md text-on-surface focus:outline-none">
                   <option value="personal">Personal (solo tú lo ves)</option>
-                  <option value="general">General (visible para todos)</option>
+                  <option value="general">General (visible para el grupo)</option>
                 </select>
+              </label>
+            </div>
+            <!-- Alcance global/grupo (Fase 2): solo para puntos generales de admin. -->
+            <div class="grid grid-cols-2 gap-3 pb-2">
+              <label id="point-scope-label" class="block hidden">
+                <span class="font-label-md text-label-md text-on-surface-variant">Alcance</span>
+                <select id="point-scope" class="mt-1 w-full bg-surface-container-low rounded-lg px-3 py-2.5 font-body-md text-body-md text-on-surface focus:outline-none">
+                  <option value="group">Solo este grupo</option>
+                  <option value="global">Todos los grupos</option>
+                </select>
+              </label>
+              <label id="point-group-label" class="block hidden">
+                <span class="font-label-md text-label-md text-on-surface-variant">Grupo</span>
+                <select id="point-group" class="mt-1 w-full bg-surface-container-low rounded-lg px-3 py-2.5 font-body-md text-body-md text-on-surface focus:outline-none"></select>
               </label>
             </div>
             <div class="grid grid-cols-2 gap-3 pb-2">
@@ -516,7 +530,7 @@ dialog::backdrop { background: rgba(44, 49, 50, .6); backdrop-filter: blur(2px);
             </div>
             <label class="flex items-center gap-2 pb-3">
               <input id="point-visible" type="checkbox" checked class="w-5 h-5 accent-primary">
-              <span class="font-body-md text-body-md text-on-surface">Visible para todos</span>
+              <span id="point-visible-label" class="font-body-md text-body-md text-on-surface">Visible en el mapa</span>
             </label>
             <!-- Vista fija: el punto muestra siempre su icono, sin convertirse en
                  un punto de color al alejar el mapa. -->
@@ -563,10 +577,25 @@ dialog::backdrop { background: rgba(44, 49, 50, .6); backdrop-filter: blur(2px);
               <div class="w-12 h-1.5 rounded-full bg-surface-variant"></div>
             </div>
             <div class="flex items-center justify-between gap-3 pb-2 flex-shrink-0">
-              <h3 id="puntos-title" class="font-headline-sm text-headline-sm text-on-primary-container font-extrabold">Gestionar puntos del mapa</h3>
-              <button aria-label="Cerrar gestión de puntos" id="puntos-close" class="w-9 h-9 rounded-full bg-surface-container-low flex items-center justify-center active:scale-95 transition-all">
+              <div class="flex items-center gap-2 min-w-0">
+                <button type="button" id="puntos-volver" aria-label="Volver a categorías"
+                        class="hidden w-9 h-9 rounded-full bg-surface-container-low flex items-center justify-center active:scale-95 transition-all flex-shrink-0">
+                  <span class="material-symbols-outlined text-[20px]">arrow_back</span>
+                </button>
+                <h3 id="puntos-title" class="font-headline-sm text-headline-sm text-on-primary-container font-extrabold truncate">Gestionar puntos del mapa</h3>
+              </div>
+              <button aria-label="Cerrar gestión de puntos" id="puntos-close" class="w-9 h-9 rounded-full bg-surface-container-low flex items-center justify-center active:scale-95 transition-all flex-shrink-0">
                 <span class="material-symbols-outlined text-[20px]">close</span>
               </button>
+            </div>
+            <div id="puntos-buscar-wrap" class="hidden pb-2">
+              <input id="puntos-buscar" type="search" placeholder="Buscar por nombre…" autocomplete="off"
+                     class="w-full h-10 px-3 bg-surface-container-low rounded-lg text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/40">
+            </div>
+            <p id="puntos-resumen" class="text-[11px] text-on-surface-variant pb-2"></p>
+            <div id="puntos-acciones" class="hidden flex gap-2 pb-2">
+              <button type="button" id="puntos-todos" class="flex-1 h-9 rounded-full bg-surface-container-low text-sm font-bold text-primary active:scale-[0.98] transition-all">Seleccionar todos</button>
+              <button type="button" id="puntos-ninguno" class="flex-1 h-9 rounded-full bg-surface-container-low text-sm font-bold text-on-surface-variant active:scale-[0.98] transition-all">Deseleccionar todos</button>
             </div>
             <div id="puntos-lista" class="space-y-4"></div>
             <div class="sticky bottom-0 -mx-margin mt-4 px-margin pt-2 pb-1 bg-surface-container-lowest">

@@ -1322,4 +1322,67 @@ mantiene intacta.
 3. ⏳ Publicar el frontend nuevo (push a `main`): el login viejo exige grupo; el nuevo no lo
    envía, así que el frontend va al final.
 
+---
+
+## 31. Fase 2 de `UPDATE.md`: categorías, colores y alcance de puntos (2026-11-26)
+
+Cubre las Etapas 3 y 7 del documento: gestión individual por categoría, color de cada
+categoría y visibilidad global/grupo.
+
+### SQL (`sql/15_categorias_puntos.sql`)
+
+- `public.map_categories`: `slug` (PK), `name`, `icon`, `color` (#rrggbb), `sort`, `active`.
+  Semilla: `general`, `mall`, `policia`, `bomberos`, `hospital`, `centro_salud`, `metro`,
+  `parque`, `kiosco`, `expositor`, `otros` y `jw`.
+- `map_points.category` deja de ser un CHECK y pasa a **FK** a `map_categories`. Se
+  **conservan** las categorías antiguas (seguridad, salud, educación, transporte, comercio,
+  áreas verdes, otro) además de las nuevas; **ningún punto se renombra** (los 4 terminales de
+  buses siguen en `transporte`).
+- `map_points.group_id` + `map_points.scope` (`global`/`group`). Los puntos generales
+  existentes (terminales, referencias) quedan **globales**; los personales, en el grupo de
+  su autor. Trigger `asignar_grupo_punto` para compatibilidad con el cliente anterior.
+- RLS: lectura por `scope='global'` o `group_id=auth_group()`; el autor gestiona sus
+  personales; el admin de grupo modera los personales/generales de **su** grupo; el admin
+  global modera todo. El admin de grupo no puede crear puntos globales.
+- `map_categories`: lectura para autenticados; escritura solo admin global.
+
+### Frontend
+
+- `cargarCategorias()` lee `map_categories` (con respaldo al catálogo antiguo si falta el SQL).
+- `colorCategoria()` / `colorDeCapa()`: el punto circular y las capas GeoJSON (parques,
+  comercio, salud, seguridad, bomberos, servicios, metro y MetroTren) usan el color de su
+  categoría. `aplicarColoresCategorias()` actualiza las capas ya cargadas al guardar un color.
+- Formulario de punto: categoría dinámica, icono por defecto de la categoría, **alcance**
+  (`global`/`grupo`) y **grupo** (el admin global elige; el admin de grupo queda fijo en el
+  suyo). Los usuarios normales solo crean puntos **personales** y el botón de alta queda
+  visible para todos los autenticados.
+- Gestión (`#puntos-sheet`): lista de categorías con `visibles/total` y selector de color
+  (solo admin global) → detalle con **buscador**, **seleccionar todos / deseleccionar todos**,
+  **contador**, renombrar, **ubicar en el mapa** y borrar. Guardado en bloque (visibilidad,
+  nombres, colores y borrados).
+- El admin ve atenuados (`.map-point-oculto-admin`) los puntos deshabilitados, para ubicarlos;
+  los usuarios normales no los reciben.
+
+### Verificación
+
+- `node scripts/verificar-mapa.mjs` → **291 pruebas · 0 fallos · 2 avisos** (bloque `[10]`
+  nuevo con 26 comprobaciones).
+- Navegador **antes** de aplicar `sql/15`: modo respaldo con el catálogo antiguo, 6 puntos
+  (2 generales + 4 terminales en Transporte), hoja de gestión con conteos `2/2` y `4/4`,
+  buscador (`sur` → 1), seleccionar/deseleccionar y contador, formulario con alcance/grupo,
+  **0 errores JS** (el 404 es la tabla `map_categories` aún no creada).
+- `sw.js` → **v15**.
+
+### Pendiente
+
+1. Ejecutar `sql/15_categorias_puntos.sql` y recargar.
+2. Probar: color por categoría en el mapa (incluido el metro), guardado del color, selección
+   individual persistente, punto general **global** vs **de grupo**, y que un admin de grupo
+   no pueda editar puntos globales.
+3. Limpiar el perfil de prueba `test1` (Dashboard → Authentication) y el grupo
+   `prueba_acceso` (`delete from public.groups where slug = 'prueba_acceso';` después de
+   borrar el usuario).
+4. `schema.sql` sigue desactualizado (se regenerará en la Fase 7 del plan).
+
+
 

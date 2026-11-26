@@ -24,7 +24,9 @@
 // v14: nuevo flujo de acceso: login solo usuario + contraseña (grupo
 // automático), registro progresivo con contraseña de grupo y nombres
 // alternativos.
-const CACHE_NAME = "app-santiago-2026-v14";
+// v15: Fase 2: categorías de puntos, color por categoría, gestión individual
+// por categoría y alcance global/grupo.
+const CACHE_NAME = "app-santiago-2026-v15";
 const APP_SHELL = [
   "./",
   "./index.html",

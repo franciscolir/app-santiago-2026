@@ -440,8 +440,9 @@ console.log("[7] UX del 2026-11-25: zoom escalonado, metro, bomberos, puntos, mu
     "gestión de puntos: renombrar, mostrar/ocultar y borrar", "faltan los controles por fila");
   check(/from\("map_points"\)\s*\n?\s*\.update\(\{name:/.test(main),
     "gestión de puntos: guarda el nombre", "no guarda el nombre del punto");
-  check(/visible:!!cambio\.visible/.test(main),
-    "gestión de puntos: guarda la visibilidad", "no guarda el campo visible");
+  check(/update\(\{visible:true\}\)\.in\("id"/.test(main) &&
+        /update\(\{visible:false\}\)\.in\("id"/.test(main),
+    "gestión de puntos: guarda la visibilidad en bloque", "no guarda el campo visible");
   check(/from\("map_points"\)\.delete\(\)/.test(main),
     "gestión de puntos: borra puntos", "no borra puntos");
   check(/tipo==="general"/.test(main) || /tipo:'general'/.test(main) || /id:"general",titulo/.test(main),
@@ -680,8 +681,91 @@ console.log("[9] Acceso: login por usuario, grupo automático y registro");
   check(/\$\("#agenda-active-day"\)\?\.classList\.add\("hidden"\)/.test(main),
     "agenda: la tarjeta del día activo se oculta si HOY no tiene actividades",
     "el encabezado del día anterior puede quedar visible");
-  check(/app-santiago-2026-v14/.test(sw),
-    "service worker: v14 (precache renovada con el nuevo acceso)", "el SW no se renovó");
+  check(/app-santiago-2026-v15/.test(sw),
+    "service worker: v15 (precache renovada con la Fase 2)", "el SW no se renovó");
+}
+
+// ------------------- 10. Fase 2: categorías, colores y alcance (2026-11-26) -----
+console.log("[10] Fase 2: categorías, color por categoría y alcance global/grupo");
+{
+  const sql15 = leerTexto("sql/15_categorias_puntos.sql") || "";
+  const main = leerTexto("src/main.js") || "";
+  const html = leerTexto("index.html") || "";
+  const css = leerTexto("styles.css") || "";
+
+  // --- 1) categorías (sql/15) -----------------------------------------------
+  check(/create table if not exists public\.map_categories/.test(sql15),
+    "categorías: tabla map_categories", "falta la tabla de categorías");
+  check(/insert into public\.map_categories[\s\S]{0,1200}'centro_salud'/.test(sql15) &&
+        /'jw'/.test(sql15) && /'kiosco'/.test(sql15) && /'expositor'/.test(sql15),
+    "categorías: semilla con centro de salud, JW, kiosco y expositor",
+    "faltan categorías del documento");
+  check(/constraint map_categories_color_check check \(color ~/.test(sql15),
+    "categorías: color validado como #rrggbb", "el color no se valida");
+  check(/map_points_category_fkey/.test(sql15) &&
+        /drop constraint if exists map_points_category_check/.test(sql15),
+    "categorías: map_points.category pasa a ser FK", "no se migró la categoría");
+  check(/'transporte'[\s\S]{0,260}'comercio'/.test(sql15) &&
+        /'areas_verdes'/.test(sql15) && /'educacion'/.test(sql15),
+    "categorías: conserva las categorías antiguas (transporte, comercio, …)",
+    "se perdieron las categorías anteriores del mapa");
+  check(/'transporte'[\s\S]{0,4000}then 'metro'/.test(sql15) === false,
+    "categorías: NO renombra los puntos antiguos (los terminales siguen en transporte)",
+    "la migración convertiría los terminales de buses en metro");
+
+  // --- 2) alcance global/grupo (sql/15) -------------------------------------
+  check(/add column if not exists group_id uuid/.test(sql15) &&
+        /add column if not exists scope text not null default 'group'/.test(sql15),
+    "alcance: columnas group_id y scope", "faltan las columnas de alcance");
+  check(/set scope = 'global', group_id = null/.test(sql15),
+    "alcance: los puntos generales existentes quedan globales",
+    "no se hace el backfill de los puntos generales");
+  check(/create trigger map_points_asignar_grupo/.test(sql15) &&
+        /asignar_grupo_punto/.test(sql15),
+    "alcance: trigger de compatibilidad rellena grupo/scope", "falta el trigger");
+  check(/create policy "Puntos visibles por grupo o globales"/.test(sql15) &&
+        /scope = 'global' or group_id = public\.auth_group\(\)/.test(sql15),
+    "RLS: puntos globales y de grupo", "la política no distingue alcance");
+  check(/create policy "Admin de grupo gestiona puntos personales de su grupo"/.test(sql15),
+    "RLS: el admin de grupo modera los personales de su grupo", "falta la política del admin de grupo");
+  check(/create policy "Admin gestiona las categorías"/.test(sql15),
+    "RLS: solo el admin global cambia las categorías", "las categorías no están protegidas");
+
+  // --- 3) frontend: categorías y colores ------------------------------------
+  check(/async function cargarCategorias/.test(main) && /from\("map_categories"\)/.test(main),
+    "mapa: carga las categorías desde Supabase", "no se cargan las categorías");
+  check(/function colorCategoria/.test(main) && /function colorDeCapa/.test(main),
+    "mapa: color por categoría (incluidas las capas externas)", "falta el color por categoría");
+  check(/colorCategoria\("metro"/.test(main),
+    "mapa: el metro usa el color de su categoría", "el metro sigue con colores fijos");
+  check(/function aplicarColoresCategorias/.test(main) &&
+        /setPaintProperty\(id,"circle-color",color\)/.test(main),
+    "mapa: al guardar un color se actualizan las capas cargadas", "no se refrescan los colores");
+
+  // --- 4) frontend: formulario y alcance ------------------------------------
+  check(/id="point-scope"/.test(html) && /id="point-group"/.test(html),
+    "formulario: alcance global/grupo y grupo", "faltan los campos de alcance");
+  check(/function actualizarCamposPunto/.test(main) &&
+        /id="point-visible-label"/.test(html),
+    "formulario: muestra/oculta alcance y grupo según el rol", "no se ajustan los campos");
+  check(/function puntoGestionable/.test(main),
+    "permisos: el admin de grupo no edita los puntos globales", "no se distingue el alcance al editar");
+
+  // --- 5) frontend: gestión por categoría -----------------------------------
+  check(/id="puntos-buscar"/.test(html) && /id="puntos-todos"/.test(html) &&
+        /id="puntos-ninguno"/.test(html) && /id="puntos-resumen"/.test(html),
+    "gestión: buscador, seleccionar todos/deseleccionar y contador",
+    "faltan los controles de la lista");
+  check(/data-cat-color/.test(main) && /data-cat-abrir/.test(main),
+    "gestión: lista de categorías con color y acceso al detalle",
+    "no se gestionan las categorías");
+  check(/update\(\{color\}\)\.eq\("slug"/.test(main) &&
+        /update\(\{visible:true\}\)\.in\("id"/.test(main),
+    "gestión: guarda colores y visibilidad en bloque", "no se guardan los cambios");
+  check(/data-punto-ubicar/.test(main) && /flyTo\(\{center:\[p\.longitude,p\.latitude\]/.test(main),
+    "gestión: botón para ubicar el punto en el mapa", "falta ubicar el punto");
+  check(/\.map-point-oculto-admin/.test(css) && /map-point-oculto-admin/.test(main),
+    "mapa: el admin ve atenuados los puntos ocultos", "no se distingue el punto oculto");
 }
 
 // ---------------------------------------------------------------- resumen ----

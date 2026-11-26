@@ -68,12 +68,8 @@ node scripts/optimizar-iconos.mjs
   (opcional `sql/08_puntos_fijos.sql` si la tabla ya existía antes de la columna `fijo`) →
   **`sql/09_admin_gestiona_puntos.sql`** (permite que el admin renombre, oculte y borre
   cualquier punto del mapa, incluidos los personales de otros usuarios) →
-  **`sql/10_grupos.sql`** → **`sql/11_rls_grupos.sql`** (grupos, login por grupo y RLS por
-  grupo; el 10 va antes que el 11).
-
-- Login por grupo: después de `sql/10`, desplegar
-  `supabase/functions/login-username/` con **Verify JWT desactivado**. Instrucciones y
-  contrato en `supabase/functions/login-username/README.md`.
+  **`sql/10_grupos.sql`** → **`sql/11_rls_grupos.sql`** (grupos y RLS por grupo; el 10 va
+  antes que el 11).
 
 - Nuevo acceso (usuario + contraseña, grupo automático y registro):
   1. Ejecutar **`sql/14_registro_perfiles.sql`**.
@@ -82,6 +78,10 @@ node scripts/optimizar-iconos.mjs
   3. Desplegar **`login-username`** y **`register-profile`** con **Verify JWT desactivado**
      (instrucciones en cada `README.md`).
   4. Publicar el frontend (el login viejo exige grupo; el nuevo no lo envía).
+
+- Fase 2 del mapa (categorías, colores y alcance): ejecutar
+  **`sql/15_categorias_puntos.sql`** (categorías con color, gestión individual por categoría,
+  alcance global/grupo y RLS de puntos). Después, recargar la app.
 
 - Separar los cuarteles de bomberos de la capa de seguridad (sin volver a Overpass; es
   idempotente y no sobrescribe nada si ya están separados):

@@ -11,7 +11,10 @@ const state = { user:null, profile:null, event:null, activities:[], category:"po
   // `groups` alimenta el registro y el chip del header.
   groups:[], groupId:null, group:null, groupsListos:false, groupsCargando:false,
   // Registro progresivo: grupo validado + su contraseña (solo en memoria).
-  regGroup:null, regGroupPassword:"" };
+  regGroup:null, regGroupPassword:"",
+  // Fase 2: categorías, colores y gestión por categoría.
+  categorias:[], categoriasPorSlug:{}, categoriasCargadas:false,
+  gestion:{modo:"categorias",categoria:null,buscar:""}, categoriasEditadas:new Map() };
 const statusText = {pending:"Pendiente", in_progress:"En curso", completed:"Completada", cancelled:"Cancelada"};
 const venueStatusText = {pending:"Programada", in_progress:"En curso", completed:"Finalizada", cancelled:"Cancelada"};
 const viewLabels = {agenda:"Agenda", mapa:"Mapa", muro:"Muro", emergencia:"Emergencia"};
@@ -123,10 +126,11 @@ async function loadProfile(){
   $("#user-label").textContent=name;
   $("#user-initials").textContent=initials(name);
   $("#admin-create-wrap").classList.toggle("hidden",!isAdmin());
-  // Botón de alta de puntos en el mapa: solo para administradores (§9).
-  $("#map-add-point")?.classList.toggle("hidden",!isAdmin());
-  // Gestión de puntos (lista, renombrar, mostrar/ocultar, borrar): solo admin.
-  $("#map-puntos-btn")?.classList.toggle("hidden",!isAdmin());
+  // Alta de puntos: cualquier usuario autenticado (solo personales); el admin
+  // y el admin de grupo pueden crear generales.
+  $("#map-add-point")?.classList.remove("hidden");
+  // Gestión por categoría (colores, visibilidad, borrar): admin global o de grupo.
+  $("#map-puntos-btn")?.classList.toggle("hidden",!esAdminDeGrupo());
   if(state.mapListo) renderPuntosMapa();
 }
 // Muestra el chip del grupo en el header. Si la lista de grupos aún no llegó,
@@ -143,6 +147,9 @@ function sincronizarGrupoVisible(){
 // Registro progresivo: grupo + contraseña del grupo → usuario + contraseña
 // personal. La separación REAL de datos la aplican las políticas RLS.
 function esAdminDeGrupo(){ return isAdmin() || !!state.profile?.group_admin; }
+// ¿El usuario actual puede gestionar ESTE punto? El admin de grupo solo los
+// de su grupo; los globales (group_id null) quedan para el admin global.
+function puntoGestionable(p){ return isAdmin() || (!!p.group_id && p.group_id===state.groupId); }
 // Filtra una consulta por el grupo activo. Si la migración aún no está aplicada
 // (state.groupId null), la deja tal cual: la app sigue funcionando.
 function filtrarGrupo(q){ return state.groupId ? q.eq("group_id",state.groupId) : q; }
@@ -374,7 +381,7 @@ cargarGruposRegistro();
 
 async function refreshAll(){
   // Cada sección carga de forma independiente: un fallo en una no debe impedir las demás.
-  const results=await Promise.allSettled([loadEventAndActivities(),loadWall(),loadEmergencyContacts()]);
+  const results=await Promise.allSettled([loadEventAndActivities(),loadWall(),loadEmergencyContacts(),cargarCategorias()]);
   results.forEach((r,i)=>{ if(r.status==="rejected") console.error("refreshAll sección "+i+":",r.reason); });
 }
 
@@ -1251,7 +1258,9 @@ async function cargarTransporte(){
   // Colores referenciales por línea (no son los oficiales del Metro).
   const COLOR_LINEA={L1:"#e30613",L2:"#0f7fd4",L3:"#8a9b16",L4:"#f08a00",L4A:"#f08a00",L5:"#5ec4e8",L6:"#8b5fbf",MTN:"#00a19a",MTR:"#0079c2"};
   // Iconos SVG del Metro: al acercar aparece el icono y DEBAJO el nombre de
-  // la estación (sin necesidad de presionarla).
+  // la estación (sin necesidad de presionarla). El color de la categoría
+  // `metro` (sql/15) se usa en el punto circular al alejar.
+  const colorMetro=colorCategoria("metro","#ffffff");
   const idIconoMetro=await asegurarIcono("metro","#e30613");
   const idIconoCombo=await asegurarIcono("metro_combinacion","#f08a00");
   // Líneas: se siguen viendo ALEJADAS (sobreviven a los puntos de color, que
@@ -1271,7 +1280,7 @@ async function cargarTransporte(){
   // un pelín más grandes, igual que antes del −15 %.
   insertarBajoSimbolos({id:"metro-estaciones",type:"circle",source:"transporte-estaciones",
     filter:["==",["get","tipo"],"metro"],minzoom:ZOOM_PUNTO_MIN,maxzoom:ZOOM_ICONO,
-    paint:{"circle-color":"#ffffff",
+    paint:{"circle-color":colorMetro,
             "circle-radius":["step",["zoom"],
               RADIO_PUNTO_MIN,ZOOM_PUNTO_MEDIO,RADIO_PUNTO_MEDIO,ZOOM_PUNTO_MAX,RADIO_PUNTO_MAX-ESCALA_PUNTO],
             "circle-stroke-color":"#181c1d","circle-stroke-width":1.5}});
@@ -1283,7 +1292,7 @@ async function cargarTransporte(){
   insertarBajoSimbolos({id:"metro-combo",type:"circle",source:"transporte-estaciones",
     filter:["all",["==",["get","tipo"],"metro"],["==",["get","combinaciones"],true]],
     minzoom:ZOOM_PUNTO_MIN,maxzoom:ZOOM_ICONO,
-    paint:{"circle-color":"#ffd54f",
+    paint:{"circle-color":colorCategoria("metro","#ffd54f"),
             "circle-radius":["step",["zoom"],
               RADIO_PUNTO_MIN+ESCALA_PUNTO,ZOOM_PUNTO_MEDIO,RADIO_PUNTO_MEDIO+ESCALA_PUNTO,ZOOM_PUNTO_MAX,RADIO_PUNTO_MAX+ESCALA_PUNTO],
             "circle-stroke-color":"#181c1d","circle-stroke-width":1.5}});
@@ -1294,7 +1303,7 @@ async function cargarTransporte(){
             "icon-allow-overlap":true,"icon-ignore-placement":true}});
   insertarBajoSimbolos({id:"metrotren-estaciones",type:"circle",source:"transporte-estaciones",
     filter:["==",["get","tipo"],"metrotren"],minzoom:ZOOM_PUNTO_MIN,
-    paint:{"circle-color":"#ffffff",
+    paint:{"circle-color":colorMetro,
             "circle-radius":["step",["zoom"],
               RADIO_PUNTO_MIN,ZOOM_PUNTO_MEDIO,RADIO_PUNTO_MEDIO,ZOOM_PUNTO_MAX,RADIO_PUNTO_MAX],
             "circle-stroke-color":"#0079c2","circle-stroke-width":2}});
@@ -1356,7 +1365,9 @@ async function cargarLugares(capa){
 
   // Icono SVG de esta capa (se descarga y rasteriza una sola vez por sesión).
   const claveIcono=ICONO_LUGAR[capa]||"casa";
-  const idIcono=await asegurarIcono(claveIcono,cfg.color);
+  // Color de la categoría configurada en map_categories (sql/15).
+  const colorLugar=colorDeCapa(capa,cfg.color);
+  const idIcono=await asegurarIcono(claveIcono,colorLugar);
 
   const fuente=`lugares-${capa}`;
   // El clustering sigue activo (la RM tiene miles de puntos), pero SIN grupo
@@ -1372,7 +1383,7 @@ async function cargarLugares(capa){
   // mismos 3 saltos que los sueltos y desaparece en el zoom 10,5.
   insertarBajoSimbolos({id:`${fuente}-cluster`,type:"circle",source:fuente,
     filter:["has","point_count"],minzoom:ZOOM_PUNTO_MIN,maxzoom:ZOOM_ICONO,
-    paint:{"circle-color":cfg.color,
+    paint:{"circle-color":colorLugar,
            "circle-radius":["step",["zoom"],
              RADIO_PUNTO_MIN,ZOOM_PUNTO_MEDIO,RADIO_PUNTO_MEDIO,ZOOM_PUNTO_MAX,RADIO_PUNTO_MAX],
            "circle-opacity":0.92,
@@ -1389,7 +1400,7 @@ async function cargarLugares(capa){
             "icon-allow-overlap":true,"icon-ignore-placement":true}});
   insertarBajoSimbolos({id:`${fuente}-puntos-mini`,type:"circle",source:fuente,
     filter:["!",["has","point_count"]],minzoom:ZOOM_PUNTO_MIN,maxzoom:ZOOM_ICONO,
-    paint:{"circle-color":cfg.color,
+    paint:{"circle-color":colorLugar,
             "circle-radius":["step",["zoom"],
               RADIO_PUNTO_MIN,ZOOM_PUNTO_MEDIO,RADIO_PUNTO_MEDIO,ZOOM_PUNTO_MAX,RADIO_PUNTO_MAX],
             "circle-opacity":0.92,
@@ -1652,16 +1663,100 @@ const CATEGORIA_PUNTO={general:"General",seguridad:"Seguridad",salud:"Salud",edu
 const COLOR_PUNTO={general:"#006492",seguridad:"#c92a2a",salud:"#e03131",educacion:"#7048e8",
   transporte:"#0f7fd4",comercio:"#e8590c",areas_verdes:"#2e9e4f",otro:"#5f6871"};
 
+// Catálogo de respaldo mientras no esté aplicado sql/15 (o si falla la carga).
+// Después de la migración manda la tabla map_categories.
+const CATEGORIAS_RESPALDO=[
+  {slug:"general",name:"General",icon:"place",color:"#006492"},
+  {slug:"seguridad",name:"Seguridad",icon:"warning",color:"#c92a2a"},
+  {slug:"salud",name:"Salud",icon:"health_and_safety",color:"#e03131"},
+  {slug:"educacion",name:"Educación",icon:"school",color:"#7048e8"},
+  {slug:"transporte",name:"Transporte",icon:"directions_bus",color:"#0f7fd4"},
+  {slug:"comercio",name:"Comercio",icon:"store",color:"#e8590c"},
+  {slug:"areas_verdes",name:"Áreas verdes",icon:"park",color:"#2e9e4f"},
+  {slug:"otro",name:"Otro",icon:"place",color:"#5f6871"},
+];
+
+function categoriaDe(slug){ return state.categoriasPorSlug[slug]||null; }
+function nombreCategoria(slug){ return categoriaDe(slug)?.name || CATEGORIA_PUNTO[slug] || slug || "General"; }
+function colorCategoria(slug,fallback="#006492"){
+  return categoriaDe(slug)?.color || COLOR_PUNTO[slug] || fallback;
+}
+function iconoCategoria(slug,icon){
+  if(icon && ICONOS_MAPA[icon]) return icon;
+  return categoriaDe(slug)?.icon || ICONO_PUNTO[slug] || "place";
+}
+function scopeDe(p){ return p.scope || (p.tipo==="general"?"global":"group"); }
+
+// Color de una capa de lugares según su categoría (sql/15).
+const CATEGORIA_DE_CAPA={parques:"parque",plazas:"parque",comercio:"mall",salud:"hospital",
+  seguridad:"policia",bomberos:"bomberos",servicios:"otros"};
+function colorDeCapa(capa,fallback){ return colorCategoria(CATEGORIA_DE_CAPA[capa],fallback); }
+
+async function cargarCategorias(){
+  try{
+    const {data,error}=await supabase.from("map_categories")
+      .select("slug,name,icon,color,sort,active").order("sort");
+    if(error) throw error;
+    state.categorias=(data||[]);
+    state.categoriasCargadas=true;
+  }catch(err){
+    console.warn("cargarCategorias: se usa el catálogo de respaldo.",err?.message||err);
+    state.categorias=CATEGORIAS_RESPALDO.slice();
+    state.categoriasCargadas=false;
+  }
+  state.categoriasPorSlug=Object.fromEntries(state.categorias.map(c=>[c.slug,c]));
+  poblarCategoriasFormulario();
+  if(state.mapListo) aplicarColoresCategorias();
+}
+
+function poblarCategoriasFormulario(){
+  const sel=$("#point-category"); if(!sel) return;
+  const actual=sel.value;
+  const activas=state.categorias.filter(c=>c.active!==false);
+  sel.innerHTML=activas.map(c=>`<option value="${esc(c.slug)}">${esc(c.name)}</option>`).join("");
+  if(!sel.options.length) sel.innerHTML='<option value="general">General</option>';
+  if(actual && [...sel.options].some(o=>o.value===actual)) sel.value=actual;
+}
+
+// Actualiza los colores de las capas GeoJSON ya cargadas (lugares, metro y
+// MetroTren) cuando cambia una categoría. Los marcadores HTML se re-renderizan.
+function aplicarColoresCategorias(){
+  const map=state.map; if(!map||!state.mapListo) return;
+  Object.entries(CATEGORIA_DE_CAPA).forEach(([capa,slug])=>{
+    if(!lugaresCargados.has(capa)) return;
+    const color=colorCategoria(slug,"#006492");
+    ["-cluster","-puntos-mini"].forEach(suf=>{
+      const id=`lugares-${capa}${suf}`;
+      if(map.getLayer(id)) map.setPaintProperty(id,"circle-color",color);
+    });
+  });
+  const colorMetro=colorCategoria("metro","#ffffff");
+  ["metro-estaciones","metro-combo"].forEach(id=>{
+    if(map.getLayer(id)) map.setPaintProperty(id,"circle-color",colorMetro);
+  });
+  if(map.getLayer("metrotren-estaciones")){
+    map.setPaintProperty("metrotren-estaciones","circle-color",colorCategoria("metro","#ffffff"));
+  }
+  renderPuntosMapa();
+}
+
 // --- carga desde Supabase ---------------------------------------------------
 async function cargarPuntosMapa(){
   if(!state.user) return;
+  if(!state.categorias.length) await cargarCategorias();
   const {data,error}=await supabase.from("map_points").select("*").order("created_at",{ascending:true});
   if(error){
     // La tabla puede no existir todavía (falta ejecutar sql/06_map_points.sql).
     console.warn("cargarPuntosMapa:",error.message);
     state.mapPoints=[]; renderPuntosMapa(); return;
   }
-  state.mapPoints=data||[];
+  // RLS ya limita a los usuarios normales. El admin global recibe todos los
+  // grupos: la app lo acota a los globales + el grupo activo.
+  state.mapPoints=(data||[]).filter(p=>{
+    if(state.groupId && p.tipo==="personal" && p.group_id && p.group_id!==state.groupId) return false;
+    if(state.groupId && p.tipo==="general") return scopeDe(p)==="global" || p.group_id===state.groupId;
+    return true;
+  });
   renderPuntosMapa();
 }
 
@@ -1771,19 +1866,23 @@ function renderPuntosMapa(){
   state.pointMarkers.forEach(m=>m.remove());
   state.pointMarkers.clear();
   const map=state.map; if(!map||!state.mapListo) return;
-  const visibles=state.mapPoints.filter(p=>p.visible||isAdmin());  // el admin ve también los ocultos
+  const admin=esAdminDeGrupo();
+  // El admin ve también los deshabilitados (atenuados) para poder ubicarlos.
+  const visibles=state.mapPoints.filter(p=>admin || (p.visible!==false && p.active!==false));
   visibles.forEach(p=>{
     const el=document.createElement("div");
     el.className="map-point map-point-icono";
-    const claveIcono=ICONO_PUNTO[p.icon]||ICONO_PUNTO[p.category]||ICONO_PUNTO.general;
+    const cat=categoriaDe(p.category);
+    const claveIcono=iconoCategoria(p.category,p.icon);
     const defIcono=ICONOS_MAPA[claveIcono]||ICONOS_MAPA.place;
     // El SVG se muestra directo como fondo CSS (es vectorial: se ve nítido en
     // cualquier zoom y no necesita rasterizarse).
     el.style.backgroundImage=`url('./icons/${defIcono.svg}')`;
-    // Color del punto cuando el mapa se aleja y el icono se transforma en punto.
-    el.style.setProperty("--punto-color",COLOR_PUNTO[p.category]||"#006492");
+    // Color del punto cuando el mapa se aleja: color de la CATEGORÍA (sql/15).
+    el.style.setProperty("--punto-color",colorCategoria(p.category,"#006492"));
     // "Vista fija": el icono se muestra siempre, a cualquier zoom.
     el.dataset.fijo=p.fijo?"1":"0";
+    el.classList.toggle("map-point-oculto-admin",admin && (p.visible===false || p.active===false));
     el.style.backgroundSize="contain";
     el.style.backgroundRepeat="no-repeat";
     el.style.backgroundPosition="center";
@@ -1794,17 +1893,20 @@ function renderPuntosMapa(){
     etiqueta.className="map-point-nombre";
     etiqueta.textContent=p.name;
     el.appendChild(etiqueta);
-    const tipoTag=p.tipo==="personal"?"<span class=\"muted\" style=\"font-size:10px\">· personal</span>":"<span class=\"muted\" style=\"font-size:10px\">· general</span>";
+    const scope=scopeDe(p);
+    const grupoNombre=p.group_id?(state.groups.find(g=>g.id===p.group_id)?.name||""):"";
     const popup=new maplibregl.Popup({offset:22,closeButton:true}).setHTML(
-      `<strong>${esc(p.name)}</strong>${tipoTag}`+
+      `<strong>${esc(p.name)}</strong>`+
+      `<span class="muted" style="font-size:10px"> · ${p.tipo==="personal"?"personal":(scope==="global"?"global":"grupo")}</span>`+
       (p.description?`<br>${esc(p.description)}`:"")+
       (p.comuna?`<br><span class="muted">${esc(p.comuna)}</span>`:"")+
-      `<br><span class="muted">${esc(CATEGORIA_PUNTO[p.category]||p.category)}</span>`);
+      `<br><span class="muted">${esc(nombreCategoria(p.category))}</span>`+
+      (p.tipo==="general"&&grupoNombre?`<br><span class="muted">${esc(grupoNombre)}</span>`:"")+
+      (p.visible===false?`<br><span class="muted">Oculto en el mapa</span>`:"")
+    );
     const m=new maplibregl.Marker({element:el,anchor:"bottom"})
       .setLngLat([p.longitude,p.latitude]).setPopup(popup).addTo(map);
-    if(isAdmin()){
-      // Sin contorno ni color especial: los puntos de vista fija se ven IGUAL
-      // que los demás (solo cambia que no se achican al alejar).
+    if(admin && puntoGestionable(p)){
       el.addEventListener("click",()=>abrirFormPunto(p));
     }
     state.pointMarkers.set(p.id,m);
@@ -1823,7 +1925,7 @@ function activarModoPunto(){
   if(!state.user){ showToast("Inicia sesión para agregar puntos."); return; }
   state.pointMode=true;
   $("#map-point-mode")?.classList.remove("hidden");
-  showToast(isAdmin()?"Toca el mapa para ubicar un punto (general o personal).":"Toca el mapa para ubicar un punto personal.");
+  showToast(esAdminDeGrupo()?"Toca el mapa para ubicar un punto (general o personal).":"Toca el mapa para ubicar un punto personal.");
 }
 function desactivarModoPunto(){
   state.pointMode=false;
@@ -1831,101 +1933,239 @@ function desactivarModoPunto(){
 }
 $("#map-add-point")?.addEventListener("click",activarModoPunto);
 
-// --- gestión de puntos (solo admin) -----------------------------------------
-// El admin abre una lista de los puntos POR TIPO (general / personal) y puede,
-// en cada fila: cambiar el nombre, marcar/desmarcar si se muestra en el mapa y
-// borrar el punto. Los cambios se aplican con el botón "Guardar".
-const PUNTOS_ELIMINADOS=new Set();   // ids marcados para borrar (se aplican al guardar)
-const PUNTOS_EDITADOS=new Map();    // id → {name, visible} (solo lo que cambió)
+// --- gestión de puntos por categoría (admin global o de grupo) --------------
+// El admin entra a una categoría, busca, selecciona/deselecciona puntos,
+// renombra, ubica o borra, y puede cambiar el color de la categoría (solo el
+// admin global). Los cambios se aplican con "Guardar".
+const PUNTOS_ELIMINADOS=new Set();   // ids marcados para borrar
+const PUNTOS_EDITADOS=new Map();     // id → {name, visible}
+
 function abrirGestionPuntos(){
-  if(!isAdmin()){ showToast("Solo el administrador puede gestionar los puntos."); return; }
+  if(!esAdminDeGrupo()){ showToast("Solo los administradores pueden gestionar los puntos."); return; }
   PUNTOS_ELIMINADOS.clear();
   PUNTOS_EDITADOS.clear();
+  state.categoriasEditadas.clear();
+  state.gestion={modo:"categorias",categoria:null,buscar:""};
   renderGestionPuntos();
   $("#puntos-sheet")?.classList.remove("hidden");
+  if(!state.categorias.length) cargarCategorias().then(()=>renderGestionPuntos());
 }
-function cerrarGestionPuntos(){
-  $("#puntos-sheet")?.classList.add("hidden");
-}
+function cerrarGestionPuntos(){ $("#puntos-sheet")?.classList.add("hidden"); }
 $("#map-puntos-btn")?.addEventListener("click",abrirGestionPuntos);
 $("#puntos-close")?.addEventListener("click",cerrarGestionPuntos);
 $("#puntos-backdrop")?.addEventListener("click",cerrarGestionPuntos);
+$("#puntos-volver")?.addEventListener("click",()=>{
+  state.gestion={modo:"categorias",categoria:null,buscar:""};
+  renderGestionPuntos();
+});
 
 function renderGestionPuntos(){
   const root=$("#puntos-lista"); if(!root) return;
-  const grupos=[
-    {id:"general",titulo:"Puntos generales (visibles para todos)"},
-    {id:"personal",titulo:"Puntos personales"},
-  ];
-  const punto=(p)=>{
-    const cat=CATEGORIA_PUNTO[p.category]||p.category;
-    const icono=ICONOS_MAPA[ICONO_PUNTO[p.icon]||ICONO_PUNTO[p.category]]||ICONOS_MAPA.place;
-    return `<div class="flex items-center gap-2 bg-surface-container-low rounded-xl p-2" data-punto="${p.id}">
-      <img src="./icons/${icono.svg}" alt="" width="28" height="28" class="w-7 h-7 flex-shrink-0" loading="lazy">
+  const g=state.gestion;
+  const enPuntos=g.modo==="puntos";
+  $("#puntos-volver")?.classList.toggle("hidden",!enPuntos);
+  $("#puntos-buscar-wrap")?.classList.toggle("hidden",!enPuntos);
+  $("#puntos-acciones")?.classList.toggle("hidden",!enPuntos);
+  const inpBuscar=$("#puntos-buscar");
+  if(inpBuscar && document.activeElement!==inpBuscar) inpBuscar.value=g.buscar||"";
+  const titulo=$("#puntos-title");
+  if(!enPuntos){
+    if(titulo) titulo.textContent="Gestionar puntos del mapa";
+    const total=state.mapPoints.filter(p=>puntoGestionable(p)&&!PUNTOS_ELIMINADOS.has(p.id)).length;
+    $("#puntos-resumen").textContent=`${total} punto${total===1?"":"s"} en total`;
+    root.innerHTML=renderCategoriasGestion();
+    enlazarCategoriasGestion();
+  }else{
+    const cat=categoriaDe(g.categoria);
+    if(titulo) titulo.textContent=cat?.name||"Puntos";
+    root.innerHTML=renderPuntosCategoria();
+    enlazarPuntosGestion();
+    actualizarResumenGestion();
+  }
+}
+
+function renderCategoriasGestion(){
+  const editarColor=isAdmin();
+  return `<div class="space-y-2">`+state.categorias.map(c=>{
+    const items=state.mapPoints.filter(p=>p.category===c.slug && puntoGestionable(p) && !PUNTOS_ELIMINADOS.has(p.id));
+    const vis=items.filter(p=>p.visible!==false).length;
+    const color=state.categoriasEditadas.get(c.slug)||c.color;
+    const icono=ICONOS_MAPA[c.icon]||ICONOS_MAPA.place;
+    return `<div class="flex items-center gap-2 bg-surface-container-low rounded-xl p-2">
+      <img src="./icons/${icono.svg}" alt="" width="26" height="26" class="w-7 h-7 flex-shrink-0" loading="lazy">
+      <button type="button" data-cat-abrir="${esc(c.slug)}" class="min-w-0 flex-1 text-left">
+        <span class="block text-sm font-semibold text-on-surface truncate">${esc(c.name)}</span>
+        <span class="block text-[11px] text-on-surface-variant">${vis}/${items.length} visibles</span>
+      </button>
+      ${editarColor
+        ? `<input type="color" value="${esc(color)}" data-cat-color="${esc(c.slug)}" class="w-8 h-8 rounded-full border border-outline-variant bg-transparent p-0 cursor-pointer flex-shrink-0" title="Color de la categoría" aria-label="Color de ${esc(c.name)}">`
+        : `<span class="w-6 h-6 rounded-full border border-outline-variant flex-shrink-0" style="background:${esc(color)}"></span>`}
+      <span class="material-symbols-outlined text-outline text-[20px] flex-shrink-0">chevron_right</span>
+    </div>`;
+  }).join("")+`</div>`;
+}
+
+function enlazarCategoriasGestion(){
+  const root=$("#puntos-lista"); if(!root) return;
+  root.querySelectorAll("[data-cat-abrir]").forEach(b=>b.addEventListener("click",()=>{
+    state.gestion={modo:"puntos",categoria:b.dataset.catAbrir,buscar:""};
+    renderGestionPuntos();
+  }));
+  root.querySelectorAll("[data-cat-color]").forEach(inp=>inp.addEventListener("input",()=>{
+    state.categoriasEditadas.set(inp.dataset.catColor,inp.value);
+  }));
+}
+
+function renderPuntosCategoria(){
+  const slug=state.gestion.categoria;
+  const buscar=(state.gestion.buscar||"").trim().toLowerCase();
+  const items=state.mapPoints
+    .filter(p=>p.category===slug && puntoGestionable(p) && !PUNTOS_ELIMINADOS.has(p.id))
+    .filter(p=>!buscar || p.name.toLowerCase().includes(buscar))
+    .sort((a,b)=>a.name.localeCompare(b.name,"es"));
+  if(!items.length){
+    return `<p class="text-sm text-on-surface-variant px-1">${buscar?"Sin coincidencias.":"No hay puntos en esta categoría."}</p>`;
+  }
+  return `<div class="space-y-2">`+items.map(p=>{
+    const icono=ICONOS_MAPA[iconoCategoria(p.category,p.icon)]||ICONOS_MAPA.place;
+    const edit=PUNTOS_EDITADOS.get(p.id);
+    const nombre=edit?.name ?? p.name;
+    const visible=edit?.visible ?? (p.visible!==false);
+    const scope=scopeDe(p);
+    const grupo=p.group_id?(state.groups.find(g=>g.id===p.group_id)?.name||""):"";
+    return `<div class="flex items-center gap-1.5 bg-surface-container-low rounded-xl p-2" data-punto="${p.id}">
+      <img src="./icons/${icono.svg}" alt="" width="26" height="26" class="w-7 h-7 flex-shrink-0" loading="lazy">
       <div class="min-w-0 flex-1">
-        <input type="text" maxlength="120" value="${esc(p.name)}" data-punto-nombre="${p.id}"
+        <input type="text" maxlength="120" value="${esc(nombre)}" data-punto-nombre="${p.id}"
                class="w-full bg-surface-container-lowest rounded-lg px-2 py-1.5 text-sm font-semibold text-on-surface focus:outline-none" aria-label="Nombre del punto">
-        <span class="block text-[11px] text-on-surface-variant truncate">${esc(cat)}${p.comuna?" · "+esc(p.comuna):""}</span>
+        <span class="block text-[11px] text-on-surface-variant truncate">${esc(p.tipo==="personal"?"personal":(scope==="global"?"global":"grupo"))}${grupo?" · "+esc(grupo):""}${p.comuna?" · "+esc(p.comuna):""}</span>
       </div>
-      <label class="flex items-center gap-1 flex-shrink-0 px-1" title="Mostrar en el mapa">
-        <input type="checkbox" data-punto-visible="${p.id}" ${p.visible?"checked":""} class="w-5 h-5 accent-primary">
+      <label class="flex items-center gap-1 flex-shrink-0 px-0.5" title="Mostrar en el mapa">
+        <input type="checkbox" data-punto-visible="${p.id}" ${visible?"checked":""} class="w-5 h-5 accent-primary">
       </label>
+      <button type="button" data-punto-ubicar="${p.id}" aria-label="Ubicar en el mapa"
+              class="w-8 h-8 rounded-full bg-surface-container-lowest text-primary flex items-center justify-center flex-shrink-0 active:scale-95 transition-all">
+        <span class="material-symbols-outlined text-[18px]">my_location</span>
+      </button>
       <button type="button" data-punto-borrar="${p.id}" aria-label="Borrar punto"
-              class="w-9 h-9 rounded-full bg-error-container text-on-error-container flex items-center justify-center flex-shrink-0 active:scale-95 transition-all">
+              class="w-8 h-8 rounded-full bg-error-container text-on-error-container flex items-center justify-center flex-shrink-0 active:scale-95 transition-all">
         <span class="material-symbols-outlined text-[18px]">delete</span>
       </button>
     </div>`;
-  };
-  root.innerHTML=grupos.map(g=>{
-    const items=state.mapPoints.filter(p=>(p.tipo||"personal")===g.id);
-    return `<section>
-      <p class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wide mb-1.5">${g.titulo} (${items.length})</p>
-      ${items.length?items.map(punto).join(""):'<p class="text-sm text-on-surface-variant px-1">Sin puntos.</p>'}
-    </section>`;
-  }).join("");
-  // Marcar un punto para borrar (se aplica al guardar).
+  }).join("")+`</div>`;
+}
+
+function enlazarPuntosGestion(){
+  const root=$("#puntos-lista"); if(!root) return;
+  root.querySelectorAll("[data-punto-nombre]").forEach(i=>i.addEventListener("input",()=>{
+    const id=i.dataset.puntoNombre;
+    const p=state.mapPoints.find(x=>x.id===id); if(!p) return;
+    const visible=PUNTOS_EDITADOS.get(id)?.visible ?? (p.visible!==false);
+    PUNTOS_EDITADOS.set(id,{name:i.value,visible});
+  }));
+  root.querySelectorAll("[data-punto-visible]").forEach(c=>c.addEventListener("change",()=>{
+    const id=c.dataset.puntoVisible;
+    const p=state.mapPoints.find(x=>x.id===id); if(!p) return;
+    const nombre=PUNTOS_EDITADOS.get(id)?.name ?? p.name;
+    PUNTOS_EDITADOS.set(id,{name:nombre,visible:c.checked});
+    actualizarResumenGestion();
+  }));
   root.querySelectorAll("[data-punto-borrar]").forEach(b=>b.addEventListener("click",()=>{
     const id=b.dataset.puntoBorrar;
     if(!confirm("¿Borrar este punto del mapa?")) return;
     PUNTOS_ELIMINADOS.add(id);
     PUNTOS_EDITADOS.delete(id);
     b.closest("[data-punto]")?.remove();
+    actualizarResumenGestion();
   }));
-  // Cambiar si se muestra en el mapa: se aplica al guardar.
-  root.querySelectorAll("[data-punto-visible]").forEach(c=>c.addEventListener("change",()=>{
-    const id=c.dataset.puntoVisible;
-    const p=state.mapPoints.find(x=>x.id===id); if(!p) return;
-    PUNTOS_EDITADOS.set(id,{name:p.name,visible:c.checked});
-  }));
-  // Renombrar: se aplica al guardar.
-  root.querySelectorAll("[data-punto-nombre]").forEach(i=>i.addEventListener("input",()=>{
-    const id=i.dataset.puntoNombre;
-    const p=state.mapPoints.find(x=>x.id===id); if(!p) return;
-    const visible=PUNTOS_EDITADOS.get(id)?.visible??p.visible;
-    PUNTOS_EDITADOS.set(id,{name:i.value,visible});
+  root.querySelectorAll("[data-punto-ubicar]").forEach(b=>b.addEventListener("click",()=>{
+    const p=state.mapPoints.find(x=>x.id===b.dataset.puntoUbicar); if(!p) return;
+    cerrarGestionPuntos();
+    gotoView("mapa");
+    setTimeout(()=>{
+      state.map?.flyTo({center:[p.longitude,p.latitude],zoom:Math.max(state.map.getZoom(),15),duration:600});
+    },250);
+    showToast("Punto: "+p.name);
   }));
 }
+
+function actualizarResumenGestion(){
+  const cat=state.gestion.categoria;
+  const items=state.mapPoints.filter(p=>p.category===cat && puntoGestionable(p) && !PUNTOS_ELIMINADOS.has(p.id));
+  const vis=items.filter(p=>{
+    const e=PUNTOS_EDITADOS.get(p.id);
+    return e?.visible ?? (p.visible!==false);
+  }).length;
+  const filtro=(state.gestion.buscar||"").trim();
+  $("#puntos-resumen").textContent=`${vis} de ${items.length} visibles${filtro?` · filtro “${filtro}”`:""}`;
+}
+
+$("#puntos-buscar")?.addEventListener("input",e=>{
+  state.gestion.buscar=e.target.value;
+  renderGestionPuntos();
+});
+
+function aplicarVisibilidadGestion(valor){
+  const buscar=(state.gestion.buscar||"").trim().toLowerCase();
+  const items=state.mapPoints.filter(p=>p.category===state.gestion.categoria && puntoGestionable(p) && !PUNTOS_ELIMINADOS.has(p.id))
+    .filter(p=>!buscar || p.name.toLowerCase().includes(buscar));
+  items.forEach(p=>{
+    const e=PUNTOS_EDITADOS.get(p.id)||{name:p.name,visible:p.visible!==false};
+    PUNTOS_EDITADOS.set(p.id,{name:e.name,visible:valor});
+    const cb=document.querySelector(`[data-punto-visible="${p.id}"]`);
+    if(cb) cb.checked=valor;
+  });
+  actualizarResumenGestion();
+}
+$("#puntos-todos")?.addEventListener("click",()=>aplicarVisibilidadGestion(true));
+$("#puntos-ninguno")?.addEventListener("click",()=>aplicarVisibilidadGestion(false));
+
 $("#puntos-guardar")?.addEventListener("click",async()=>{
-  if(!isAdmin()) return;
+  if(!esAdminDeGrupo()) return;
   const btn=$("#puntos-guardar");
   btn.disabled=true;
   try{
-    // 1) Borrados (el admin puede moderar cualquier punto: política RLS de
-    //    sql/09_admin_gestiona_puntos.sql).
+    // 1) Colores de categoría (solo admin global).
+    if(isAdmin()){
+      for(const [slug,color] of state.categoriasEditadas){
+        const {error}=await supabase.from("map_categories").update({color}).eq("slug",slug);
+        if(error){ console.error("puntos: color",error); showToast("No se pudo guardar un color: "+describeError(error,"las categorías")); return; }
+      }
+    }
+    // 2) Borrados.
     for(const id of PUNTOS_ELIMINADOS){
       const {error}=await supabase.from("map_points").delete().eq("id",id);
       if(error){ console.error("puntos: borrar",error); showToast("No se pudo borrar un punto: "+describeError(error,"los puntos del mapa")); return; }
     }
-    // 2) Cambios de nombre y visibilidad (solo los que realmente cambiaron).
-    for(const [id,cambio] of PUNTOS_EDITADOS){
+    // 3) Visibilidad en bloque.
+    const activar=[],desactivar=[];
+    for(const [id,c] of PUNTOS_EDITADOS){
       if(PUNTOS_ELIMINADOS.has(id)) continue;
-      const {error}=await supabase.from("map_points")
-        .update({name:(cambio.name||"").trim()||"Punto",visible:!!cambio.visible}).eq("id",id);
-      if(error){ console.error("puntos: guardar",error); showToast("No se pudo guardar un punto: "+describeError(error,"los puntos del mapa")); return; }
+      (c.visible?activar:desactivar).push(id);
     }
-    cerrarGestionPuntos();
+    if(activar.length){
+      const {error}=await supabase.from("map_points").update({visible:true}).in("id",activar);
+      if(error){ console.error("puntos: visibles",error); showToast("No se pudo guardar la visibilidad: "+describeError(error,"los puntos del mapa")); return; }
+    }
+    if(desactivar.length){
+      const {error}=await supabase.from("map_points").update({visible:false}).in("id",desactivar);
+      if(error){ console.error("puntos: ocultos",error); showToast("No se pudo guardar la visibilidad: "+describeError(error,"los puntos del mapa")); return; }
+    }
+    // 4) Nombres (solo los que cambiaron).
+    for(const [id,c] of PUNTOS_EDITADOS){
+      if(PUNTOS_ELIMINADOS.has(id)) continue;
+      const nombre=(c.name||"").trim()||"Punto";
+      const p=state.mapPoints.find(x=>x.id===id);
+      if(p && p.name===nombre) continue;
+      const {error}=await supabase.from("map_points").update({name:nombre}).eq("id",id);
+      if(error){ console.error("puntos: nombre",error); showToast("No se pudo guardar un nombre: "+describeError(error,"los puntos del mapa")); return; }
+    }
+    state.categoriasEditadas.clear();
+    await cargarCategorias();
     await cargarPuntosMapa();
-    showToast("Puntos guardados.");
+    aplicarColoresCategorias();
+    cerrarGestionPuntos();
+    showToast("Puntos y colores guardados.");
   }finally{ btn.disabled=false; }
 });
 
@@ -1957,30 +2197,68 @@ function seleccionarIcono(clave){
 }
 renderSelectorIconos();
 
-function abrirFormPunto(p=null,lat=null,lng=null){
+async function abrirFormPunto(p=null,lat=null,lng=null){
   if(!state.user) return;
+  if(!state.categorias.length) await cargarCategorias();
   $("#point-dialog-title").textContent=p?"Editar punto":"Nuevo punto";
   $("#point-id").value=p?.id||"";
   $("#point-name").value=p?.name||"";
   $("#point-description").value=p?.description||"";
-  $("#point-category").value=p?.category||"general";
-  seleccionarIcono(ICONOS_MAPA[p?.icon]?p.icon:"place");
+  poblarCategoriasFormulario();
+  const selCat=$("#point-category");
+  const catSlug=p?.category||"general";
+  if(selCat && ![...selCat.options].some(o=>o.value===catSlug)){
+    selCat.insertAdjacentHTML("beforeend",`<option value="${esc(catSlug)}">${esc(nombreCategoria(catSlug))}</option>`);
+  }
+  if(selCat) selCat.value=catSlug;
+  seleccionarIcono(iconoCategoria(catSlug,p?.icon));
   $("#point-lat").value=p?p.latitude:(lat??"");
   $("#point-lng").value=p?p.longitude:(lng??"");
-  $("#point-visible").checked=p?!!p.visible:true;
+  $("#point-visible").checked=p?p.visible!==false:true;
   $("#point-fijo").checked=p?!!p.fijo:false;
-  // Tipo de punto: admin puede crear general o personal; usuarios solo personal.
-  const tipoSel=$("#point-tipo"); const tipoLab=$("#point-tipo-label");
-  if(isAdmin()){
-    tipoLab?.classList.remove("hidden");
-    tipoSel.value=p?.tipo||"general";
-  } else {
-    tipoLab?.classList.add("hidden");
-    tipoSel.value="personal";
+
+  // Tipo / alcance / grupo (Fase 2).
+  const admin=esAdminDeGrupo(); const global=isAdmin();
+  const tipoSel=$("#point-tipo");
+  const tipo=p?.tipo || (admin?"general":"personal");
+  if(tipoSel) tipoSel.value=tipo;
+  $("#point-tipo-label")?.classList.toggle("hidden",!admin);
+
+  const grupos=(state.groups||[]).filter(g=>g.id);
+  const disponibles=global?grupos:grupos.filter(g=>g.id===state.groupId);
+  const selGrupo=$("#point-group");
+  if(selGrupo){
+    selGrupo.innerHTML=disponibles.map(g=>`<option value="${esc(g.id)}">${esc(g.name)}</option>`).join("");
+    if(!disponibles.length && state.groupId){
+      selGrupo.innerHTML=`<option value="${esc(state.groupId)}">${esc(state.group?.name||"Mi grupo")}</option>`;
+    }
   }
-  $("#point-delete")?.classList.toggle("hidden",!p||!isAdmin());
+  const scope=p?.scope || "group";
+  const selScope=$("#point-scope"); if(selScope) selScope.value=scope;
+  const grupoId=p?.group_id || state.groupId || "";
+  if(selGrupo && grupoId) selGrupo.value=grupoId;
+
+  actualizarCamposPunto();
+  $("#point-delete")?.classList.toggle("hidden",!p||!admin);
   notifyError($("#point-error"),"");
   $("#point-dialog")?.classList.remove("hidden");
+}
+// Ajusta qué campos se ven según tipo (personal/general), alcance y rol.
+function actualizarCamposPunto(){
+  const tipo=$("#point-tipo")?.value||"personal";
+  const admin=esAdminDeGrupo(); const global=isAdmin();
+  const scope=$("#point-scope")?.value||"group";
+  if(admin && !global && tipo==="general" && $("#point-scope")) $("#point-scope").value="group";
+  const ambito=$("#point-scope")?.value||"group";
+  $("#point-tipo-label")?.classList.toggle("hidden",!admin);
+  $("#point-scope-label")?.classList.toggle("hidden",!(admin && global && tipo==="general"));
+  $("#point-group-label")?.classList.toggle("hidden",!(admin && global && tipo==="general" && ambito==="group"));
+  const lab=$("#point-visible-label");
+  if(lab){
+    lab.textContent = tipo==="general"
+      ? (ambito==="global"&&global ? "Visible para todos los grupos" : "Visible para el grupo")
+      : "Visible en el mapa";
+  }
 }
 function cerrarFormPunto(){
   $("#point-dialog")?.classList.add("hidden");
@@ -1989,14 +2267,14 @@ function cerrarFormPunto(){
 $("#point-close")?.addEventListener("click",cerrarFormPunto);
 $("#point-backdrop")?.addEventListener("click",cerrarFormPunto);
 
-// Al cambiar la categoría se propone el icono equivalente (§9: el usuario
-// elige el icono, pero partir de la categoría evita combinaciones absurdas).
-const ICONO_POR_CATEGORIA={general:"place",seguridad:"warning",salud:"health_and_safety",
-  educacion:"school",transporte:"directions_bus",comercio:"store",areas_verdes:"park",otro:"place"};
+// Al cambiar la categoría se propone su icono por defecto (Fase 2: el icono
+// sale de map_categories, con respaldo en ICONO_PUNTO).
 $("#point-category")?.addEventListener("change",e=>{
-  const valor=ICONO_POR_CATEGORIA[e.target.value];
-  if(valor) seleccionarIcono(valor);
+  const cat=categoriaDe(e.target.value);
+  if(cat?.icon) seleccionarIcono(cat.icon);
 });
+$("#point-tipo")?.addEventListener("change",actualizarCamposPunto);
+$("#point-scope")?.addEventListener("change",actualizarCamposPunto);
 
 // --- guardar / eliminar -----------------------------------------------------
 $("#point-form")?.addEventListener("submit",async e=>{
@@ -2010,21 +2288,36 @@ $("#point-form")?.addEventListener("submit",async e=>{
   // Rango de la Región Metropolitana (mismo check que la tabla en SQL).
   if(lat<-34.5||lat>-32.7||lng<-72||lng>-69.5){
     notifyError($("#point-error"),"Las coordenadas deben estar dentro de la Región Metropolitana."); return; }
-  const tipo=isAdmin()?$("#point-tipo").value:"personal";
+  const admin=esAdminDeGrupo();
+  const tipo=admin?$("#point-tipo").value:"personal";
+  let scope="group", grupoId=state.groupId;
+  if(tipo==="general" && isAdmin()){
+    scope=$("#point-scope").value==="global"?"global":"group";
+    grupoId=scope==="global"?null:($("#point-group").value||state.groupId);
+  }
   const payload={name,description:$("#point-description").value.trim(),
     category:$("#point-category").value,icon:$("#point-icon").value,
     latitude:lat,longitude:lng,visible:$("#point-visible").checked,tipo,
-    fijo:$("#point-fijo").checked};
+    scope,group_id:grupoId,fijo:$("#point-fijo").checked};
   const guardar=async p=>id
     ? await supabase.from("map_points").update(p).eq("id",id).select("id")
     : await supabase.from("map_points").insert({...p,created_by:state.user.id}).select("id");
-  let res=await guardar(payload);
-  // Si la columna `fijo` todavía no existe en Supabase (falta aplicar
-  // sql/08_puntos_fijos.sql), se guarda el punto sin ella y se avisa.
-  if(res.error&&/fijo/i.test(res.error.message||"")){
-    const {fijo,...resto}=payload;
-    res=await guardar(resto);
-    if(!res.error) showToast("Punto guardado. Para usar la vista falta aplicar sql/08_puntos_fijos.sql.");
+  let intento={...payload};
+  let res=await guardar(intento);
+  let faltante="";
+  // Compatibilidad: si la BD aún no tiene `fijo` (sql/08) o `scope/group_id`
+  // (sql/15), se guarda sin esos campos y se avisa.
+  if(res.error && /fijo/i.test(res.error.message||"")){
+    delete intento.fijo; faltante="sql/08_puntos_fijos.sql"; res=await guardar(intento);
+  }
+  if(res.error && /(scope|group_id)/i.test(res.error.message||"")){
+    delete intento.scope; delete intento.group_id; faltante="sql/15_categorias_puntos.sql"; res=await guardar(intento);
+  }
+  if(res.error && /fijo/i.test(res.error.message||"") && "fijo" in intento){
+    delete intento.fijo; faltante="sql/08_puntos_fijos.sql"; res=await guardar(intento);
+  }
+  if(!res.error && faltante){
+    showToast("Punto guardado. Para completar la función falta aplicar "+faltante+".");
   }
   if(res.error){
     console.error("point-form: guardar",res.error);
@@ -2032,7 +2325,9 @@ $("#point-form")?.addEventListener("submit",async e=>{
   }
   cerrarFormPunto();
   await cargarPuntosMapa();
-  showToast(id?"Punto actualizado.":"Punto creado y visible para todos.");
+  showToast(id?"Punto actualizado.":
+    tipo==="personal"?"Punto personal creado.":
+    (scope==="global"?"Punto global creado.":"Punto del grupo creado."));
 });
 $("#point-delete")?.addEventListener("click",async()=>{
   const id=$("#point-id").value; if(!id) return;

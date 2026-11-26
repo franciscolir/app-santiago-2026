@@ -180,6 +180,8 @@ body.vista-mapa .mapa-frame { height: 100% !important; min-height: 0 !important;
   box-shadow: 0 1px 4px rgba(0,0,0,.35);
 }
 .map-point-oculto { display: none !important; }
+/* El admin ve atenuados los puntos deshabilitados para poder ubicarlos. */
+.map-point-oculto-admin { opacity: .45; filter: grayscale(.35); }
 /* En modo punto no se muestra el nombre (el icono ya no está). */
 .map-point-punto .map-point-nombre { display: none !important; }
 
