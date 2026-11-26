@@ -388,11 +388,20 @@ $function$;
 -- 7) GRANTS
 --    - `authenticated` lee la tabla groups y, con la política RLS de sql/11,
 --      solo el admin global (o el admin de su grupo) puede modificarla.
+--      Los GRANT son POR COLUMNA: el hash de la contraseña de grupo
+--      (sql/14) queda fuera y la app no puede leerlo ni escribirlo.
 --    - `service_role` la necesita la Edge Function login-username.
 --    - `anon` NO tiene select directo: usa la RPC grupos_publicos().
 -- ----------------------------------------------------------------------------
 grant usage on schema public to anon;
-grant select, insert, update, delete on public.groups to authenticated, service_role;
+grant select (id, slug, name, description, active, created_at, updated_at)
+  on public.groups to authenticated;
+grant insert (slug, name, description, active)
+  on public.groups to authenticated;
+grant update (slug, name, description, active)
+  on public.groups to authenticated;
+grant delete on public.groups to authenticated;
+grant select, insert, update, delete on public.groups to service_role;
 
 -- ----------------------------------------------------------------------------
 -- 8) VERIFICACIÓN

@@ -522,17 +522,19 @@ console.log("[8] Calibración 2026-11-26: 3 saltos del punto, corte de textos, g
     "medidor: eliminado tras calibrar", "sigue el medidor de zoom");
 }
 
-// ------------------- 9. Fase 1: grupos, login y RLS (2026-11-26) --------------
-console.log("[9] Fase 1: grupos, login por grupo y políticas RLS");
+// ------------------- 9. Acceso: login por usuario, grupo automático y registro --
+console.log("[9] Acceso: login por usuario, grupo automático y registro");
 {
   const sql10 = leerTexto("sql/10_grupos.sql") || "";
   const sql11 = leerTexto("sql/11_rls_grupos.sql") || "";
-  const fn = leerTexto("supabase/functions/login-username/index.ts") || "";
+  const sql14 = leerTexto("sql/14_registro_perfiles.sql") || "";
+  const fnLogin = leerTexto("supabase/functions/login-username/index.ts") || "";
+  const fnReg = leerTexto("supabase/functions/register-profile/index.ts") || "";
   const main = leerTexto("src/main.js") || "";
   const html = leerTexto("index.html") || "";
   const sw = leerTexto("sw.js") || "";
 
-  // --- 1) estructura de grupos ------------------------------------------------
+  // --- 1) estructura de grupos (sql/10) --------------------------------------
   check(/create table if not exists public\.groups\s*\(/.test(sql10),
     "grupos: tabla public.groups", "falta la tabla groups");
   check(/insert into public\.groups \(slug, name, description\)[\s\S]{0,160}'principal'/.test(sql10),
@@ -550,20 +552,17 @@ console.log("[9] Fase 1: grupos, login por grupo y políticas RLS");
         /wall_posts_asignar_grupo/.test(sql10),
     "grupos: triggers rellenan group_id (compatibilidad con el frontend anterior)",
     "faltan los triggers de group_id");
-
-  // --- 2) helpers y login -----------------------------------------------------
   check(/create or replace function public\.auth_group\(\)/.test(sql10) &&
         /create or replace function public\.can_manage_group\(g uuid\)/.test(sql10),
     "grupos: helpers auth_group() y can_manage_group()", "faltan los helpers de grupo");
-  check(/create or replace function public\.grupos_publicos\(\)/.test(sql10) &&
-        /grant execute on function public\.grupos_publicos\(\) to anon/.test(sql10),
-    "login: RPC grupos_publicos() expuesta a anon", "el selector de login no tiene fuente");
   check(/create or replace function public\.handle_new_user\(\)[\s\S]{0,1400}group_id/.test(sql10),
-    "login: los perfiles nuevos nacen con grupo", "handle_new_user no asigna grupo");
-  check(/grant select, insert, update, delete on public\.groups to authenticated, service_role/.test(sql10),
-    "grupos: GRANT completo para authenticated y service_role (Edge Function)", "falta el GRANT de groups");
+    "grupos: los perfiles nuevos nacen con grupo", "handle_new_user no asigna grupo");
+  check(/grant select \(id, slug, name, description, active, created_at, updated_at\)[\s\S]{0,120}on public\.groups to authenticated/.test(sql10) &&
+        !/grant select, insert, update, delete on public\.groups to authenticated/.test(sql10),
+    "grupos: GRANT por columna (el hash queda fuera) + service_role completo",
+    "authenticated conserva un GRANT de tabla que incluiría el hash");
 
-  // --- 3) políticas RLS ------------------------------------------------------
+  // --- 2) políticas RLS (sql/11) ---------------------------------------------
   check(/create policy "Miembros consultan su grupo"/.test(sql11) &&
         /create policy "Admin gestiona grupos"/.test(sql11),
     "RLS: grupos visibles solo para sus miembros", "faltan las políticas de groups");
@@ -581,38 +580,102 @@ console.log("[9] Fase 1: grupos, login por grupo y políticas RLS");
   check(!/using \(true\)/.test(sql11),
     "RLS: sin políticas abiertas (using true)", "quedó una política abierta");
 
-  // --- 4) Edge Function ------------------------------------------------------
-  check(!!fn && /profile\.group_id !== group\.id/.test(fn),
-    "login: la Edge Function valida la pertenencia al grupo", "la función no compara group_id");
-  check(!!fn && fn.indexOf("profile.group_id !== group.id") > -1 &&
-        fn.indexOf("profile.group_id !== group.id") < fn.indexOf("signInWithPassword"),
-    "login: valida el grupo ANTES de autenticar", "el grupo se valida después del password");
-  check(/APP_SUPABASE_SERVICE_ROLE_KEY/.test(fn) &&
-        !/service_role_eyJ|sb_secret_/.test(fn),
-    "login: la función usa variables de entorno (sin claves en el repo)", "hay una clave incrustada");
-  check(/getUserById/.test(fn) && /signInWithPassword/.test(fn),
-    "login: resuelve el email y verifica la contraseña", "falta el flujo de autenticación");
+  // --- 3) contraseña de grupo + registro (sql/14) ----------------------------
+  check(/add column if not exists join_password_hash text/.test(sql14),
+    "registro: groups.join_password_hash (bcrypt)", "falta la columna del hash");
+  check(/create or replace function public\.definir_password_grupo[\s\S]{0,2500}gen_salt\('bf'/.test(sql14),
+    "registro: definir_password_grupo() hashea con bcrypt", "no se hashea la contraseña de grupo");
+  check(/set search_path to public, extensions/.test(sql14) &&
+        !/set search_path to 'public, extensions'/.test(sql14),
+    "registro: search_path como lista de esquemas (pgcrypto en public/extensions)",
+    "el search_path está entre comillas y crypt() no se resuelve");
+  check(/create or replace function public\.verificar_password_grupo[\s\S]{0,700}crypt\(p_password, g\.join_password_hash\)/.test(sql14),
+    "registro: verificar_password_grupo() compara el hash", "la verificación no usa crypt()");
+  check(/grant execute on function public\.verificar_password_grupo\(text, text\) to service_role/.test(sql14) &&
+        !/grant execute on function public\.verificar_password_grupo\(text, text\) to (anon|authenticated)/.test(sql14),
+    "registro: solo service_role puede verificar la contraseña de grupo",
+    "anon/authenticated pueden verificar el hash (fuerza bruta)");
+  check(/create or replace function public\.grupos_para_registro/.test(sql14) &&
+        /grant execute on function public\.grupos_para_registro\(\) to anon/.test(sql14),
+    "registro: grupos_para_registro() para el selector (anon)", "falta la RPC del registro");
+  check(/revoke select, insert, update, delete on public\.groups from authenticated/.test(sql14) &&
+        /grant select \(id, slug, name, description, active, created_at, updated_at\)/.test(sql14),
+    "registro: la app no puede leer ni escribir el hash de grupo", "el hash quedó expuesto en los GRANT");
+  check(/create unique index if not exists profiles_username_lower_key/.test(sql14) &&
+        !/drop constraint[^;]*profiles_username_key/.test(sql14),
+    "registro: usuario único global (decisión del proyecto) e insensible a mayúsculas",
+    "se perdió la unicidad global o falta el índice lower()");
+  check(/create trigger profiles_proteger_identidad/.test(sql14) &&
+        /No puedes cambiar tu nombre de usuario ni tu grupo/.test(sql14),
+    "registro: el usuario no puede cambiar su nombre ni su grupo", "falta la protección de identidad");
 
-  // --- 5) frontend -----------------------------------------------------------
-  check(/id="login-group"/.test(html),
-    "login: selector de grupo en el formulario", "falta #login-group");
-  check(/id="group-label"/.test(html),
-    "login: el header muestra el grupo activo", "falta #group-label");
-  check(/body\.group=group/.test(main) && /invoke\("login-username"/.test(main),
-    "login: el frontend envía el grupo a la Edge Function", "el grupo no se envía");
-  check(/no pertenece al grupo seleccionado/.test(main),
-    "login: revalida la pertenencia en el cliente (defensa en profundidad)",
-    "no hay validación de respaldo");
-  check(/supabase\.rpc\("grupos_publicos"\)/.test(main),
-    "login: el selector se llena con grupos_publicos()", "no se consulta la RPC");
+  // --- 4) Edge Function de registro -----------------------------------------
+  check(/action === "validar-grupo"/.test(fnReg) && /action === "sugerir-usuario"/.test(fnReg) &&
+        /action === "registrar"/.test(fnReg),
+    "registro: acciones validar-grupo, sugerir-usuario y registrar", "faltan acciones del registro");
+  check(/\.rpc\("verificar_password_grupo"/.test(fnReg),
+    "registro: valida la contraseña de grupo en el servidor", "no se verifica la contraseña de grupo");
+  check(/USERNAME_TAKEN/.test(fnReg) && /sugerencias: await alternativas/.test(fnReg),
+    "registro: nombre tomado → 409 con alternativas comprobadas", "no se sugieren alternativas");
+  check(/auth\.admin\.createUser/.test(fnReg) && /email_confirm: true/.test(fnReg) &&
+        /user_metadata:/.test(fnReg) && /group_id: group\.id/.test(fnReg),
+    "registro: crea el usuario en Auth con el grupo validado", "no se crea el usuario con su grupo");
+  check(/signInWithPassword/.test(fnReg),
+    "registro: inicia sesión al terminar el registro", "no se devuelve una sesión");
+  check(/APP_SUPABASE_SERVICE_ROLE_KEY/.test(fnReg) && !/service_role_eyJ|sb_secret_/.test(fnReg),
+    "registro: la función usa variables de entorno (sin claves en el repo)", "hay una clave incrustada");
+
+  // --- 5) login v2: usuario + contraseña, grupo automático -------------------
+  check(!/groupRef/.test(fnLogin) && !/if \(!username \|\| !password \|\| !groupRef\)/.test(fnLogin),
+    "login: ya no exige el grupo", "la función sigue pidiendo el grupo");
+  check(/\.eq\("username", username\)/.test(fnLogin) &&
+        /\.select\("id, username, full_name, role, active, group_id, group_admin"\)/.test(fnLogin),
+    "login: busca el perfil por usuario", "no busca el perfil por usuario");
+  check(/USER_NOT_FOUND/.test(fnLogin),
+    "login: 404 USER_NOT_FOUND para ofrecer el registro", "no distingue usuario inexistente");
+  check(/\.from\("groups"\)[\s\S]{0,220}\.eq\("id", profile\.group_id\)/.test(fnLogin),
+    "login: detecta el grupo desde el perfil", "no se consulta el grupo del perfil");
+  check(/getUserById/.test(fnLogin) && /signInWithPassword/.test(fnLogin),
+    "login: resuelve el email y verifica la contraseña", "falta el flujo de autenticación");
+  check(/APP_SUPABASE_SERVICE_ROLE_KEY/.test(fnLogin) &&
+        !/service_role_eyJ|sb_secret_/.test(fnLogin),
+    "login: la función usa variables de entorno (sin claves en el repo)", "hay una clave incrustada");
+
+  // --- 6) frontend: login simple + registro progresivo ----------------------
+  check(/id="login-form"/.test(html) && /id="username"/.test(html) && /id="password"/.test(html),
+    "login: usuario + contraseña", "falta el formulario de login");
+  check(!/id="login-group"/.test(html),
+    "login: sin selector de grupo", "el login sigue pidiendo el grupo");
+  check(/id="login-register-link"/.test(html) && /id="register-panel"/.test(html),
+    "registro: botón y panel de registro", "falta el acceso al registro");
+  check(/id="reg-group"/.test(html) && /id="reg-group-password"/.test(html) &&
+        /id="reg-validar"/.test(html),
+    "registro: paso 1 (grupo + contraseña del grupo)", "falta el paso del grupo");
+  check(/id="reg-username"/.test(html) && /id="reg-password"/.test(html) &&
+        /id="reg-password2"/.test(html) && /id="reg-crear"/.test(html),
+    "registro: paso 2 (usuario + contraseña personal)", "falta el paso del perfil");
+  check(/id="reg-sugerencias"/.test(html) && /id="reg-sugerencias-lista"/.test(html),
+    "registro: contenedor de nombres alternativos", "faltan las sugerencias");
+  check(/usernameLogin\(username,password\)/.test(main) && !/body\.group=group/.test(main),
+    "login: el frontend ya no envía el grupo", "el frontend sigue enviando el grupo");
+  check(/err\.code==="USER_NOT_FOUND"/.test(main) && /abrirRegistro/.test(main),
+    "login: usuario inexistente abre el registro", "no se ofrece el registro");
+  check(/action:"validar-grupo"/.test(main) && /action:"registrar"/.test(main),
+    "registro: el frontend llama a las acciones del servidor", "faltan las llamadas del registro");
+  check(/mostrarSugerencias/.test(main) && /data-sugerencia/.test(main),
+    "registro: las alternativas se ofrecen sin autoasignar", "no se muestran sugerencias");
+  check(/grupos_para_registro/.test(main),
+    "registro: el selector usa grupos_para_registro()", "no se consulta la RPC del registro");
+  check(!/join_password_hash/.test(main) && !/join_password_hash/.test(html),
+    "seguridad: el frontend nunca toca el hash de la contraseña de grupo", "el hash aparece en el cliente");
   check(/function filtrarGrupo\(q\)/.test(main) && /state\.groupId/.test(main) &&
         /filtrarGrupo\(supabase\.from\("events"\)/.test(main) &&
         /filtrarGrupo\(supabase\.from\("wall_posts"\)/.test(main),
     "datos: agenda y muro filtrados por el grupo activo", "alguna consulta no filtra por grupo");
   check(/faltan las columnas de grupo/.test(main),
     "compatibilidad: el login no se rompe si falta sql/10", "no hay respaldo sin columnas de grupo");
-  check(/app-santiago-2026-v13/.test(sw),
-    "service worker: v13 (precache renovada con la Fase 1)", "el SW no se renovó");
+  check(/app-santiago-2026-v14/.test(sw),
+    "service worker: v14 (precache renovada con el nuevo acceso)", "el SW no se renovó");
 }
 
 // ---------------------------------------------------------------- resumen ----

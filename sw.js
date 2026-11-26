@@ -21,7 +21,10 @@
 // arriba y la columna desplegándose hacia abajo).
 // v13: Fase 1 de UPDATE.md: grupos, login con grupo (usuario + contraseña +
 // grupo) y agenda/muro filtrados por el grupo activo.
-const CACHE_NAME = "app-santiago-2026-v13";
+// v14: nuevo flujo de acceso: login solo usuario + contraseña (grupo
+// automático), registro progresivo con contraseña de grupo y nombres
+// alternativos.
+const CACHE_NAME = "app-santiago-2026-v14";
 const APP_SHELL = [
   "./",
   "./index.html",

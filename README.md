@@ -75,6 +75,14 @@ node scripts/optimizar-iconos.mjs
   `supabase/functions/login-username/` con **Verify JWT desactivado**. Instrucciones y
   contrato en `supabase/functions/login-username/README.md`.
 
+- Nuevo acceso (usuario + contraseña, grupo automático y registro):
+  1. Ejecutar **`sql/14_registro_perfiles.sql`**.
+  2. Definir la contraseña de cada grupo:
+     `select public.definir_password_grupo('principal', 'TU_CONTRASEÑA');`
+  3. Desplegar **`login-username`** y **`register-profile`** con **Verify JWT desactivado**
+     (instrucciones en cada `README.md`).
+  4. Publicar el frontend (el login viejo exige grupo; el nuevo no lo envía).
+
 - Separar los cuarteles de bomberos de la capa de seguridad (sin volver a Overpass; es
   idempotente y no sobrescribe nada si ya están separados):
 

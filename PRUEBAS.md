@@ -78,11 +78,24 @@ Sin dependencias: solo Node.js ≥ 18. Comprueba:
 | 48 | Grupos y login | Selector de grupo en el login; la Edge Function valida la pertenencia **antes** de autenticar y el cliente la revalida; el header muestra el grupo activo | ✅ (242 pruebas; verificado el modo compatibilidad en navegador) |
 | 49 | Aislamiento por grupo | Eventos, actividades, asignaciones, perfiles y muro filtrados por `group_id = auth_group()`; escritura según `can_manage_group()` | ⏳ (SQL listo; falta ejecutarlo y probar con dos grupos) |
 | 50 | Compatibilidad de despliegue | Sin `sql/10`, la app entra en modo compatibilidad (grupo `principal`) y el login/agenda/muro siguen funcionando | ✅ (probado en navegador antes de aplicar el SQL) |
+| 51 | Login por usuario | El login pide solo **usuario + contraseña**; el grupo se detecta del perfil y no se vuelve a pedir | ✅ (264 pruebas; pendiente desplegar `login-username` v2) |
+| 52 | Registro con contraseña de grupo | Paso 1: grupo + contraseña del grupo (bcrypt). Paso 2: usuario + contraseña personal + confirmación | ⏳ (`sql/14` y `register-profile` listos; falta ejecutarlos/desplegarlos) |
+| 53 | Usuario único global | El nombre se rechaza si existe en **cualquier** grupo (decisión del proyecto; la prueba 8 del documento no aplica) | ✅ (`profiles_username_key` + índice `lower(username)`) |
+| 54 | Alternativas de nombre | Si el nombre está tomado, se ofrecen alternativas comprobadas como botones; el usuario debe confirmar | ✅ (servidor + chips en el registro) |
+| 55 | Grupo automático en reingresos | El perfil guarda el grupo; el login lo recupera de la BD y no lo pide | ✅ (`login-username` v2) |
+| 56 | Contraseña de grupo protegida | Hash bcrypt; la app no puede leerlo ni escribirlo; solo `service_role` verifica | ✅ (GRANT por columna + RPC) |
 
 ---
 
 ## 3. Resultados de la corrida automática
 
+- **2026-11-26 (nuevo acceso y registro de perfiles)**: **264 pruebas · 0 fallos · 2 avisos**.
+  - Bloque `[9]` reescrito con **50 comprobaciones**: login por usuario con grupo automático,
+    `sql/14` (hash bcrypt, RPC de verificación solo para `service_role`, `grupos_para_registro`,
+    GRANT por columna, índice `lower(username)` y protección de identidad), Edge Functions
+    (`login-username` v2 + `register-profile`), UI progresiva y ausencia del hash en el cliente.
+  - Decisión del proyecto: **usuario único global**; la prueba 8 del documento de acceso
+    (mismo nombre en dos grupos) no aplica y se deja documentada.
 - **2026-11-26 (Fase 1 de `UPDATE.md`: grupos, login y RLS)**: **242 pruebas · 0 fallos · 2 avisos**.
   - Nuevo bloque `[9]` (28 comprobaciones): tabla/columnas/backfill/triggers de grupo,
     helpers `auth_group()`/`can_manage_group()`, RPC `grupos_publicos()` para anon, políticas

@@ -8,10 +8,10 @@ const state = { user:null, profile:null, event:null, activities:[], category:"po
   map:null, mapListo:false, markers:null, markerById:new Map(), pendingFit:null, selectedId:null, toastTimer:null,
   mapPoints:[], pointMarkers:new Map(), pointMode:false, mensajeTipo:null,
   // Grupo activo (UPDATE.md Etapa 1). `groupId` filtra TODAS las consultas;
-  // `groups` alimenta el selector del login; `group` es el objeto para mostrar.
+  // `groups` alimenta el registro y el chip del header.
   groups:[], groupId:null, group:null, groupsListos:false, groupsCargando:false,
-  // null = aún no se sabe; false = sql/10 no aplicado (modo compatibilidad).
-  grupoMigrado:null };
+  // Registro progresivo: grupo validado + su contraseña (solo en memoria).
+  regGroup:null, regGroupPassword:"" };
 const statusText = {pending:"Pendiente", in_progress:"En curso", completed:"Completada", cancelled:"Cancelada"};
 const venueStatusText = {pending:"Programada", in_progress:"En curso", completed:"Finalizada", cancelled:"Cancelada"};
 const viewLabels = {agenda:"Agenda", mapa:"Mapa", muro:"Muro", emergencia:"Emergencia"};
@@ -29,7 +29,7 @@ const coordTexto = (c) => {
 const todayStr = () => { const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; };
 const initials = (name="") => name.trim().split(/\s+/).filter(Boolean).slice(0,2).map(w=>w[0]).join("").toUpperCase() || "?";
 
-function showLogin(){ $("#login-screen").classList.remove("hidden"); $("#app").classList.add("hidden"); if(!state.groupsListos) cargarGruposLogin(); }
+function showLogin(){ $("#login-screen").classList.remove("hidden"); $("#app").classList.add("hidden"); mostrarRegistro(false); if(!state.groupsListos) cargarGruposRegistro(); }
 function showApp(){ $("#login-screen").classList.add("hidden"); $("#app").classList.remove("hidden"); if(!gpsIntentado){gpsIntentado=true;activarGps();} }
 function isAdmin(){ return state.profile?.role === "admin"; }
 function notifyError(el,msg){ el.textContent=msg || ""; }
@@ -103,18 +103,11 @@ async function loadProfile(){
   // Grupo (UPDATE.md Fase 1). Si sql/10_grupos.sql todavía no se aplicó, se
   // usa el select base: el login no debe romperse por eso.
   const base="id,username,full_name,role,active";
-  let res;
-  if(state.grupoMigrado===false){
+  let res=await supabase.from("profiles").select(base+",group_id,group_admin").eq("id",state.user.id).single();
+  if(res.error && /group_id|group_admin/i.test(res.error.message||"")){
+    console.warn("loadProfile: faltan las columnas de grupo (ejecuta sql/10_grupos.sql). Se continúa sin grupo.");
     res=await supabase.from("profiles").select(base).eq("id",state.user.id).single();
     if(res.data){ res.data.group_id=null; res.data.group_admin=false; }
-  }else{
-    res=await supabase.from("profiles").select(base+",group_id,group_admin").eq("id",state.user.id).single();
-    if(res.error && /group_id|group_admin/i.test(res.error.message||"")){
-      console.warn("loadProfile: faltan las columnas de grupo (ejecuta sql/10_grupos.sql). Se continúa sin grupo.");
-      state.grupoMigrado=false;
-      res=await supabase.from("profiles").select(base).eq("id",state.user.id).single();
-      if(res.data){ res.data.group_id=null; res.data.group_admin=false; }
-    }
   }
   const {data,error}=res;
   if(error){
@@ -135,11 +128,9 @@ async function loadProfile(){
   // Gestión de puntos (lista, renombrar, mostrar/ocultar, borrar): solo admin.
   $("#map-puntos-btn")?.classList.toggle("hidden",!isAdmin());
   if(state.mapListo) renderPuntosMapa();
-  // Recordar el grupo para el próximo inicio de sesión.
-  if(state.group?.slug) guardarGrupoLogin(state.group.slug);
 }
 // Muestra el chip del grupo en el header. Si la lista de grupos aún no llegó,
-// se completa cuando termina cargarGruposLogin().
+// se completa cuando termina cargarGruposRegistro().
 function sincronizarGrupoVisible(){
   state.group = state.groups.find(g=>g.id===state.groupId) || state.group || null;
   const el=$("#group-label");
@@ -147,76 +138,179 @@ function sincronizarGrupoVisible(){
   el.textContent=state.group?.name||"";
   el.classList.toggle("hidden",!state.group?.name);
 }
-// ==================== GRUPOS (UPDATE.md Fase 1) ====================
-// El grupo es parte del inicio de sesión (usuario + contraseña + grupo) y
-// filtra todas las consultas de la app. La separación REAL la aplican las
-// políticas RLS de sql/11_rls_grupos.sql.
-const LLAVE_GRUPO="app-santiago-2026:grupo";
-function guardarGrupoLogin(slug){ try{ if(slug) localStorage.setItem(LLAVE_GRUPO,slug); }catch(_){ /* almacenamiento no disponible */ } }
-function leerGrupoLogin(){ try{ return localStorage.getItem(LLAVE_GRUPO)||""; }catch(_){ return ""; } }
+// ==================== ACCESO Y REGISTRO ====================
+// Login: usuario + contraseña; el grupo se detecta del perfil (sql/14).
+// Registro progresivo: grupo + contraseña del grupo → usuario + contraseña
+// personal. La separación REAL de datos la aplican las políticas RLS.
 function esAdminDeGrupo(){ return isAdmin() || !!state.profile?.group_admin; }
 // Filtra una consulta por el grupo activo. Si la migración aún no está aplicada
 // (state.groupId null), la deja tal cual: la app sigue funcionando.
 function filtrarGrupo(q){ return state.groupId ? q.eq("group_id",state.groupId) : q; }
 
-async function cargarGruposLogin(){
-  const sel=$("#login-group"); if(!sel || state.groupsCargando) return;
+// Convierte el error de una Edge Function en un Error con `code` y `status`,
+// para distinguir USER_NOT_FOUND de una contraseña incorrecta.
+async function errorDeFuncion(error,data){
+  let payload=(data && typeof data==="object") ? data : null;
+  if(!payload && error?.context && typeof error.context.clone==="function"){
+    try{ payload=await error.context.clone().json(); }catch(_){ /* sin JSON */ }
+  }
+  const err=new Error(payload?.error || error?.message || "No fue posible completar la operación.");
+  err.code=payload?.code || "";
+  err.status=error?.context?.status || 0;
+  err.sugerencias=Array.isArray(payload?.sugerencias)?payload.sugerencias:[];
+  return err;
+}
+
+// Carga los grupos del REGISTRO (RPC de sql/14). Incluye `abierto` (el grupo
+// ya tiene contraseña). Si sql/14 no está aplicado, cae a grupos_publicos().
+async function cargarGruposRegistro(){
+  const sel=$("#reg-group"); if(!sel || state.groupsCargando) return;
   state.groupsCargando=true;
-  const hint=$("#login-group-hint");
+  const hint=$("#reg-group-hint");
   try{
     let grupos=[];
-    // RPC de sql/10 (expuesta a anon). Si aún no existe, se activa el modo
-    // compatibilidad: un único grupo lógico para no bloquear el login.
-    const {data,error}=await supabase.rpc("grupos_publicos");
-    if(!error){
-      state.grupoMigrado=true;
-      grupos=Array.isArray(data)?data:[];
-    }else{
-      state.grupoMigrado=false;
-      console.warn("cargarGruposLogin: sql/10_grupos.sql aún no está aplicado (modo compatibilidad).");
+    const {data,error}=await supabase.rpc("grupos_para_registro");
+    if(!error && Array.isArray(data)) grupos=data;
+    if(!grupos.length){
+      const r=await supabase.rpc("grupos_publicos");
+      if(!r.error && Array.isArray(r.data)) grupos=r.data.map(g=>({...g,abierto:true}));
     }
     if(!grupos.length){
-      grupos=[{id:null,slug:"principal",name:"Grupo principal"}];
+      grupos=[{id:null,slug:"principal",name:"Grupo principal",abierto:false}];
       if(hint){
-        hint.textContent = state.grupoMigrado===false
-          ? "Modo compatibilidad: ejecuta sql/10_grupos.sql para habilitar los grupos."
-          : "No hay grupos activos: un administrador debe crear uno en public.groups.";
+        hint.textContent="No hay grupos disponibles. Un administrador debe crear un grupo y definir su contraseña.";
         hint.classList.remove("hidden");
       }
     }
     state.groups=grupos;
     state.groupsListos=true;
-    const guardado=leerGrupoLogin();
-    sel.innerHTML=grupos.map(g=>`<option value="${esc(g.slug)}">${esc(g.name)}</option>`).join("");
-    if(guardado && grupos.some(g=>g.slug===guardado)) sel.value=guardado;
+    sel.innerHTML=grupos.map(g=>{
+      const abierto=g.abierto!==false;
+      return `<option value="${esc(g.slug)}"${abierto?"":" disabled"}>${esc(g.name)}${abierto?"":" (sin contraseña)"}</option>`;
+    }).join("");
+    if(hint && grupos.every(g=>g.abierto===false)){
+      hint.textContent="Los grupos aún no tienen contraseña de registro. Pide al administrador que la configure.";
+      hint.classList.remove("hidden");
+    }
     sincronizarGrupoVisible();
   }catch(err){
-    console.warn("cargarGruposLogin:",err);
-    state.groups=[{id:null,slug:"principal",name:"Grupo principal"}];
-    state.groupsListos=true;
-    sel.innerHTML='<option value="principal">Grupo principal</option>';
+    console.warn("cargarGruposRegistro:",err);
+    state.groups=[]; state.groupsListos=true;
+    sel.innerHTML='<option value="">Registro no disponible</option>';
+    if(hint){ hint.textContent="No se pudieron cargar los grupos."; hint.classList.remove("hidden"); }
   }finally{
     state.groupsCargando=false;
   }
 }
 
-async function usernameLogin(username,password,group){
-  const body={username,password};
-  if(group) body.group=group;   // la Edge Function lo valida antes de autenticar
-  const {data,error}=await supabase.functions.invoke("login-username",{body});
-  if(error || !data?.session){
-    let msg=data?.error||"";
-    if(!msg && error?.context && typeof error.context.clone==="function"){
-      try{ const b=await error.context.clone().json(); msg=b?.error||b?.message||""; }catch(_){ /* body no era JSON */ }
-    }
-    throw new Error(msg || error?.message || "No fue posible iniciar sesión.");
-  }
+async function usernameLogin(username,password){
+  const {data,error}=await supabase.functions.invoke("login-username",{body:{username,password}});
+  if(error || !data?.session) throw await errorDeFuncion(error,data);
   const {data:sessionData,error:setError}=await supabase.auth.setSession({
     access_token:data.session.access_token, refresh_token:data.session.refresh_token
   });
   if(setError) throw setError;
   state.user=sessionData.user;
   return data;
+}
+
+// --- registro progresivo -----------------------------------------------------
+function mostrarRegistro(on){
+  $("#register-panel")?.classList.toggle("hidden",!on);
+  $("#login-form")?.classList.toggle("hidden",on);
+}
+function volverLogin(){
+  mostrarRegistro(false);
+  notifyError($("#reg-grupo-error"),"");
+  notifyError($("#reg-perfil-error"),"");
+  $("#username")?.focus();
+}
+async function abrirRegistro(usuario=""){
+  if(!state.groupsListos) await cargarGruposRegistro();
+  state.regGroup=null; state.regGroupPassword="";
+  $("#reg-step-grupo")?.classList.remove("hidden");
+  $("#reg-step-perfil")?.classList.add("hidden");
+  $("#reg-sugerencias")?.classList.add("hidden");
+  $("#reg-group-password").value="";
+  $("#reg-password").value=""; $("#reg-password2").value="";
+  $("#reg-username").value=String(usuario||"").trim();
+  notifyError($("#reg-grupo-error"),""); notifyError($("#reg-perfil-error"),"");
+  $("#reg-intro").textContent = usuario
+    ? `No existe un perfil con el usuario “${usuario}”. Para crear uno necesitas la contraseña del grupo.`
+    : "Para crear tu perfil necesitas la contraseña del grupo al que perteneces.";
+  mostrarRegistro(true);
+  $("#reg-group")?.focus();
+}
+async function validarGrupoRegistro(){
+  const grupo=$("#reg-group")?.value||"";
+  const password=$("#reg-group-password")?.value||"";
+  if(!grupo){ notifyError($("#reg-grupo-error"),"Selecciona un grupo."); return; }
+  if(!password){ notifyError($("#reg-grupo-error"),"Escribe la contraseña del grupo."); return; }
+  const btn=$("#reg-validar"); if(btn) btn.disabled=true;
+  notifyError($("#reg-grupo-error"),"");
+  try{
+    const {data,error}=await supabase.functions.invoke("register-profile",{
+      body:{action:"validar-grupo",group:grupo,group_password:password}
+    });
+    if(error || !data?.ok) throw await errorDeFuncion(error,data);
+    state.regGroup=data.group; state.regGroupPassword=password;
+    $("#reg-grupo-elegido").textContent="Grupo: "+(data.group?.name||grupo);
+    $("#reg-step-grupo").classList.add("hidden");
+    $("#reg-step-perfil").classList.remove("hidden");
+    $("#reg-username")?.focus();
+  }catch(err){
+    notifyError($("#reg-grupo-error"),err.message||"No se pudo validar el grupo.");
+  }finally{ if(btn) btn.disabled=false; }
+}
+function mostrarSugerencias(lista){
+  const cont=$("#reg-sugerencias"), root=$("#reg-sugerencias-lista");
+  if(!cont||!root) return;
+  root.innerHTML=(lista||[]).map(s=>
+    `<button type="button" data-sugerencia="${esc(s)}" class="px-3 py-1.5 rounded-full bg-surface-container-lowest border border-outline-variant font-label-sm text-label-sm font-bold text-primary active:scale-95 transition-all">${esc(s)}</button>`
+  ).join("");
+  cont.classList.toggle("hidden",!(lista||[]).length);
+  root.querySelectorAll("[data-sugerencia]").forEach(b=>b.addEventListener("click",()=>{
+    $("#reg-username").value=b.dataset.sugerencia;
+    cont.classList.add("hidden");
+    notifyError($("#reg-perfil-error"),"Nombre actualizado. Presiona “Crear perfil” para confirmar.");
+  }));
+}
+async function crearPerfil(){
+  if(!state.regGroup){ notifyError($("#reg-perfil-error"),"Valida el grupo primero."); return; }
+  const usuario=$("#reg-username")?.value.trim()||"";
+  const pass=$("#reg-password")?.value||"";
+  const pass2=$("#reg-password2")?.value||"";
+  if(!/^[a-zA-Z0-9._-]{3,30}$/.test(usuario)){
+    notifyError($("#reg-perfil-error"),"El usuario debe tener entre 3 y 30 caracteres (letras, números, punto, guion o guion bajo)."); return;
+  }
+  if(pass.length<6){ notifyError($("#reg-perfil-error"),"La contraseña debe tener al menos 6 caracteres."); return; }
+  if(pass!==pass2){ notifyError($("#reg-perfil-error"),"Las contraseñas no coinciden."); return; }
+  const btn=$("#reg-crear"); if(btn) btn.disabled=true;
+  notifyError($("#reg-perfil-error"),"");
+  try{
+    const {data,error}=await supabase.functions.invoke("register-profile",{
+      body:{action:"registrar",group:state.regGroup.slug,group_password:state.regGroupPassword,username:usuario,password:pass}
+    });
+    if(error || !data?.session) throw await errorDeFuncion(error,data);
+    const {data:sessionData,error:setError}=await supabase.auth.setSession({
+      access_token:data.session.access_token, refresh_token:data.session.refresh_token
+    });
+    if(setError) throw setError;
+    state.user=sessionData.user;
+    state.regGroup=null; state.regGroupPassword="";
+    $("#reg-password").value=""; $("#reg-password2").value=""; $("#reg-group-password").value="";
+    mostrarRegistro(false);
+    await loadProfile();
+    showApp(); await refreshAll();
+    showToast("Perfil creado. ¡Bienvenido!");
+  }catch(err){
+    if(err.code==="USERNAME_TAKEN"){
+      mostrarSugerencias(err.sugerencias);
+      notifyError($("#reg-perfil-error"),err.message||"Ese nombre ya está en uso.");
+    }else{
+      notifyError($("#reg-perfil-error"),err.message||"No se pudo crear el perfil.");
+    }
+  }finally{ if(btn) btn.disabled=false; }
 }
 async function boot(){
   const {data:{session}}=await supabase.auth.getSession();
@@ -234,28 +328,28 @@ async function boot(){
 }
 $("#login-form").addEventListener("submit",async e=>{
   e.preventDefault(); const btn=e.submitter||$("#login-form button[type=submit]"); if(btn) btn.disabled=true; notifyError($("#login-error"),"");
-  const grupoSlug=$("#login-group")?.value||"";
+  const usuario=$("#username").value.trim();
   try{
-    if(!grupoSlug) throw new Error("Selecciona un grupo.");
-    await usernameLogin($("#username").value.trim(),$("#password").value,grupoSlug);
+    await usernameLogin(usuario,$("#password").value);
     await loadProfile();
-    // Defensa en profundidad: si la Edge Function desplegada todavía es la
-    // versión anterior (ignora `group`), la pertenencia se valida aquí.
-    if(state.groupId){
-      const elegido=state.groups.find(g=>g.slug===grupoSlug);
-      if(elegido?.id && elegido.id!==state.groupId){
-        await supabase.auth.signOut();
-        state.user=null; state.profile=null; state.groupId=null; state.group=null;
-        showLogin();
-        throw new Error("El usuario no pertenece al grupo seleccionado.");
-      }
-      guardarGrupoLogin(grupoSlug);
-    }
     $("#password").value=""; showApp(); await refreshAll();
+  }catch(err){
+    if(err.code==="USER_NOT_FOUND"){
+      // El documento pide ofrecer el registro cuando el usuario no existe.
+      await abrirRegistro(usuario);
+    }else{
+      console.error("login:",err);
+      notifyError($("#login-error"),err.message || "Usuario o contraseña incorrectos.");
+    }
   }
-  catch(err){ console.error("login:",err); notifyError($("#login-error"),err.message || "Usuario o contraseña incorrectos."); }
   finally{ if(btn) btn.disabled=false; }
 });
+$("#login-register-link")?.addEventListener("click",()=>abrirRegistro($("#username")?.value.trim()||""));
+$("#reg-volver")?.addEventListener("click",volverLogin);
+$("#reg-validar")?.addEventListener("click",validarGrupoRegistro);
+$("#reg-crear")?.addEventListener("click",crearPerfil);
+$("#reg-group-password")?.addEventListener("keydown",e=>{ if(e.key==="Enter"){ e.preventDefault(); validarGrupoRegistro(); } });
+$("#reg-password2")?.addEventListener("keydown",e=>{ if(e.key==="Enter"){ e.preventDefault(); crearPerfil(); } });
 $("#logout-btn").addEventListener("click",async()=>{
   await supabase.auth.signOut();
   state.user=null;
@@ -275,9 +369,8 @@ supabase.auth.onAuthStateChange((_event,session)=>{
     showLogin();
   }
 });
-// Poblar el selector de grupo desde el arranque (la pantalla de login ya está
-// en el DOM).
-cargarGruposLogin();
+// Cargar los grupos del registro desde el arranque (el login ya no pide grupo).
+cargarGruposRegistro();
 
 async function refreshAll(){
   // Cada sección carga de forma independiente: un fallo en una no debe impedir las demás.

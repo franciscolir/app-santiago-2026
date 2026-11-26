@@ -1175,6 +1175,10 @@ cinco ajustes en un solo lote:
 
 ## 29. Fase 1 de `UPDATE.md`: grupos, login por grupo y RLS (2026-11-26)
 
+> ⚠️ El **login con selector de grupo** de esta sección fue reemplazado por el flujo del §30
+> (usuario + contraseña, grupo automático + registro con contraseña de grupo). El resto
+> (grupos, RLS por grupo y filtros de consultas) sigue vigente.
+
 Primera fase del plan de `UPDATE.md` (Etapas 1 y 2). Decisiones acordadas con el usuario:
 
 - **Grupo en el login**: se modifica la Edge Function y se valida `(usuario, grupo)` **antes**
@@ -1227,4 +1231,83 @@ Primera fase del plan de `UPDATE.md` (Etapas 1 y 2). Decisiones acordadas con el
 3. Probar: login con el grupo correcto/incorrecto, y que un usuario del grupo B no vea
    agenda, muro ni puntos del A (también por REST).
 4. `schema.sql` queda desactualizado respecto a `sql/10`/`11` (se regenerará en la Fase 7).
+
+## 30. Nuevo flujo de acceso y registro de perfiles (2026-11-26)
+
+Reemplaza el login con selector de grupo del §29. La separación por grupo (§29 + `sql/11`) se
+mantiene intacta.
+
+### Decisiones del usuario
+
+- **Usuario único global**: no se permite el mismo nombre en dos grupos. La prueba 8 del
+  documento de acceso (“dos grupos pueden tener el mismo nombre”) **NO aplica por esta
+  decisión**; el registro rechaza el nombre en cualquier grupo y ofrece alternativas.
+- La contraseña de grupo se administra desde SQL o por una RPC de admin (no hay UI todavía).
+- El nombre de usuario se guarda en **minúsculas**; `full_name` conserva lo escrito y es el
+  nombre visible.
+- El registro pide **solo usuario + contraseña** (sin nombre para mostrar aparte).
+- Se autorizó crear un perfil de prueba para la verificación.
+
+### SQL (`sql/14_registro_perfiles.sql`)
+
+- `groups.join_password_hash` (bcrypt con `pgcrypto`; nunca en claro).
+- `definir_password_grupo(slug, password)`: admin global, admin del grupo o SQL Editor;
+  guarda `crypt(password, gen_salt('bf',10))`.
+- `verificar_password_grupo(slug, password)`: compara con `crypt()`; **solo `service_role`**
+  (la Edge Function). Ni `anon` ni `authenticated` pueden llamarla.
+- `grupos_para_registro()` (anon): `id, slug, name, abierto` (`abierto` = tiene contraseña).
+- GRANT **por columna** en `groups`: `authenticated` puede leer los metadatos y actualizar solo
+  `slug/name/description/active`; **no** lee ni escribe `join_password_hash`. `service_role`
+  conserva el acceso completo.
+- Se conserva `profiles_username_key` (global) y se agrega el índice único
+  `profiles_username_lower_key` sobre `lower(username)`.
+- Trigger `profiles_proteger_identidad`: un usuario no puede cambiar su `username` ni su
+  `group_id` (solo admin/`service_role`).
+
+### Edge Functions
+
+- **`login-username` v2**: `POST {username,password}`; busca el perfil por usuario (único
+  global), detecta el grupo del perfil y autentica. `404 USER_NOT_FOUND` para ofrecer el
+  registro; `401` contraseña; `403` usuario/grupo inactivo. El campo `group` de versiones
+  anteriores se ignora.
+- **`register-profile`** (nueva): acciones `validar-grupo`, `sugerir-usuario` y `registrar`.
+  - Verifica la contraseña de grupo con la RPC (bcrypt, sin exponer el hash).
+  - `registrar` crea el usuario en Supabase Auth con email sintético
+    (`uuid@usuarios.appsantiago2026.cl`, `email_confirm:true`) y metadatos
+    `{ username, full_name, group_id }`; `handle_new_user` crea el perfil.
+  - Si el nombre está tomado (o hay una carrera contra el índice único) devuelve
+    `409 { code:"USERNAME_TAKEN", sugerencias }`; las alternativas se comprueban antes de
+    mostrarlas y el usuario debe confirmar.
+  - Devuelve la sesión para entrar directo.
+
+### Frontend
+
+- Login: **usuario + contraseña** (sin grupo). Si el servidor responde `USER_NOT_FOUND`, se
+  abre el registro con el usuario precargado.
+- Registro progresivo:
+  1. grupo + contraseña del grupo + “Validar grupo”;
+  2. usuario + contraseña personal + confirmación + “Crear perfil”;
+  3. si el nombre está tomado, chips con alternativas (sin autoasignar).
+- `cargarGruposRegistro()` usa `grupos_para_registro()` con respaldo en `grupos_publicos()`.
+- `loadProfile`, `state.groupId` y `filtrarGrupo()` no cambian: agenda, muro y puntos siguen
+  filtrados por el grupo del perfil.
+
+### Verificación
+
+- `node scripts/verificar-mapa.mjs` → **264 pruebas · 0 fallos · 2 avisos** (bloque `[9]`
+  reescrito con **50 comprobaciones**).
+- Navegador (antes de aplicar `sql/14` y desplegar las funciones): login con usuario +
+  contraseña, panel de registro abre/cierra, paso 1 visible con el grupo; **0 errores JS**
+  (el 404 es la RPC del registro todavía no aplicada).
+- Pendiente: ejecutar `sql/14`, definir la contraseña de grupo y desplegar las dos funciones;
+  después probar el flujo completo (incluido el perfil de prueba) y publicar el frontend.
+
+### Orden de despliegue (importante)
+
+1. `sql/14_registro_perfiles.sql`.
+2. `select public.definir_password_grupo('principal', '…');` (contraseña real, no compartirla).
+3. Desplegar `login-username` (v2) y `register-profile` con **Verify JWT desactivado**.
+4. Publicar el frontend nuevo. El login viejo exige grupo; el nuevo no lo envía, así que el
+   frontend va al final.
+
 

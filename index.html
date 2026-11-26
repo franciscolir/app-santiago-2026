@@ -139,34 +139,103 @@ dialog::backdrop { background: rgba(44, 49, 50, .6); backdrop-filter: blur(2px);
 
 <!-- ==================== LOGIN ==================== -->
 <section id="login-screen" class="min-h-screen grid place-items-center p-5" style="background: radial-gradient(120% 80% at 50% 0%, #004262 0%, #002538 55%, #001522 100%);">
-  <form id="login-form" class="w-full max-w-[410px] bg-surface-container-lowest rounded-lg p-7 shadow-2xl space-y-4">
-    <img src="./icons/icon-192.png" alt="Logo APP SANTIAGO 2026" width="56" height="56" class="w-14 h-14 rounded-2xl object-cover shadow-sm">
-    <div>
-      <p class="font-label-sm uppercase tracking-[0.18em] text-primary font-bold">Agenda compartida</p>
-      <h1 class="font-headline-xl-mobile text-headline-xl-mobile text-on-primary-container font-extrabold leading-tight">APP SANTIAGO 2026</h1>
-      <p class="text-body-sm text-on-surface-variant mt-1">Ingresa con tu grupo, usuario y contraseña</p>
+  <div class="w-full max-w-[410px] space-y-4">
+    <!-- ==================== INICIO DE SESIÓN ==================== -->
+    <form id="login-form" class="w-full bg-surface-container-lowest rounded-lg p-7 shadow-2xl space-y-4">
+      <img src="./icons/icon-192.png" alt="Logo APP SANTIAGO 2026" width="56" height="56" class="w-14 h-14 rounded-2xl object-cover shadow-sm">
+      <div>
+        <p class="font-label-sm uppercase tracking-[0.18em] text-primary font-bold">Agenda compartida</p>
+        <h1 class="font-headline-xl-mobile text-headline-xl-mobile text-on-primary-container font-extrabold leading-tight">APP SANTIAGO 2026</h1>
+        <p class="text-body-sm text-on-surface-variant mt-1">Ingresa con tu usuario y contraseña</p>
+      </div>
+      <div>
+        <label for="username" class="block font-label-md text-label-md text-on-surface font-semibold mb-1.5">Usuario</label>
+        <input id="username" name="username" autocomplete="username" required maxlength="100"
+               class="w-full h-12 px-3.5 bg-surface rounded-lg text-on-surface border border-outline-variant focus:outline-none focus:ring-2 focus:ring-primary/40">
+      </div>
+      <div>
+        <label for="password" class="block font-label-md text-label-md text-on-surface font-semibold mb-1.5">Contraseña</label>
+        <input id="password" name="password" type="password" autocomplete="current-password" required
+               class="w-full h-12 px-3.5 bg-surface rounded-lg text-on-surface border border-outline-variant focus:outline-none focus:ring-2 focus:ring-primary/40">
+      </div>
+      <button type="submit" class="w-full h-12 rounded-full bg-primary text-on-primary font-label-lg text-label-lg font-bold shadow-md active:scale-[0.98] transition-all">Ingresar</button>
+      <button type="button" id="login-register-link"
+              class="w-full h-10 rounded-full text-primary font-label-md text-label-md font-bold hover:bg-surface-container active:scale-[0.98] transition-all">
+        ¿No tienes perfil? Crear uno
+      </button>
+      <p id="login-error" role="alert" class="error text-center"></p>
+    </form>
+
+    <!-- ==================== REGISTRO PROGRESIVO ==================== -->
+    <div id="register-panel" class="hidden w-full bg-surface-container-lowest rounded-lg p-7 shadow-2xl space-y-4">
+      <div class="flex items-start justify-between gap-3">
+        <div>
+          <p class="font-label-sm uppercase tracking-[0.18em] text-primary font-bold">Registro</p>
+          <h2 class="font-headline-md text-headline-md text-on-primary-container font-extrabold leading-tight">Crear perfil</h2>
+        </div>
+        <button type="button" id="reg-volver" aria-label="Volver al inicio de sesión"
+                class="w-9 h-9 rounded-full bg-surface-container-low flex items-center justify-center active:scale-95 transition-all flex-shrink-0">
+          <span class="material-symbols-outlined text-[20px]">close</span>
+        </button>
+      </div>
+      <p id="reg-intro" class="text-body-sm text-on-surface-variant">
+        Para crear tu perfil necesitas la contraseña del grupo al que perteneces.
+      </p>
+
+      <!-- Paso 1: grupo + contraseña del grupo -->
+      <div id="reg-step-grupo" class="space-y-4">
+        <div>
+          <label for="reg-group" class="block font-label-md text-label-md text-on-surface font-semibold mb-1.5">Grupo</label>
+          <select id="reg-group" required
+                  class="w-full h-12 px-3.5 bg-surface rounded-lg text-on-surface border border-outline-variant focus:outline-none focus:ring-2 focus:ring-primary/40">
+            <option value="">Cargando grupos…</option>
+          </select>
+          <p id="reg-group-hint" class="text-[11px] text-on-surface-variant mt-1 hidden"></p>
+        </div>
+        <div>
+          <label for="reg-group-password" class="block font-label-md text-label-md text-on-surface font-semibold mb-1.5">Contraseña del grupo</label>
+          <input id="reg-group-password" type="password" autocomplete="off" maxlength="100"
+                 class="w-full h-12 px-3.5 bg-surface rounded-lg text-on-surface border border-outline-variant focus:outline-none focus:ring-2 focus:ring-primary/40">
+        </div>
+        <button type="button" id="reg-validar"
+                class="w-full h-12 rounded-full bg-primary text-on-primary font-label-lg text-label-lg font-bold shadow-md active:scale-[0.98] transition-all">
+          Validar grupo
+        </button>
+        <p id="reg-grupo-error" role="alert" class="error text-center"></p>
+      </div>
+
+      <!-- Paso 2: usuario + contraseña personal -->
+      <div id="reg-step-perfil" class="hidden space-y-4">
+        <p id="reg-grupo-elegido" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-secondary-container text-on-secondary-container font-label-sm text-label-sm font-bold"></p>
+        <div>
+          <label for="reg-username" class="block font-label-md text-label-md text-on-surface font-semibold mb-1.5">Nombre de usuario</label>
+          <input id="reg-username" autocomplete="username" maxlength="30" required
+                 class="w-full h-12 px-3.5 bg-surface rounded-lg text-on-surface border border-outline-variant focus:outline-none focus:ring-2 focus:ring-primary/40">
+          <p class="text-[11px] text-on-surface-variant mt-1">3 a 30 caracteres: letras, números, punto, guion o guion bajo.</p>
+        </div>
+        <div>
+          <label for="reg-password" class="block font-label-md text-label-md text-on-surface font-semibold mb-1.5">Contraseña personal</label>
+          <input id="reg-password" type="password" autocomplete="new-password" required
+                 class="w-full h-12 px-3.5 bg-surface rounded-lg text-on-surface border border-outline-variant focus:outline-none focus:ring-2 focus:ring-primary/40">
+        </div>
+        <div>
+          <label for="reg-password2" class="block font-label-md text-label-md text-on-surface font-semibold mb-1.5">Repite la contraseña</label>
+          <input id="reg-password2" type="password" autocomplete="new-password" required
+                 class="w-full h-12 px-3.5 bg-surface rounded-lg text-on-surface border border-outline-variant focus:outline-none focus:ring-2 focus:ring-primary/40">
+        </div>
+        <div id="reg-sugerencias" class="hidden bg-surface-container-low rounded-lg p-3 space-y-2">
+          <p class="text-body-sm text-on-surface font-semibold">Ese nombre ya está en uso. Alternativas disponibles:</p>
+          <div id="reg-sugerencias-lista" class="flex flex-wrap gap-2"></div>
+          <p class="text-[11px] text-on-surface-variant">Elige una o escribe otro nombre. Luego presiona “Crear perfil” para confirmar.</p>
+        </div>
+        <button type="button" id="reg-crear"
+                class="w-full h-12 rounded-full bg-primary text-on-primary font-label-lg text-label-lg font-bold shadow-md active:scale-[0.98] transition-all">
+          Crear perfil
+        </button>
+        <p id="reg-perfil-error" role="alert" class="error text-center"></p>
+      </div>
     </div>
-    <div>
-      <label for="login-group" class="block font-label-md text-label-md text-on-surface font-semibold mb-1.5">Grupo</label>
-      <select id="login-group" name="group" required
-              class="w-full h-12 px-3.5 bg-surface rounded-lg text-on-surface border border-outline-variant focus:outline-none focus:ring-2 focus:ring-primary/40">
-        <option value="">Cargando grupos…</option>
-      </select>
-      <p id="login-group-hint" class="text-[11px] text-on-surface-variant mt-1 hidden"></p>
-    </div>
-    <div>
-      <label for="username" class="block font-label-md text-label-md text-on-surface font-semibold mb-1.5">Usuario</label>
-      <input id="username" name="username" autocomplete="username" required maxlength="100"
-             class="w-full h-12 px-3.5 bg-surface rounded-lg text-on-surface border border-outline-variant focus:outline-none focus:ring-2 focus:ring-primary/40">
-    </div>
-    <div>
-      <label for="password" class="block font-label-md text-label-md text-on-surface font-semibold mb-1.5">Contraseña</label>
-      <input id="password" name="password" type="password" autocomplete="current-password" required
-             class="w-full h-12 px-3.5 bg-surface rounded-lg text-on-surface border border-outline-variant focus:outline-none focus:ring-2 focus:ring-primary/40">
-    </div>
-    <button type="submit" class="w-full h-12 rounded-full bg-primary text-on-primary font-label-lg text-label-lg font-bold shadow-md active:scale-[0.98] transition-all">Ingresar</button>
-    <p id="login-error" role="alert" class="error text-center"></p>
-  </form>
+  </div>
 </section>
 
 <!-- ==================== APP ==================== -->
