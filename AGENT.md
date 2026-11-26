@@ -1172,3 +1172,59 @@ cinco ajustes en un solo lote:
   (`display:none` en la fila, `aria-expanded="false"`, flecha `keyboard_arrow_down`).
   **0 errores de consola**.
 - `sw.js` → **`CACHE_NAME` v12**.
+
+## 29. Fase 1 de `UPDATE.md`: grupos, login por grupo y RLS (2026-11-26)
+
+Primera fase del plan de `UPDATE.md` (Etapas 1 y 2). Decisiones acordadas con el usuario:
+
+- **Grupo en el login**: se modifica la Edge Function y se valida `(usuario, grupo)` **antes**
+  de autenticar; el cliente además revalida la pertenencia (defensa en profundidad).
+- La gestión individual de puntos será solo sobre `map_points` (Fase 2).
+- La categoría JW usará `salon.svg` por defecto (el selector permite `trebol`, `betel` y
+  `exhibidor`).
+- SOS abrirá en pestaña nueva; las actividades siguen siendo solo de administradores.
+
+### SQL (ejecutar en este orden)
+
+| Archivo | Qué hace |
+|---|---|
+| `sql/10_grupos.sql` | `public.groups` + grupo `principal`; `profiles.group_id` (NOT NULL) y `group_admin`; `group_id` en `events`, `activities` y `wall_posts` con backfill e `NOT NULL`; triggers que rellenan `group_id` al insertar (compatibilidad con el frontend anterior); `handle_new_user()` con grupo; helpers `auth_group()`, `can_manage_group(g)` y la RPC `grupos_publicos()` (anon); GRANT de `groups` a `authenticated` y `service_role`. |
+| `sql/11_rls_grupos.sql` | Deroga y recrea **todas** las políticas de `groups`, `profiles`, `events`, `activities`, `activity_assignments`, `activity_user_details`, `activity_attachments` y `wall_posts` por grupo. Lectura `group_id = auth_group()`; escritura `can_manage_group(group_id)` (admin global o admin de su grupo). `emergency_contacts` sigue global. |
+
+### Edge Function
+
+- Nueva en el repo: `supabase/functions/login-username/index.ts` (antes solo estaba
+  desplegada en Supabase).
+- `POST { username, password, group }`; el grupo se resuelve por slug o uuid y **se valida
+  antes** de `signInWithPassword`. Errores: 400 grupo inválido, 401 credenciales,
+  403 usuario desactivado o de otro grupo.
+- Requiere `sql/10` (GRANT de `groups` a `service_role`) y **Verify JWT desactivado**.
+- Instrucciones y contrato en `supabase/functions/login-username/README.md`.
+
+### Frontend
+
+- `index.html`: selector `#login-group` (required) y chip `#group-label` en el header.
+- `src/main.js`: `cargarGruposLogin()` (RPC → fallback), `usernameLogin(..., group)`,
+  revalidación tras el login, `state.groupId` y el helper `filtrarGrupo()` aplicado a
+  `events`, `activities`, `wall_posts` y a los inserts (el trigger también rellena).
+- **Compatibilidad**: si `sql/10` no está aplicado, la app entra en "modo compatibilidad"
+  (un único grupo `principal`) y el login sigue funcionando; `loadProfile()` reintenta sin
+  las columnas de grupo.
+
+### Verificación
+
+- `node scripts/verificar-mapa.mjs` → **242 pruebas · 0 fallos · 2 avisos** (bloque nuevo
+  `[9]` con 28 comprobaciones).
+- Navegador **antes** de aplicar el SQL: modo compatibilidad visible, login y agenda/muro
+  funcionando. Los dos errores de red de la consola son el sondeo de la RPC y la consulta de
+  columnas; desaparecen al ejecutar `sql/10`.
+- `sw.js` → **v13**.
+
+### Pendiente de esta fase
+
+1. Ejecutar `sql/10_grupos.sql` → `sql/11_rls_grupos.sql` en Supabase.
+2. Desplegar `login-username` con el código nuevo (Verify JWT off).
+3. Probar: login con el grupo correcto/incorrecto, y que un usuario del grupo B no vea
+   agenda, muro ni puntos del A (también por REST).
+4. `schema.sql` queda desactualizado respecto a `sql/10`/`11` (se regenerará en la Fase 7).
+

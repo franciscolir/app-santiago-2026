@@ -19,7 +19,9 @@
 // (ESCALA_PUNTO=0.85 sobre los 3 saltos: radio 2,975 / 4,25 / 5,95 px).
 // v12: controles del mapa en columna vertical a la derecha (botón de colapso
 // arriba y la columna desplegándose hacia abajo).
-const CACHE_NAME = "app-santiago-2026-v12";
+// v13: Fase 1 de UPDATE.md: grupos, login con grupo (usuario + contraseña +
+// grupo) y agenda/muro filtrados por el grupo activo.
+const CACHE_NAME = "app-santiago-2026-v13";
 const APP_SHELL = [
   "./",
   "./index.html",

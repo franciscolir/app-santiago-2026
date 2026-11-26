@@ -522,6 +522,99 @@ console.log("[8] Calibración 2026-11-26: 3 saltos del punto, corte de textos, g
     "medidor: eliminado tras calibrar", "sigue el medidor de zoom");
 }
 
+// ------------------- 9. Fase 1: grupos, login y RLS (2026-11-26) --------------
+console.log("[9] Fase 1: grupos, login por grupo y políticas RLS");
+{
+  const sql10 = leerTexto("sql/10_grupos.sql") || "";
+  const sql11 = leerTexto("sql/11_rls_grupos.sql") || "";
+  const fn = leerTexto("supabase/functions/login-username/index.ts") || "";
+  const main = leerTexto("src/main.js") || "";
+  const html = leerTexto("index.html") || "";
+  const sw = leerTexto("sw.js") || "";
+
+  // --- 1) estructura de grupos ------------------------------------------------
+  check(/create table if not exists public\.groups\s*\(/.test(sql10),
+    "grupos: tabla public.groups", "falta la tabla groups");
+  check(/insert into public\.groups \(slug, name, description\)[\s\S]{0,160}'principal'/.test(sql10),
+    "grupos: siembra el grupo principal", "no se crea el grupo principal");
+  check(/alter table public\.profiles add column if not exists group_id uuid/.test(sql10) &&
+        /add column if not exists group_admin boolean not null default false/.test(sql10),
+    "grupos: profiles.group_id + group_admin", "faltan las columnas de grupo en profiles");
+  check(/alter table public\.events\s+alter column group_id set not null/.test(sql10) &&
+        /alter table public\.activities\s+alter column group_id set not null/.test(sql10) &&
+        /alter table public\.wall_posts\s+alter column group_id set not null/.test(sql10),
+    "grupos: group_id NOT NULL en events, activities y wall_posts", "algún group_id quedó nullable");
+  check(/update public\.activities a\s+set group_id = e\.group_id[\s\S]{0,80}from public\.events e/.test(sql10),
+    "grupos: las actividades heredan el grupo del evento", "no se backfillean las actividades");
+  check(/events_asignar_grupo/.test(sql10) && /activities_asignar_grupo/.test(sql10) &&
+        /wall_posts_asignar_grupo/.test(sql10),
+    "grupos: triggers rellenan group_id (compatibilidad con el frontend anterior)",
+    "faltan los triggers de group_id");
+
+  // --- 2) helpers y login -----------------------------------------------------
+  check(/create or replace function public\.auth_group\(\)/.test(sql10) &&
+        /create or replace function public\.can_manage_group\(g uuid\)/.test(sql10),
+    "grupos: helpers auth_group() y can_manage_group()", "faltan los helpers de grupo");
+  check(/create or replace function public\.grupos_publicos\(\)/.test(sql10) &&
+        /grant execute on function public\.grupos_publicos\(\) to anon/.test(sql10),
+    "login: RPC grupos_publicos() expuesta a anon", "el selector de login no tiene fuente");
+  check(/create or replace function public\.handle_new_user\(\)[\s\S]{0,1400}group_id/.test(sql10),
+    "login: los perfiles nuevos nacen con grupo", "handle_new_user no asigna grupo");
+  check(/grant select on public\.groups to authenticated, service_role/.test(sql10),
+    "grupos: GRANT para authenticated y service_role (Edge Function)", "falta el GRANT de groups");
+
+  // --- 3) políticas RLS ------------------------------------------------------
+  check(/create policy "Miembros consultan su grupo"/.test(sql11) &&
+        /create policy "Admin gestiona grupos"/.test(sql11),
+    "RLS: grupos visibles solo para sus miembros", "faltan las políticas de groups");
+  check(/create policy "Usuarios consultan perfiles de su grupo"/.test(sql11),
+    "RLS: perfiles limitados al grupo", "los perfiles no están separados por grupo");
+  check(/create policy "Usuarios consultan eventos de su grupo"/.test(sql11) &&
+        /create policy "Usuarios consultan actividades de su grupo"/.test(sql11),
+    "RLS: eventos y actividades por grupo", "faltan las políticas de agenda");
+  check(/create policy "Usuarios leen el muro de su grupo"/.test(sql11) &&
+        /create policy "Usuarios publican en su grupo"/.test(sql11),
+    "RLS: muro por grupo", "faltan las políticas del muro");
+  check(/group_id = public\.auth_group\(\)/.test(sql11) &&
+        /public\.can_manage_group\(/.test(sql11),
+    "RLS: lectura por auth_group() y escritura por can_manage_group()", "las políticas no usan los helpers");
+  check(!/using \(true\)/.test(sql11),
+    "RLS: sin políticas abiertas (using true)", "quedó una política abierta");
+
+  // --- 4) Edge Function ------------------------------------------------------
+  check(!!fn && /profile\.group_id !== group\.id/.test(fn),
+    "login: la Edge Function valida la pertenencia al grupo", "la función no compara group_id");
+  check(!!fn && fn.indexOf("profile.group_id !== group.id") > -1 &&
+        fn.indexOf("profile.group_id !== group.id") < fn.indexOf("signInWithPassword"),
+    "login: valida el grupo ANTES de autenticar", "el grupo se valida después del password");
+  check(/APP_SUPABASE_SERVICE_ROLE_KEY/.test(fn) &&
+        !/service_role_eyJ|sb_secret_/.test(fn),
+    "login: la función usa variables de entorno (sin claves en el repo)", "hay una clave incrustada");
+  check(/getUserById/.test(fn) && /signInWithPassword/.test(fn),
+    "login: resuelve el email y verifica la contraseña", "falta el flujo de autenticación");
+
+  // --- 5) frontend -----------------------------------------------------------
+  check(/id="login-group"/.test(html),
+    "login: selector de grupo en el formulario", "falta #login-group");
+  check(/id="group-label"/.test(html),
+    "login: el header muestra el grupo activo", "falta #group-label");
+  check(/body\.group=group/.test(main) && /invoke\("login-username"/.test(main),
+    "login: el frontend envía el grupo a la Edge Function", "el grupo no se envía");
+  check(/no pertenece al grupo seleccionado/.test(main),
+    "login: revalida la pertenencia en el cliente (defensa en profundidad)",
+    "no hay validación de respaldo");
+  check(/supabase\.rpc\("grupos_publicos"\)/.test(main),
+    "login: el selector se llena con grupos_publicos()", "no se consulta la RPC");
+  check(/function filtrarGrupo\(q\)/.test(main) && /state\.groupId/.test(main) &&
+        /filtrarGrupo\(supabase\.from\("events"\)/.test(main) &&
+        /filtrarGrupo\(supabase\.from\("wall_posts"\)/.test(main),
+    "datos: agenda y muro filtrados por el grupo activo", "alguna consulta no filtra por grupo");
+  check(/faltan las columnas de grupo/.test(main),
+    "compatibilidad: el login no se rompe si falta sql/10", "no hay respaldo sin columnas de grupo");
+  check(/app-santiago-2026-v13/.test(sw),
+    "service worker: v13 (precache renovada con la Fase 1)", "el SW no se renovó");
+}
+
 // ---------------------------------------------------------------- resumen ----
 console.log("\n" + detalle.join("\n"));
 console.log(`\n=== ${pruebas} pruebas · ${fallos} fallos · ${avisos} avisos ===\n`);

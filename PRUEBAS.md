@@ -75,11 +75,22 @@ Sin dependencias: solo Node.js ≥ 18. Comprueba:
 | 45 | Líneas del metro | Se siguen viendo **alejadas** (sobreviven a los puntos, que mueren en 10,5) y **desaparecen por debajo del zoom 9,3** | ✅ (`minzoom: 9.3` en `metro-lineas` y `metrotren-lineas`) |
 | 46 | Textos con corte nítido | En **12,4** desaparecen todos los textos de los iconos y en **12,5** vuelven; el nombre nace en **9 px** y sube en 2 saltos a 10 px (13,5) y 11 px (14,5) | ✅ (`metro-nombres` con `minzoom: 12.5` + `text-size` escalonado; `.map-point-con-nombre` con `--nombre-tam`) |
 | 47 | Puntos −15 % | Los puntos que reemplazan a los iconos bajan un 15 % **proporcional en los 3 saltos**: radio 2,975 / 4,25 / 5,95 px y diámetro 5,95 / 8,5 / 11,9 px (iconos y texto no cambian) | ✅ (`ESCALA_PUNTO=0.85`; leído en vivo con `getPaintProperty`) |
+| 48 | Grupos y login | Selector de grupo en el login; la Edge Function valida la pertenencia **antes** de autenticar y el cliente la revalida; el header muestra el grupo activo | ✅ (242 pruebas; verificado el modo compatibilidad en navegador) |
+| 49 | Aislamiento por grupo | Eventos, actividades, asignaciones, perfiles y muro filtrados por `group_id = auth_group()`; escritura según `can_manage_group()` | ⏳ (SQL listo; falta ejecutarlo y probar con dos grupos) |
+| 50 | Compatibilidad de despliegue | Sin `sql/10`, la app entra en modo compatibilidad (grupo `principal`) y el login/agenda/muro siguen funcionando | ✅ (probado en navegador antes de aplicar el SQL) |
 
 ---
 
 ## 3. Resultados de la corrida automática
 
+- **2026-11-26 (Fase 1 de `UPDATE.md`: grupos, login y RLS)**: **242 pruebas · 0 fallos · 2 avisos**.
+  - Nuevo bloque `[9]` (28 comprobaciones): tabla/columnas/backfill/triggers de grupo,
+    helpers `auth_group()`/`can_manage_group()`, RPC `grupos_publicos()` para anon, políticas
+    por grupo, Edge Function (valida el grupo antes del password y no lleva claves), selector
+    `#login-group`, filtros `filtrarGrupo()` y respaldo si falta `sql/10`.
+  - Navegador **antes** de aplicar el SQL: modo compatibilidad con “Grupo principal”, login y
+    agenda/muro funcionando. Los dos errores de red son el sondeo del RPC y la consulta de
+    columnas; desaparecen al ejecutar `sql/10`.
 - **2026-11-26 (controles del mapa en columna vertical)**: **214 pruebas · 0 fallos · 2 avisos**.
   - 5 comprobaciones nuevas: `#map-controls-row` con `flex flex-col`, `#map-controls` con
     `flex flex-col items-end`, el botón de colapso **antes** de la fila en el HTML, la

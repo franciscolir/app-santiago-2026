@@ -6,7 +6,12 @@ const $ = (s) => document.querySelector(s);
 const $$ = (s) => document.querySelectorAll(s);
 const state = { user:null, profile:null, event:null, activities:[], category:"positive", filter:"mine",
   map:null, mapListo:false, markers:null, markerById:new Map(), pendingFit:null, selectedId:null, toastTimer:null,
-  mapPoints:[], pointMarkers:new Map(), pointMode:false, mensajeTipo:null };
+  mapPoints:[], pointMarkers:new Map(), pointMode:false, mensajeTipo:null,
+  // Grupo activo (UPDATE.md Etapa 1). `groupId` filtra TODAS las consultas;
+  // `groups` alimenta el selector del login; `group` es el objeto para mostrar.
+  groups:[], groupId:null, group:null, groupsListos:false, groupsCargando:false,
+  // null = aún no se sabe; false = sql/10 no aplicado (modo compatibilidad).
+  grupoMigrado:null };
 const statusText = {pending:"Pendiente", in_progress:"En curso", completed:"Completada", cancelled:"Cancelada"};
 const venueStatusText = {pending:"Programada", in_progress:"En curso", completed:"Finalizada", cancelled:"Cancelada"};
 const viewLabels = {agenda:"Agenda", mapa:"Mapa", muro:"Muro", emergencia:"Emergencia"};
@@ -24,7 +29,7 @@ const coordTexto = (c) => {
 const todayStr = () => { const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; };
 const initials = (name="") => name.trim().split(/\s+/).filter(Boolean).slice(0,2).map(w=>w[0]).join("").toUpperCase() || "?";
 
-function showLogin(){ $("#login-screen").classList.remove("hidden"); $("#app").classList.add("hidden"); }
+function showLogin(){ $("#login-screen").classList.remove("hidden"); $("#app").classList.add("hidden"); if(!state.groupsListos) cargarGruposLogin(); }
 function showApp(){ $("#login-screen").classList.add("hidden"); $("#app").classList.remove("hidden"); if(!gpsIntentado){gpsIntentado=true;activarGps();} }
 function isAdmin(){ return state.profile?.role === "admin"; }
 function notifyError(el,msg){ el.textContent=msg || ""; }
@@ -95,7 +100,23 @@ function describeError(error,ctx){
 }
 
 async function loadProfile(){
-  const {data,error}=await supabase.from("profiles").select("id,username,full_name,role,active").eq("id",state.user.id).single();
+  // Grupo (UPDATE.md Fase 1). Si sql/10_grupos.sql todavía no se aplicó, se
+  // usa el select base: el login no debe romperse por eso.
+  const base="id,username,full_name,role,active";
+  let res;
+  if(state.grupoMigrado===false){
+    res=await supabase.from("profiles").select(base).eq("id",state.user.id).single();
+    if(res.data){ res.data.group_id=null; res.data.group_admin=false; }
+  }else{
+    res=await supabase.from("profiles").select(base+",group_id,group_admin").eq("id",state.user.id).single();
+    if(res.error && /group_id|group_admin/i.test(res.error.message||"")){
+      console.warn("loadProfile: faltan las columnas de grupo (ejecuta sql/10_grupos.sql). Se continúa sin grupo.");
+      state.grupoMigrado=false;
+      res=await supabase.from("profiles").select(base).eq("id",state.user.id).single();
+      if(res.data){ res.data.group_id=null; res.data.group_admin=false; }
+    }
+  }
+  const {data,error}=res;
   if(error){
     console.error("loadProfile: error de Supabase",error);
     const e=new Error(error.message==="Failed to fetch"?"No se pudo conectar con Supabase.":(error.message||"No se pudo cargar tu perfil."));
@@ -103,6 +124,8 @@ async function loadProfile(){
   }
   if(!data?.active){ const e=new Error("Tu usuario está desactivado o no tiene un perfil válido."); e.inactive=true; throw e; }
   state.profile=data;
+  state.groupId=data.group_id||null;
+  sincronizarGrupoVisible();
   const name=data.full_name || data.username || "";
   $("#user-label").textContent=name;
   $("#user-initials").textContent=initials(name);
@@ -112,13 +135,79 @@ async function loadProfile(){
   // Gestión de puntos (lista, renombrar, mostrar/ocultar, borrar): solo admin.
   $("#map-puntos-btn")?.classList.toggle("hidden",!isAdmin());
   if(state.mapListo) renderPuntosMapa();
+  // Recordar el grupo para el próximo inicio de sesión.
+  if(state.group?.slug) guardarGrupoLogin(state.group.slug);
 }
-async function usernameLogin(username,password){
-  const {data,error}=await supabase.functions.invoke("login-username",{body:{username,password}});
+// Muestra el chip del grupo en el header. Si la lista de grupos aún no llegó,
+// se completa cuando termina cargarGruposLogin().
+function sincronizarGrupoVisible(){
+  state.group = state.groups.find(g=>g.id===state.groupId) || state.group || null;
+  const el=$("#group-label");
+  if(!el) return;
+  el.textContent=state.group?.name||"";
+  el.classList.toggle("hidden",!state.group?.name);
+}
+// ==================== GRUPOS (UPDATE.md Fase 1) ====================
+// El grupo es parte del inicio de sesión (usuario + contraseña + grupo) y
+// filtra todas las consultas de la app. La separación REAL la aplican las
+// políticas RLS de sql/11_rls_grupos.sql.
+const LLAVE_GRUPO="app-santiago-2026:grupo";
+function guardarGrupoLogin(slug){ try{ if(slug) localStorage.setItem(LLAVE_GRUPO,slug); }catch(_){ /* almacenamiento no disponible */ } }
+function leerGrupoLogin(){ try{ return localStorage.getItem(LLAVE_GRUPO)||""; }catch(_){ return ""; } }
+function esAdminDeGrupo(){ return isAdmin() || !!state.profile?.group_admin; }
+// Filtra una consulta por el grupo activo. Si la migración aún no está aplicada
+// (state.groupId null), la deja tal cual: la app sigue funcionando.
+function filtrarGrupo(q){ return state.groupId ? q.eq("group_id",state.groupId) : q; }
+
+async function cargarGruposLogin(){
+  const sel=$("#login-group"); if(!sel || state.groupsCargando) return;
+  state.groupsCargando=true;
+  const hint=$("#login-group-hint");
+  try{
+    let grupos=[];
+    // RPC de sql/10 (expuesta a anon). Si aún no existe, se activa el modo
+    // compatibilidad: un único grupo lógico para no bloquear el login.
+    const {data,error}=await supabase.rpc("grupos_publicos");
+    if(!error){
+      state.grupoMigrado=true;
+      grupos=Array.isArray(data)?data:[];
+    }else{
+      state.grupoMigrado=false;
+      console.warn("cargarGruposLogin: sql/10_grupos.sql aún no está aplicado (modo compatibilidad).");
+    }
+    if(!grupos.length){
+      grupos=[{id:null,slug:"principal",name:"Grupo principal"}];
+      if(hint){
+        hint.textContent = state.grupoMigrado===false
+          ? "Modo compatibilidad: ejecuta sql/10_grupos.sql para habilitar los grupos."
+          : "No hay grupos activos: un administrador debe crear uno en public.groups.";
+        hint.classList.remove("hidden");
+      }
+    }
+    state.groups=grupos;
+    state.groupsListos=true;
+    const guardado=leerGrupoLogin();
+    sel.innerHTML=grupos.map(g=>`<option value="${esc(g.slug)}">${esc(g.name)}</option>`).join("");
+    if(guardado && grupos.some(g=>g.slug===guardado)) sel.value=guardado;
+    sincronizarGrupoVisible();
+  }catch(err){
+    console.warn("cargarGruposLogin:",err);
+    state.groups=[{id:null,slug:"principal",name:"Grupo principal"}];
+    state.groupsListos=true;
+    sel.innerHTML='<option value="principal">Grupo principal</option>';
+  }finally{
+    state.groupsCargando=false;
+  }
+}
+
+async function usernameLogin(username,password,group){
+  const body={username,password};
+  if(group) body.group=group;   // la Edge Function lo valida antes de autenticar
+  const {data,error}=await supabase.functions.invoke("login-username",{body});
   if(error || !data?.session){
     let msg=data?.error||"";
     if(!msg && error?.context && typeof error.context.clone==="function"){
-      try{ const body=await error.context.clone().json(); msg=body?.error||body?.message||""; }catch(_){ /* body no era JSON */ }
+      try{ const b=await error.context.clone().json(); msg=b?.error||b?.message||""; }catch(_){ /* body no era JSON */ }
     }
     throw new Error(msg || error?.message || "No fue posible iniciar sesión.");
   }
@@ -127,6 +216,7 @@ async function usernameLogin(username,password){
   });
   if(setError) throw setError;
   state.user=sessionData.user;
+  return data;
 }
 async function boot(){
   const {data:{session}}=await supabase.auth.getSession();
@@ -144,7 +234,25 @@ async function boot(){
 }
 $("#login-form").addEventListener("submit",async e=>{
   e.preventDefault(); const btn=e.submitter||$("#login-form button[type=submit]"); if(btn) btn.disabled=true; notifyError($("#login-error"),"");
-  try{ await usernameLogin($("#username").value.trim(),$("#password").value); await loadProfile(); $("#password").value=""; showApp(); await refreshAll(); }
+  const grupoSlug=$("#login-group")?.value||"";
+  try{
+    if(!grupoSlug) throw new Error("Selecciona un grupo.");
+    await usernameLogin($("#username").value.trim(),$("#password").value,grupoSlug);
+    await loadProfile();
+    // Defensa en profundidad: si la Edge Function desplegada todavía es la
+    // versión anterior (ignora `group`), la pertenencia se valida aquí.
+    if(state.groupId){
+      const elegido=state.groups.find(g=>g.slug===grupoSlug);
+      if(elegido?.id && elegido.id!==state.groupId){
+        await supabase.auth.signOut();
+        state.user=null; state.profile=null; state.groupId=null; state.group=null;
+        showLogin();
+        throw new Error("El usuario no pertenece al grupo seleccionado.");
+      }
+      guardarGrupoLogin(grupoSlug);
+    }
+    $("#password").value=""; showApp(); await refreshAll();
+  }
   catch(err){ console.error("login:",err); notifyError($("#login-error"),err.message || "Usuario o contraseña incorrectos."); }
   finally{ if(btn) btn.disabled=false; }
 });
@@ -152,6 +260,9 @@ $("#logout-btn").addEventListener("click",async()=>{
   await supabase.auth.signOut();
   state.user=null;
   state.profile=null;
+  state.groupId=null;
+  state.group=null;
+  $("#group-label")?.classList.add("hidden");
   $("#password").value="";
   showLogin();
 });
@@ -159,9 +270,14 @@ supabase.auth.onAuthStateChange((_event,session)=>{
   if(!session){
     state.user=null;
     state.profile=null;
+    state.groupId=null;
+    state.group=null;
     showLogin();
   }
 });
+// Poblar el selector de grupo desde el arranque (la pantalla de login ya está
+// en el DOM).
+cargarGruposLogin();
 
 async function refreshAll(){
   // Cada sección carga de forma independiente: un fallo en una no debe impedir las demás.
@@ -205,7 +321,8 @@ function showAgendaError(msg){
 async function loadEventAndActivities(){
   const agendaRoot=$("#agenda-list");
   if(agendaRoot)agendaRoot.setAttribute("aria-busy","true");
-  const {data:events,error}=await supabase.from("events").select("*").eq("status","published").order("start_date",{ascending:false});
+  const consultaEventos=filtrarGrupo(supabase.from("events").select("*").eq("status","published"));
+  const {data:events,error}=await consultaEventos.order("start_date",{ascending:false});
   if(error){ console.error("loadEventAndActivities: events",error); showAgendaError(describeError(error,"events")); throw error; }
   // Elegir el evento vigente: el que contiene hoy; si no, el próximo más cercano; si no, el más reciente.
   const today=todayStr();
@@ -226,12 +343,12 @@ async function loadEventAndActivities(){
   // El admin debe ver también las canceladas (para poder reabrirlas); el usuario normal no.
   // Si la columna "status" no existe en la BD real, no se rompe toda la agenda:
   // se reintenta sin ese filtro y se avisa por consola (AGENT.md §5: no asumir columnas).
-  const base=()=>{let x=supabase.from("activities").select("*,activity_assignments(user_id,status)").eq("event_id",state.event.id).order("activity_date").order("start_time");return isAdmin()?x:x.neq("status","cancelled");};
+  const base=()=>{let x=filtrarGrupo(supabase.from("activities").select("*,activity_assignments(user_id,status)").eq("event_id",state.event.id)).order("activity_date").order("start_time");return isAdmin()?x:x.neq("status","cancelled");};
   let {data,error:actError}=await base();
   if(actError && actError.code==="PGRST204" && /status/i.test(actError.message||"")){
     console.warn('La columna "status" no existe en activities; se omite el filtro de canceladas. Compara el esquema con sql/01_diagnostico.sql.');
     state.statusColumnMissing=true;
-    ({data,error:actError}=await supabase.from("activities").select("*,activity_assignments(user_id,status)").eq("event_id",state.event.id).order("activity_date").order("start_time"));
+    ({data,error:actError}=await filtrarGrupo(supabase.from("activities").select("*,activity_assignments(user_id,status)").eq("event_id",state.event.id)).order("activity_date").order("start_time"));
   }
   if(actError){ console.error("loadEventAndActivities: activities",actError); showAgendaError(describeError(actError,"activities")); throw actError; }
   state.activities=data||[];
@@ -1917,6 +2034,9 @@ $("#activity-form").addEventListener("submit",async e=>{
     start_time:$("#activity-start").value||null,end_time:$("#activity-end").value||null,
     latitude:$("#activity-lat").value===""?null:Number($("#activity-lat").value),
     longitude:$("#activity-lng").value===""?null:Number($("#activity-lng").value)};
+  // El grupo se envía explícitamente (el trigger de sql/10 también lo rellena
+  // si el cliente no lo manda).
+  if(state.groupId) payload.group_id=state.groupId;
   let result=id
     ? await supabase.from("activities").update(payload).eq("id",id).select("id")
     : await supabase.from("activities").insert({...payload,created_by:state.user.id}).select("id");
@@ -1978,14 +2098,17 @@ pintarMuro(state.category);
 $("#wall-content").addEventListener("input",()=>$("#wall-counter").textContent=`${$("#wall-content").value.length}/500`);
 $("#wall-form").addEventListener("submit",async e=>{
   e.preventDefault();const content=$("#wall-content").value.trim();if(!content)return;
-  const {error}=await supabase.from("wall_posts").insert({user_id:state.user.id,category:state.category,content});
+  const payload={user_id:state.user.id,category:state.category,content};
+  if(state.groupId) payload.group_id=state.groupId;   // el trigger también lo rellena
+  const {error}=await supabase.from("wall_posts").insert(payload);
   if(error){console.error("wall-form",error);notifyError($("#wall-error"),describeError(error,"el muro"));return;}
   $("#wall-content").value="";$("#wall-counter").textContent="0/500";
   closeWallModal(); showToast("Publicación compartida.");
   await loadWall();
 });
 async function loadWall(){
-  const {data,error}=await supabase.from("wall_posts").select("id,category,content,created_at,user_id,profiles(username,full_name)").eq("category",state.category).order("created_at",{ascending:false}).limit(100);
+  const consulta=filtrarGrupo(supabase.from("wall_posts").select("id,category,content,created_at,user_id,profiles(username,full_name)").eq("category",state.category));
+  const {data,error}=await consulta.order("created_at",{ascending:false}).limit(100);
   if(error){console.error("loadWall",error);$("#wall-posts").innerHTML=`<p class="error">${esc(describeError(error,"el muro"))}</p>`;return;}
   $("#wall-posts").innerHTML=data?.length?data.map(p=>{
     const name=p.profiles?.full_name||p.profiles?.username||"Participante";
@@ -1994,7 +2117,7 @@ async function loadWall(){
       <header class="wall-head">
         <span class="wall-avatar">${esc(initials(name))}</span>
         <div class="min-w-0 flex-1"><strong>${esc(name)}</strong><span class="muted small">${esc(when)}</span></div>
-        ${(isAdmin()||p.user_id===state.user.id)?`<button class="icon-btn" data-wall-delete="${p.id}" type="button" title="Eliminar"><span class="material-symbols-outlined">delete</span></button>`:""}
+        ${(esAdminDeGrupo()||p.user_id===state.user.id)?`<button class="icon-btn" data-wall-delete="${p.id}" type="button" title="Eliminar"><span class="material-symbols-outlined">delete</span></button>`:""}
       </header>
       <p>${esc(p.content)}</p>
     </article>`;}).join(""):'<div class="empty">Todavía no hay publicaciones en esta categoría.</div>';

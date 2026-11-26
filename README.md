@@ -67,7 +67,13 @@ node scripts/optimizar-iconos.mjs
 - En Supabase (SQL Editor, en este orden): `sql/06_map_points.sql` → `sql/07_terminales.sql`
   (opcional `sql/08_puntos_fijos.sql` si la tabla ya existía antes de la columna `fijo`) →
   **`sql/09_admin_gestiona_puntos.sql`** (permite que el admin renombre, oculte y borre
-  cualquier punto del mapa, incluidos los personales de otros usuarios).
+  cualquier punto del mapa, incluidos los personales de otros usuarios) →
+  **`sql/10_grupos.sql`** → **`sql/11_rls_grupos.sql`** (grupos, login por grupo y RLS por
+  grupo; el 10 va antes que el 11).
+
+- Login por grupo: después de `sql/10`, desplegar
+  `supabase/functions/login-username/` con **Verify JWT desactivado**. Instrucciones y
+  contrato en `supabase/functions/login-username/README.md`.
 
 - Separar los cuarteles de bomberos de la capa de seguridad (sin volver a Overpass; es
   idempotente y no sobrescribe nada si ya están separados):

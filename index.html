@@ -144,7 +144,15 @@ dialog::backdrop { background: rgba(44, 49, 50, .6); backdrop-filter: blur(2px);
     <div>
       <p class="font-label-sm uppercase tracking-[0.18em] text-primary font-bold">Agenda compartida</p>
       <h1 class="font-headline-xl-mobile text-headline-xl-mobile text-on-primary-container font-extrabold leading-tight">APP SANTIAGO 2026</h1>
-      <p class="text-body-sm text-on-surface-variant mt-1">Ingresa con tu usuario y contraseña</p>
+      <p class="text-body-sm text-on-surface-variant mt-1">Ingresa con tu grupo, usuario y contraseña</p>
+    </div>
+    <div>
+      <label for="login-group" class="block font-label-md text-label-md text-on-surface font-semibold mb-1.5">Grupo</label>
+      <select id="login-group" name="group" required
+              class="w-full h-12 px-3.5 bg-surface rounded-lg text-on-surface border border-outline-variant focus:outline-none focus:ring-2 focus:ring-primary/40">
+        <option value="">Cargando grupos…</option>
+      </select>
+      <p id="login-group-hint" class="text-[11px] text-on-surface-variant mt-1 hidden"></p>
     </div>
     <div>
       <label for="username" class="block font-label-md text-label-md text-on-surface font-semibold mb-1.5">Usuario</label>
@@ -180,6 +188,7 @@ dialog::backdrop { background: rgba(44, 49, 50, .6); backdrop-filter: blur(2px);
               <span class="w-1.5 h-1.5 rounded-full bg-primary animate-pulse flex-shrink-0"></span>
               <span id="user-label" class="truncate"></span>
             </span>
+            <span id="group-label" class="hidden inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-surface-container text-on-surface-variant font-label-sm text-label-sm leading-none max-w-full truncate"></span>
           </div>
         </div>
       </div>
