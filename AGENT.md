@@ -1081,16 +1081,28 @@ Se usaron los medidores temporales de calibración (zoom 0–100 + tamaño de ic
 - Los **marcadores HTML** (puntos propios y terminales) se bajaron al mismo
   techo: su rampa era 22 → 34 px y quedó en **16 → 24 px**
   (`interpolarRampa(z,[[ZOOM_ICONO,16],[ZOOM_ICONO_MAX,24]])`).
-- **Medidores ELIMINADOS** tras calibrar: se borró el bloque HTML
-  `#medidores-calibracion` (`index.html`), la función `pintarMedidores()` con su
-  listener (`src/main.js`) y los 2 listeners `zoom`/`move` + la llamada inicial
-  en la creación del mapa. `grep -i medidores` solo debe encontrar este párrafo
-  y la nota de `sw.js`.
+- **Medidor de tamaño ELIMINADO** tras calibrar (se borró el bloque HTML
+  `#medidores-calibracion`, la función `pintarMedidores()` con su listener y los
+  listeners `zoom`/`move` en la creación del mapa).
+- **El medidor de zoom VOLVIÓ el 2026-11-26** (commit posterior) con un propósito
+  distinto: calibrar los **3 umbrales de momento** que quedan pendientes. Ahora
+  muestra la barra de zoom (0–100 + zoom real) y tres filas, cada una con su
+  marca de color en la barra:
+  1. **texto bajo icono** (`ZOOM_ICONO` → `.map-point-con-nombre` y
+     `metro-nombres`, hoy 12,5): estado *visible/oculto*;
+  2. **icono ↔ punto** (`ZOOM_ICONO` → capas GeoJSON y marcadores HTML, hoy
+     12,5): estado *icono/punto/oculto*;
+  3. **punto desaparece** (`ZOOM_PUNTO_MIN`, hoy 7): estado *visible/oculto*.
+  El usuario hace zoom hasta el momento deseado, lee el **zoom real** y lo
+  indica; si los tres momentos no comparten el mismo zoom hay que separar
+  `ZOOM_ICONO` en dos constantes (una para el texto y otra para el icono).
+  Para eliminar: mismo procedimiento que arriba (bloque HTML + `pintarMedidores()`
+  + sus 2 listeners + la llamada inicial).
 - **`sw.js` → `CACHE_NAME` v8** (precache renovada: `index.html` y `main.js`
   cambiaron).
 
 ### Service worker
 
-- `CACHE_NAME` → **v8** (el precache v7 guardaba `index.html`/`main.js` con los
-  medidores; la estrategia de red es network-first, pero el precache se renueva
-  para uso offline).
+- `CACHE_NAME` → **v9** (el precache v8 guardaba `index.html`/`main.js` sin el
+  medidor de zoom; la estrategia de red es network-first, pero el precache se
+  renueva para uso offline).

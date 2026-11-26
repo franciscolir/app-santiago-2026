@@ -96,8 +96,8 @@ Sin dependencias: solo Node.js ≥ 18. Comprueba:
 - Avisos no bloqueantes del navegador: Tailwind CDN (aviso conocido de producción) y 3 avisos
   de MapLibre (`Expected value to be of type number, but found null instead`) que provienen del
   estilo OpenFreeMap, no del código de la app.
-- El service worker quedó en `app-santiago-2026-v8` (precache renovada tras la calibración
-  de tamaños de icono del 2026-11-26; los iconos SVG siguen en cache-first).
+- El service worker quedó en `app-santiago-2026-v9` (precache renovada tras el
+  regreso del medidor de zoom; los iconos SVG siguen en cache-first).
 - **Limitación del navegador embebido de pruebas**: no dispara `requestAnimationFrame`, por lo
   que MapLibre no repinta (`map.loaded()` queda en `false` y `queryRenderedFeatures()` devuelve
   0). Se verificó por otra vía que el estilo se aplica, que `ne2_shaded` se elimina y que las

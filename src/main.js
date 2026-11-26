@@ -483,6 +483,10 @@ function renderMap(){
     });
     // Al cambiar el zoom, los iconos se convierten en puntos de color (§5).
     state.map.on("zoom",actualizarPuntosSegunZoom);
+    // MEDIDOR DE ZOOM TEMPORAL (calibración de los 3 umbrales — ELIMINAR):
+    state.map.on("zoom",pintarMedidores);
+    state.map.on("move",pintarMedidores);
+    pintarMedidores();
     // El arranque se hace con `style.load` (el estilo ya está aplicado y se
     // pueden añadir sources/layers). Si alguna fuente del estilo se demora,
     // el vigilante reintenta: `addSource` lanza si el estilo no está listo.
@@ -1429,6 +1433,51 @@ function interpolarRampa(z, puntos){
   }
   return puntos[puntos.length-1][1];
 }
+
+// ══ MEDIDOR DE ZOOM TEMPORAL (ELIMINAR tras calibrar los 3 umbrales) ══
+// Panel `#medidores-calibracion` (index.html): barra de zoom (0–100 + zoom
+// real) con las marcas de los tres momentos de la rampa que faltan por
+// calibrar (el usuario lee el "zoom real" deseado y lo indica):
+//   1) corte del texto bajo el icono    → ZOOM_ICONO (`.map-point-con-nombre`
+//      y la capa `metro-nombres`, hoy 12,5)
+//   2) paso icono ↔ punto de color      → ZOOM_ICONO (capas GeoJSON y
+//      marcadores HTML, hoy 12,5)
+//   3) desaparición de los puntos color → ZOOM_PUNTO_MIN (hoy 7)
+// Las tres filas muestran el umbral actual (leen las constantes del §5, así
+// que se solas al cambiarlas) y el estado con el zoom en que se está.
+function pintarMedidores(){
+  const cont=document.getElementById("medidores-calibracion");
+  if(!cont) return;
+  const set=(id,v)=>{const el=document.getElementById(id); if(el) el.textContent=v;};
+  const pctBarra=(id,pct)=>{const el=document.getElementById(id); if(el) el.style.width=`${Math.max(0,Math.min(100,pct))}%`;};
+  const pctMarca=(id,pct)=>{const el=document.getElementById(id); if(el) el.style.left=`${Math.max(0,Math.min(100,pct))}%`;};
+  const mapa=state.map;
+  if(!mapa){ set("med-zoom-valor","—"); set("med-zoom-real","sin mapa"); return; }
+  const zoom=mapa.getZoom();
+  const zMin=mapa.getMinZoom(), zMax=mapa.getMaxZoom();
+  const pct=z=>zMax>zMin?((z-zMin)/(zMax-zMin))*100:0;
+  // Barra de zoom (0–100) + zoom real.
+  const escala=pct(zoom);
+  set("med-zoom-valor",String(Math.round(escala)));
+  pctBarra("med-zoom-barra",escala);
+  set("med-zoom-real",zoom.toFixed(1));
+  // Los tres momentos: umbral + estado con el zoom actual.
+  set("med-umbral-texto",ZOOM_ICONO.toFixed(1));
+  set("med-estado-texto",zoom>=ZOOM_ICONO?"visible":"oculto");
+  set("med-umbral-icono",ZOOM_ICONO.toFixed(1));
+  set("med-estado-icono",zoom>=ZOOM_ICONO?"icono":(zoom>=ZOOM_PUNTO_MIN?"punto":"oculto"));
+  set("med-umbral-punto",ZOOM_PUNTO_MIN.toFixed(1));
+  set("med-estado-punto",zoom>=ZOOM_PUNTO_MIN?"visible":"oculto");
+  // Marcas de color en la barra (1 y 2 comparten zoom hoy: una sale arriba y
+  // la otra abajo para que las dos se vean).
+  pctMarca("med-marca-texto",pct(ZOOM_ICONO));
+  pctMarca("med-marca-icono",pct(ZOOM_ICONO));
+  pctMarca("med-marca-punto",pct(ZOOM_PUNTO_MIN));
+}
+document.getElementById("medidores-ocultar")?.addEventListener("click",()=>{
+  document.getElementById("medidores-calibracion")?.remove();
+});
+// ══ FIN MEDIDOR DE ZOOM TEMPORAL ══
 
 function actualizarPuntosSegunZoom(){
   const map=state.map; if(!map) return;

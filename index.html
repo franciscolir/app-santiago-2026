@@ -364,6 +364,50 @@ dialog::backdrop { background: rgba(44, 49, 50, .6); backdrop-filter: blur(2px);
           </button>
         </div>
 
+        <!-- ══ MEDIDOR DE ZOOM TEMPORAL (ELIMINAR tras calibrar los 3 umbrales) ══
+             Barra de zoom (0–100 + zoom real) con las marcas de los tres momentos
+             de la rampa que faltan por calibrar:
+               1) corte del texto bajo el icono,
+               2) paso icono ↔ punto de color,
+               3) desaparición de los puntos de color. -->
+        <div id="medidores-calibracion" class="absolute left-3 bottom-16 z-[1000]"
+             style="background:rgba(2,32,51,.92);color:#eaf6fb;border:1px solid rgba(255,255,255,.18);border-radius:12px;padding:8px 10px;min-width:238px;box-shadow:0 6px 18px rgba(0,0,0,.28);font-family:ui-monospace,Consolas,monospace;font-size:12px;line-height:1.45;">
+          <div style="display:flex;justify-content:space-between;gap:10px;align-items:center;">
+            <strong style="font-size:10px;letter-spacing:.08em;opacity:.75;">MEDIDOR DE ZOOM · TEMPORAL</strong>
+            <button type="button" id="medidores-ocultar" aria-label="Ocultar medidor"
+                    style="background:none;border:0;color:inherit;cursor:pointer;font-size:13px;line-height:1;padding:0;">✕</button>
+          </div>
+
+          <div style="margin-top:6px;">
+            <div style="display:flex;justify-content:space-between;gap:8px;">
+              <span>Zoom <span style="opacity:.7;">(0–100)</span></span>
+              <span><b id="med-zoom-valor">—</b></span>
+            </div>
+            <div style="position:relative;background:rgba(255,255,255,.15);border-radius:4px;height:7px;margin-top:3px;">
+              <div id="med-zoom-barra" style="background:#4fc3f7;height:100%;width:0%;border-radius:4px;"></div>
+              <div id="med-marca-texto" style="position:absolute;top:-4px;left:0;width:2px;height:15px;background:#ffd54f;border-radius:1px;"></div>
+              <div id="med-marca-icono" style="position:absolute;top:8px;left:0;width:2px;height:6px;background:#ff8a65;border-radius:1px;"></div>
+              <div id="med-marca-punto" style="position:absolute;top:-4px;left:0;width:2px;height:15px;background:#81c784;border-radius:1px;"></div>
+            </div>
+            <div style="opacity:.7;font-size:11px;">zoom real: <span id="med-zoom-real">—</span></div>
+          </div>
+
+          <div style="margin-top:9px;display:flex;flex-direction:column;gap:4px;">
+            <div style="display:flex;justify-content:space-between;gap:8px;">
+              <span><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:#ffd54f;margin-right:5px;"></span>1 · texto bajo icono</span>
+              <span><b id="med-umbral-texto">—</b> <span id="med-estado-texto" style="opacity:.75;"></span></span>
+            </div>
+            <div style="display:flex;justify-content:space-between;gap:8px;">
+              <span><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:#ff8a65;margin-right:5px;"></span>2 · icono ↔ punto</span>
+              <span><b id="med-umbral-icono">—</b> <span id="med-estado-icono" style="opacity:.75;"></span></span>
+            </div>
+            <div style="display:flex;justify-content:space-between;gap:8px;">
+              <span><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:#81c784;margin-right:5px;"></span>3 · punto desaparece</span>
+              <span><b id="med-umbral-punto">—</b> <span id="med-estado-punto" style="opacity:.75;"></span></span>
+            </div>
+          </div>
+        </div>
+
         <!-- Modo edición: el admin hace clic en el mapa para ubicar el punto (mapas.txt §9) -->
         <div id="map-point-mode" class="absolute inset-0 z-[1050] hidden pointer-events-none">
           <div class="absolute inset-x-0 top-3 mx-auto w-fit bg-primary text-on-primary text-label-md label-md font-semibold px-4 py-2 rounded-full shadow-lg">

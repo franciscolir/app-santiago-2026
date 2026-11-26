@@ -362,12 +362,14 @@ Detalle en `PRUEBAS.md`.
   (`scrollWidth = clientWidth = 390`).
 - Calibración del tamaño de icono (2026-11-26): con medidores temporales se leyó
   `zoom → px` y se ajustó el techo a **24 px** (`ICONO_MAX` 0,45 → 0,375); los
-  marcadores HTML bajaron de 22→34 px a **16→24 px** (el mismo techo). Después se
-  eliminaron los medidores (HTML + `pintarMedidores()` + sus listeners).
+  marcadores HTML bajaron de 22→34 px a **16→24 px** (el mismo techo). El medidor
+  de tamaño se eliminó y el **medidor de zoom volvió** con las marcas de los 3
+  umbrales de momento pendientes (texto bajo icono, icono ↔ punto, punto
+  desaparece) para calibrarlos.
 - Fix del fontstack del metro (2026-11-26): `metro-nombres` ahora declara
   `"text-font":["Noto Sans Regular"]` (el default daba 404 en los tiles de
   OpenFreeMap y tumbaba todas las capas `symbol` de la fuente `transporte-estaciones`).
-- El service worker quedó en `app-santiago-2026-v8` (los iconos SVG se sirven cache-first
+- El service worker quedó en `app-santiago-2026-v9` (los iconos SVG se sirven cache-first
   y la precache se renovó con la calibración del 2026-11-26).
 
 ---
