@@ -31,6 +31,18 @@ end;
 $$;
 
 -- ----------------------------------------------------------------------------
+-- 0) RLS activo en todas las tablas con grupo (idempotente)
+-- ----------------------------------------------------------------------------
+alter table public.groups                enable row level security;
+alter table public.profiles              enable row level security;
+alter table public.events                enable row level security;
+alter table public.activities            enable row level security;
+alter table public.activity_assignments  enable row level security;
+alter table public.activity_user_details enable row level security;
+alter table public.activity_attachments  enable row level security;
+alter table public.wall_posts            enable row level security;
+
+-- ----------------------------------------------------------------------------
 -- 1) groups
 -- ----------------------------------------------------------------------------
 drop policy if exists "Miembros consultan su grupo" on public.groups;
