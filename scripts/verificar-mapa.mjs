@@ -682,7 +682,7 @@ console.log("[9] Acceso: login por usuario, grupo automático y registro");
   check(/\$\("#agenda-active-day"\)\?\.classList\.add\("hidden"\)/.test(main),
     "agenda: la tarjeta del día activo se oculta si HOY no tiene actividades",
     "el encabezado del día anterior puede quedar visible");
-  check(/app-santiago-2026-v30/.test(sw),
+  check(/app-santiago-2026-v31/.test(sw),
     "service worker: v23 (ADMIN/MANAGER + puntos bloqueados)", "el SW no se renovó");
 }
 
@@ -901,7 +901,7 @@ console.log("[13] Fase 5: agenda con todos los días, FAB y SOS");
     "quedaron restos del hero/estado de red");
   check(/bottom: calc\(4\.5rem \+ env\(safe-area-inset-bottom/.test(html),
     "SOS/FAB: sobre la barra de navegación (safe area)", "no respetan la barra inferior");
-  check(/app-santiago-2026-v30/.test(sw),
+  check(/app-santiago-2026-v31/.test(sw),
     "service worker: v23", "el SW no se renovó");
 }
 
@@ -959,7 +959,7 @@ console.log("[14] Fase 6: animaciones JW (destello y latido)");
     "JW: temporizador de 60 s (sin consultas a Supabase)", "no hay temporizador");
   check(/aplicarEstadoJW\(\);\s*\}/.test(main),
     "JW: el estado se reaplica al renderizar los puntos", "no se aplica al render");
-  check(/app-santiago-2026-v30/.test(leerTexto("sw.js") || ""),
+  check(/app-santiago-2026-v31/.test(leerTexto("sw.js") || ""),
     "service worker: v23", "el SW no se renovó");
 }
 
@@ -1136,6 +1136,17 @@ console.log("[14] Fase 6: animaciones JW (destello y latido)");
         /f\.properties\?\.subcategoria/.test(main),
     "Salud: capas y filtros por subcategoría de origen",
     "las capas de salud siguen unidas");
+
+  const sql22 = leerTexto("sql/22_categorias_eliminables.sql") || "";
+  check(/drop not null/.test(sql22) && /on delete set null/.test(sql22),
+    "Categorías: borrar deja subcategorías huérfanas", "sql/22 no libera category_slug");
+  check(/async function eliminarCategoria/.test(main) && /Sin categoría/.test(main) &&
+        /data-capa-cat-del/.test(main),
+    "Categorías: eliminar y reasignar subcategorías", "falta la UI de borrado/huérfanas");
+  check(/function gruposPanelCapas/.test(main) && /subcategoriasDeCategoria\(c\.slug\)/.test(main) &&
+        /grupo:"Aplicación"/.test(main),
+    "Capas: secciones por categoría y subcategorías reales",
+    "el panel sigue usando grupos estáticos");
 }
 
 // ---------------------------------------------------------------- resumen ----

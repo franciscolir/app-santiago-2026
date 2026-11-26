@@ -2,10 +2,11 @@
 -- APP SANTIAGO 2026 — schema.sql
 -- Regenerado desde la BD real (Supabase) el 2026-11-23.
 --
--- ACTUALIZACIÓN 2026-11-26: el estado final incorpora las migraciones 10–20
+-- ACTUALIZACIÓN 2026-11-26: el estado final incorpora las migraciones 10–22
 -- (grupos, login/registro, categorías, alcance de puntos, JW, ADMIN/MANAGER,
--- endurecimiento de grupos y subcategorías/capas). La sección 9 resume ese
--- estado; la fuente de verdad son los archivos sql/10–20 (más 06–09).
+-- endurecimiento de grupos, subcategorías/capas, salud separada y categorías
+-- eliminables). La sección 9 resume ese estado; la fuente de verdad son los
+-- archivos sql/10–22 (más 06–09).
 --
 -- Fiel a la base de datos existente: columnas, restricciones, índices,
 -- funciones, políticas RLS y GRANTs tal como están aplicados hoy.
@@ -627,4 +628,10 @@ alter table public.groups     add column if not exists join_password_hash text;
 --     sapu-sar   (layer_key salud_sapu):    SAPU / SAR
 --   La antigua subcategoría "urgencias" (capa salud) se retiró; los puntos
 --   manuales se reasignaron a hospitales.
+
+-- 9.12 Categorías eliminables (sql/22)
+--   map_subcategories.category_slug es NULLABLE y la FK usa ON DELETE SET NULL:
+--   al borrar una categoría sus subcategorías quedan "sin categoría" hasta que
+--   el ADMIN las reasigne. Si la categoría tiene puntos, el frontend bloquea el
+--   borrado para no dejar puntos sin categoría válida.
 

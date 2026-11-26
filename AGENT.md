@@ -4,7 +4,7 @@
 > Última actualización: 2026-11-26.
 >
 > **Estado:** integración con Supabase **resuelta** (§13). Los dos fallos de la §8 están cerrados. Las **9 etapas de `UPDATE.md`** están completadas y documentadas en §29–§36 (Fase 7 cerrada el 2026-11-26). La jerarquía **ADMIN/MANAGER** se documenta en §37 (SQL 17).
-> **`schema.sql`:** snapshot de la BD real del 2026-11-23 (§1–§8) **más** la sección 9 con el estado final de las migraciones 10–20. La fuente de verdad del esquema son los archivos `sql/`.
+> **`schema.sql`:** snapshot de la BD real del 2026-11-23 (§1–§8) **más** la sección 9 con el estado final de las migraciones 10–22. La fuente de verdad del esquema son los archivos `sql/`.
 
 ## 1. Objetivo del proyecto
 
@@ -1638,7 +1638,7 @@ MapLibre 4.7.1 + Supabase + GitHub Pages):
 `09_admin_gestiona_puntos.sql` → `10_grupos.sql` → `11_rls_grupos.sql` →
 `14_registro_perfiles.sql` → `15_categorias_puntos.sql` → `16_jw_actividades.sql` →
 `17_admin_manager.sql` → `18_endurecer_grupos.sql` → `19_subcategorias_capas.sql` →
-`20_jw_subcategorias.sql` → `21_salud_hospital_sapu.sql`.
+`20_jw_subcategorias.sql` → `21_salud_hospital_sapu.sql` → `22_categorias_eliminables.sql`.
 
 Todas son idempotentes. La Fase 7 **no agrega migraciones**: el esquema final se documenta
 en `schema.sql` (sección 9) y en los archivos anteriores. `sql/17` es la migración de la
@@ -1677,7 +1677,7 @@ jerarquía ADMIN/MANAGER (posterior a la Fase 7).
 
 ### Pruebas
 
-- `node scripts/verificar-mapa.mjs` → **398 pruebas · 0 fallos · 2 avisos** (bloques `[1]`–`[16]`).
+- `node scripts/verificar-mapa.mjs` → **401 pruebas · 0 fallos · 2 avisos** (bloques `[1]`–`[16]`).
 - Verificación en navegador por fase: login/registro, RLS de eventos/muro con `test1`,
   colores y puntos, JW (latido/destello en su lugar), evento, agenda, FAB/SOS y animaciones.
   **0 errores de consola** en los flujos normales; los 4xx/5xx esperados de las pruebas
@@ -1692,8 +1692,8 @@ jerarquía ADMIN/MANAGER (posterior a la Fase 7).
 | `src/config.js` | `SUPABASE_URL`, clave publicable y `EMERGENCY_URL` (todas públicas). |
 | `index.html` | Vistas, diálogos (actividad, punto, evento), agenda, FAB y SOS. |
 | `styles.css` | Categorías/colores, JW, mapas, agenda, FAB/SOS y `@keyframes` de destello/latido. |
-| `sw.js` | Service worker, precache `v30`. |
-| `scripts/verificar-mapa.mjs` | Verificador (398 pruebas, bloques `[1]`–`[16]`). |
+| `sw.js` | Service worker, precache `v31`. |
+| `scripts/verificar-mapa.mjs` | Verificador (401 pruebas, bloques `[1]`–`[16]`). |
 | `sql/06`–`sql/16` | Migraciones idempotentes (mapa, terminales, admin, grupos, RLS, perfiles, categorías, JW). |
 | `supabase/functions/login-username` | Login por usuario+contraseña con grupo automático (v2). |
 | `supabase/functions/register-profile` | Registro con contraseña de grupo (`validar-grupo`, `sugerir-usuario`, `registrar`). |
@@ -1708,9 +1708,9 @@ jerarquía ADMIN/MANAGER (posterior a la Fase 7).
 3. **Corte +30 → siguiente** en vivo: cubierto por las pruebas puras del módulo de tiempo.
 4. **Selección individual en capas externas** (parques/salud/comercio de OSM): se mantiene el
    interruptor por categoría; la gestión individual aplica a `map_points` (decisión de alcance).
-5. **`schema.sql` no es un `pg_dump` en vivo**: la sección 9 consolida las migraciones 10–20;
+5. **`schema.sql` no es un `pg_dump` en vivo**: la sección 9 consolida las migraciones 10–22;
    la fuente de verdad son los archivos `sql/`.
-6. Limpieza de caché del service worker tras cada despliegue (hoy `v30`).
+6. Limpieza de caché del service worker tras cada despliegue (hoy `v31`).
 7. `UPDATE.md` es del usuario y quedó **sin rastrear**.
 
 ### Artefactos de prueba
@@ -1777,9 +1777,9 @@ de su grupo.
 
 ### Verificación
 
-- `node scripts/verificar-mapa.mjs` → **398 pruebas · 0 fallos · 2 avisos** (bloques `[15]` y
+- `node scripts/verificar-mapa.mjs` → **401 pruebas · 0 fallos · 2 avisos** (bloques `[15]` y
   `[16]`).
-- `sw.js` → **v30**.
+- `sw.js` → **v31**.
 - **QA de integración (2026-11-26)**: `scripts/qa-simulacion.mjs` → **228 comprobaciones · 0
   fallos** con 3 grupos, 30 usuarios (10 por grupo), 1 MANAGER por grupo, 3 eventos solapados,
   actividades de ADMIN/MANAGER, 30 publicaciones de muro, puntos y ataques.
@@ -1817,8 +1817,8 @@ sistema externo.
   “Abrir sistema de emergencia”.
 - El **SOS flotante** global (`#sos-fab`) se oculta únicamente en la vista Emergencia para no
   duplicar la acción; sigue disponible en Agenda/Mapa/Muro.
-- `sw` → **v30**.
-- `scripts/verificar-mapa.mjs` → **398 pruebas · 0 fallos · 2 avisos**, con comprobación de que
+- `sw` → **v31**.
+- `scripts/verificar-mapa.mjs` → **401 pruebas · 0 fallos · 2 avisos**, con comprobación de que
   no quedan `sosButton`, `ACTIVAR PROTOCOLO`, `crisis_alert` ni `net-status`, y de que siguen
   `#emergency-contacts` y `#emergency-open-link`.
 - En vivo: la vista muestra únicamente contactos + botón; el flotante desaparece en
@@ -1835,7 +1835,7 @@ Se reemplazó el título visible y de PWA:
 - `manifest.webmanifest`: `name` = **STGO 2026 | Región 8**, `short_name` = **STGO 2026**.
 - `alt` del logo actualizado.
 
-`sw` → **v30**. `scripts/verificar-mapa.mjs` → **398 pruebas · 0 fallos · 2 avisos** (incluye
+`sw` → **v31**. `scripts/verificar-mapa.mjs` → **401 pruebas · 0 fallos · 2 avisos** (incluye
 la comprobación del encabezado/título y del manifest).
 
 ---
@@ -1886,6 +1886,13 @@ El satélite se sigue alternando desde la capa “Vista satelital”.
 - **Salud** se separó en dos subcategorías/capas: **Hospitales públicos** (incluye
   Hospital público y Hospital público/SAR) y **SAPU / SAR**. La antigua “Urgencias” se retiró;
   el formulario de punto ya no las muestra juntas. Totales de origen: 111 y 158.
+- **Eliminar categoría**: botón en cada categoría del ADMIN. Si tiene puntos, se bloquea para
+  no dejar puntos sin categoría. Si solo tiene subcategorías, la categoría se borra y las
+  subcategorías quedan con `category_slug=NULL` (“Sin categoría”) hasta reasignarlas;
+  `sql/22` cambia la FK a `ON DELETE SET NULL`.
+- **Panel de Capas**: ya no usa grupos estáticos. Se genera desde `map_categories` y
+  `map_subcategories`: cada categoría es una sección y cada subcategoría/capa una fila.
+  Las huérfanas aparecen en “Sin categoría”; las capas de aplicación quedan al final.
 
 ### Pendiente
 

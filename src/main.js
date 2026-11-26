@@ -2100,25 +2100,36 @@ function pintarInterruptor(it){
   fila.classList.toggle("opacity-50",!!it.pendiente);
 }
 
+function itemCapaDeSub(s){
+  if(s.layer_key){
+    const base=CAPAS_DEF.flatMap(g=>g.items).find(it=>it.id===s.layer_key);
+    if(!base) return null;
+    return {...base,nombre:s.name,color:s.color,subcategoria:s};
+  }
+  if(s.slug==="general") return null; // los puntos manuales usan "Puntos personalizados"
+  return {id:`sub:${s.id}`,nombre:s.name,color:s.color,customSub:s,defecto:true};
+}
+function gruposPanelCapas(){
+  const out=[];
+  (state.categorias||[]).filter(c=>c.active!==false).forEach(c=>{
+    const items=subcategoriasDeCategoria(c.slug).map(itemCapaDeSub).filter(Boolean);
+    if(items.length) out.push({grupo:c.name,items});
+  });
+  const huerfanas=subcategoriasDeCategoria(null).map(itemCapaDeSub).filter(Boolean);
+  if(huerfanas.length) out.push({grupo:"Sin categoría",items:huerfanas});
+  const app=CAPAS_DEF.flatMap(g=>g.items).filter(it=>["satelite","comunas","actividades","puntos"].includes(it.id));
+  if(app.length) out.push({grupo:"Aplicación",items:app});
+  return out;
+}
 function pintarPanelCapas(){
   const root=$("#capas-lista"); if(!root) return;
-  const custom=(state.subcategorias||[]).filter(s=>!s.layer_key && s.slug!=="general" && s.active!==false);
-  const grupos=CAPAS_DEF.map(g=>({
-    grupo:g.grupo,
-    items:g.items.map(it=>{
-      const sub=subcategoriaDeCapa(it.id);
-      return {...it,nombre:sub?.name||it.nombre,color:sub?.color||null};
-    })
-  }));
-  if(custom.length) grupos.push({grupo:"Capas propias",items:custom.map(s=>({
-    id:`sub:${s.id}`,nombre:s.name,color:s.color,customSub:s,defecto:true
-  }))});
+  const grupos=gruposPanelCapas();
   grupos.forEach(g=>g.items.forEach(it=>{
     if(it.customSub && capasEstado[it.id]===undefined) capasEstado[it.id]=true;
   }));
   root.innerHTML=grupos.map(g=>`
     <div class="mt-3 first:mt-0">
-      <p class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wide mb-1.5">${g.grupo}</p>
+      <p class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wide mb-1.5">${esc(g.grupo)}</p>
       <div class="space-y-1">
         ${g.items.map(it=>{
           const on=it.customSub?capasEstado[it.id]!==false:capasEstado[it.id];
@@ -2126,7 +2137,7 @@ function pintarPanelCapas(){
             class="w-full flex items-center justify-between gap-3 px-3 py-2.5 rounded-full bg-surface-container-low active:scale-[0.99] transition-all ${it.pendiente?"opacity-50":""}">
             <span class="flex items-center gap-2 min-w-0 text-body-md text-on-surface text-left">
               ${it.color?`<span class="w-2.5 h-2.5 rounded-full flex-shrink-0" style="background:${esc(it.color)}"></span>`:""}
-              <span class="truncate">${it.nombre}${it.pendiente?' <span class="text-label-sm text-on-surface-variant">· pronto</span>':""}</span>
+              <span class="truncate">${esc(it.nombre)}${it.pendiente?' <span class="text-label-sm text-on-surface-variant">· pronto</span>':""}</span>
             </span>
             <span class="capa-switch relative shrink-0 w-11 h-6 rounded-full transition-colors ${on?"bg-primary":"bg-surface-variant"}">
               <span class="capa-switch-dot absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${on?"translate-x-[22px]":""}"></span>
@@ -2614,17 +2625,19 @@ function abrirAdminCapas(){
 }
 function renderAdminCapas(){
   const root=$("#capas-admin-lista"); if(!root) return;
-  root.innerHTML=(state.categorias||[]).map(c=>{
-    const subs=subcategoriasDeCategoria(c.slug);
+  const card=(c,subs)=>{
+    const nombre=c?c.name:"Sin categoría";
+    const slug=c?c.slug:null;
     return `<div class="rounded-xl bg-surface-container-low p-3 space-y-2">
       <div class="flex items-start justify-between gap-2">
         <div class="min-w-0">
-          <p class="text-sm font-bold text-on-surface">${esc(c.name)} <span class="text-[11px] font-normal text-on-surface-variant">/${esc(c.slug)}</span></p>
+          <p class="text-sm font-bold text-on-surface">${esc(nombre)} ${slug?`<span class="text-[11px] font-normal text-on-surface-variant">/${esc(slug)}</span>`:`<span class="text-[10px] font-normal text-on-surface-variant">· esperando asignación</span>`}</p>
           <p class="text-[11px] text-on-surface-variant">${subs.length} subcategoría${subs.length===1?"":"s"}</p>
         </div>
         <div class="flex gap-1">
-          <button type="button" class="secondary" data-capa-cat-edit="${esc(c.slug)}">Editar</button>
-          <button type="button" class="secondary" data-capa-sub-new="${esc(c.slug)}">+ Sub</button>
+          ${c?`<button type="button" class="secondary" data-capa-cat-edit="${esc(c.slug)}">Editar</button>
+          <button type="button" class="secondary danger" data-capa-cat-del="${esc(c.slug)}">Eliminar</button>
+          <button type="button" class="secondary" data-capa-sub-new="${esc(c.slug)}">+ Sub</button>`:""}
         </div>
       </div>
       <div class="space-y-1">
@@ -2636,14 +2649,35 @@ function renderAdminCapas(){
           </div>
           ${s.layer_key?`<button type="button" class="secondary" data-capa-sub-puntos="${esc(s.id)}">Puntos</button>`:""}
           <button type="button" class="secondary" data-capa-sub-edit="${esc(s.id)}">Editar</button>
-        </div>`).join("")}
+        </div>`).join("") || '<p class="text-[11px] text-on-surface-variant">Sin subcategorías.</p>'}
       </div>
     </div>`;
-  }).join("") || '<div class="empty">No hay categorías.</div>';
+  };
+  const cards=(state.categorias||[]).map(c=>card(c,subcategoriasDeCategoria(c.slug)));
+  const huerfanas=subcategoriasDeCategoria(null);
+  if(huerfanas.length) cards.push(card(null,huerfanas));
+  root.innerHTML=cards.join("") || '<div class="empty">No hay categorías.</div>';
   root.querySelectorAll("[data-capa-cat-edit]").forEach(b=>b.addEventListener("click",()=>abrirCapaForm("categoria",b.dataset.capaCatEdit)));
+  root.querySelectorAll("[data-capa-cat-del]").forEach(b=>b.addEventListener("click",()=>eliminarCategoria(b.dataset.capaCatDel)));
   root.querySelectorAll("[data-capa-sub-new]").forEach(b=>b.addEventListener("click",()=>abrirCapaForm("subcategoria",null,b.dataset.capaSubNew)));
   root.querySelectorAll("[data-capa-sub-edit]").forEach(b=>b.addEventListener("click",()=>abrirCapaForm("subcategoria",b.dataset.capaSubEdit)));
   root.querySelectorAll("[data-capa-sub-puntos]").forEach(b=>b.addEventListener("click",()=>abrirCapaPuntos(state.subcategoriasPorId[b.dataset.capaSubPuntos])));
+}
+async function eliminarCategoria(slug){
+  if(!isAdmin()) return;
+  const {count,error}=await supabase.from("map_points").select("id",{count:"exact",head:true}).eq("category",slug);
+  if(error){ showToast(describeError(error,"los puntos de la categoría")); return; }
+  if(Number(count||0)>0){
+    showToast(`No se puede eliminar: la categoría tiene ${count} punto${Number(count)===1?"":"s"}. Reasígnalos primero.`);
+    return;
+  }
+  const subs=subcategoriasDeCategoria(slug).length;
+  if(!confirm(subs?`¿Eliminar la categoría? Sus ${subs} subcategorías quedarán sin categoría hasta que las reasignes.`:"¿Eliminar esta categoría?")) return;
+  const {error:delError}=await supabase.from("map_categories").delete().eq("slug",slug);
+  if(delError){ showToast(describeError(delError,"la categoría")); return; }
+  await cargarCategorias();
+  renderAdminCapas();
+  showToast(subs?"Categoría eliminada. Sus subcategorías quedaron sin categoría.":"Categoría eliminada.");
 }
 function abrirCapaForm(tipo,id=null,categorySlug=null){
   const cat=id && tipo==="categoria"?state.categoriasPorSlug[id]:null;
@@ -2655,9 +2689,10 @@ function abrirCapaForm(tipo,id=null,categorySlug=null){
   $("#capa-category-wrap").classList.toggle("hidden",tipo==="categoria");
   $("#capa-sub-wrap").classList.toggle("hidden",tipo==="categoria");
   const selCat=$("#capa-category");
-  selCat.innerHTML=state.categorias.map(c=>`<option value="${esc(c.slug)}">${esc(c.name)}</option>`).join("");
+  selCat.innerHTML='<option value="">Sin categoría (esperando asignación)</option>'+
+    state.categorias.map(c=>`<option value="${esc(c.slug)}">${esc(c.name)}</option>`).join("");
   if(categorySlug) selCat.value=categorySlug;
-  if(sub) selCat.value=sub.category_slug;
+  if(sub) selCat.value=sub.category_slug||"";
   const obj=cat||sub||{};
   $("#capa-name").value=obj.name||"";
   $("#capa-slug").value=obj.slug||"";
@@ -2696,7 +2731,7 @@ $("#capa-form")?.addEventListener("submit",async e=>{
       ? await supabase.from("map_categories").update(base).eq("slug",id)
       : await supabase.from("map_categories").insert(base);
   }else{
-    const payload={...base,category_slug:$("#capa-category").value,render_mode:$("#capa-render").value,
+    const payload={...base,category_slug:$("#capa-category").value||null,render_mode:$("#capa-render").value,
       layer_key:$("#capa-layer").value||null};
     if(payload.category_slug==="jw") payload.render_mode="icon";
     res=id

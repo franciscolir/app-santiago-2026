@@ -92,13 +92,14 @@ node scripts/optimizar-iconos.mjs
   **`sql/17_admin_manager.sql`**, luego **`sql/18_endurecer_grupos.sql`**, después
   **`sql/19_subcategorias_capas.sql`** y **`sql/20_jw_subcategorias.sql`** (subcategorías/capas,
   overrides de puntos externos y JW siempre icono), y **`sql/21_salud_hospital_sapu.sql`**
-  (separa Hospitales públicos y SAPU/SAR). Después:
+  (separa Hospitales públicos y SAPU/SAR) y **`sql/22_categorias_eliminables.sql`**
+  (borrar categoría deja sus subcategorías sin categoría). Después:
   1. La cuenta **ADMIN** debe tener `role = 'admin'`.
   2. Los gestores de cada grupo usan `role = 'manager'` (el ADMIN los nombra desde
      **Grupos → Miembros**).
   3. Los usuarios normales quedan con `role = 'user'`.
   El archivo migra los antiguos `group_admin = true` a `manager` y elimina la columna.
-  Después, recargar la app (`sw` v30).
+  Después, recargar la app (`sw` v31).
 
 - Separar los cuarteles de bomberos de la capa de seguridad (sin volver a Overpass; es
   idempotente y no sobrescribe nada si ya están separados):

@@ -46,7 +46,9 @@
 // v28: comportamiento "siempre icono" también en capas externas.
 // v29: controles del mapa bajo safe-area (notch/status bar).
 // v30: salud separada en Hospitales públicos y SAPU/SAR.
-const CACHE_NAME = "app-santiago-2026-v30";
+// v31: categorías eliminables con subcategorías huérfanas y panel de capas
+//      generado desde categorías/subcategorías.
+const CACHE_NAME = "app-santiago-2026-v31";
 const APP_SHELL = [
   "./",
   "./index.html",
