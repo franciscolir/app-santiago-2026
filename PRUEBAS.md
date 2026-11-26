@@ -91,11 +91,29 @@ Sin dependencias: solo Node.js ≥ 18. Comprueba:
 | 61 | Admin de grupo | Modera los puntos de su grupo y no puede editar los globales | ⏳ (código/RLS listos; no hay admin de grupo para probar en vivo) |
 | 62 | RLS de puntos | Usuarios normales ven globales + su grupo; el admin de grupo, su grupo; el admin global, todo | ⏳ (políticas aplicadas; tras la limpieza solo quedan admins globales) |
 | 63 | Puntos personales | El botón de alta está disponible para cualquier autenticado y crea solo puntos personales | ✅ (test1 veía el botón; el formulario fuerza personal) |
+| 64 | JW: tamaño +20 % | Los iconos JW se muestran un 20 % más grandes (19,2 → 28,8 px frente a 16 → 24) | ⏳ (código listo; falta un punto JW tras `sql/16`) |
+| 65 | JW: siempre icono | Un JW nunca se convierte en punto de color, ni por debajo del zoom 10,5 | ⏳ (misma prueba pendiente) |
+| 66 | Actividad ↔ punto JW | La actividad guarda `map_point_id`; el trigger exige categoría JW y mismo grupo/global | ⏳ (`sql/16` listo; falta ejecutarlo) |
+| 67 | Sin JW → marcar en mapa | Si no hay puntos JW, el botón abre el modo punto con categoría JW y reabre la actividad con el punto creado | ✅ (probado hasta abrir el formulario JW con `salon`; falta completar tras `sql/16`) |
+| 68 | Ver en mapa | El botón de la tarjeta lleva al mapa y vuela al punto JW/coordenadas de la actividad | ✅ (botón y vista; el vuelo no se verifica en el navegador embebido) |
+| 69 | Popup JW con actividades | El popup del punto JW lista sus actividades vinculadas | ⏳ (falta el vínculo tras `sql/16`) |
+| 70 | Trigger JW | Un punto no JW o de otro grupo se rechaza al vincularlo | ⏳ (falta ejecutar `sql/16`) |
 
 ---
 
 ## 3. Resultados de la corrida automática
 
+- **2026-11-26 (Fase 3: categoría JW y actividades)**: **310 pruebas · 0 fallos · 2 avisos**.
+  - Bloque `[11]` (18 comprobaciones): `activities.map_point_id` y su FK, trigger de
+    categoría/grupo, selector JW sin lat/lng, flujo “Marcar actividad en el mapa”, JW +20 %,
+    icono permanente, clase `map-point-jw`, popup con actividades, “Ver en mapa” y la
+    eliminación del CHECK antiguo de iconos.
+  - Navegador **antes** de `sql/16`: formulario con selector JW y estado sin puntos; “Editar”
+    en el diseño nuevo; “Ver en mapa”; el flujo de marcado abre el formulario JW con
+    `salon`; **0 errores JS**. El insert del punto se bloqueó por `map_points_icon_check` y se
+    corrigió en `sql/16`.
+  - Pendiente: aplicar `sql/16` y completar la prueba en vivo del vínculo, el +20 %, el icono
+    permanente y el popup.
 - **2026-11-26 (Fase 2: categorías, colores y alcance de puntos, verificado en vivo)**: **292 pruebas · 0 fallos · 2 avisos**.
   - Bloque `[10]` (27 comprobaciones): `map_categories` y su semilla (nuevas + antiguas), color
     validado, FK de categoría, columnas `group_id`/`scope`, backfill de los generales a global,

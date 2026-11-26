@@ -681,8 +681,8 @@ console.log("[9] Acceso: login por usuario, grupo automático y registro");
   check(/\$\("#agenda-active-day"\)\?\.classList\.add\("hidden"\)/.test(main),
     "agenda: la tarjeta del día activo se oculta si HOY no tiene actividades",
     "el encabezado del día anterior puede quedar visible");
-  check(/app-santiago-2026-v16/.test(sw),
-    "service worker: v16 (precache renovada con la Fase 2 corregida)", "el SW no se renovó");
+  check(/app-santiago-2026-v17/.test(sw),
+    "service worker: v17 (precache renovada con la Fase 3)", "el SW no se renovó");
 }
 
 // ------------------- 10. Fase 2: categorías, colores y alcance (2026-11-26) -----
@@ -769,6 +769,64 @@ console.log("[10] Fase 2: categorías, color por categoría y alcance global/gru
     "gestión: botón para ubicar el punto en el mapa", "falta ubicar el punto");
   check(/\.map-point-oculto-admin/.test(css) && /map-point-oculto-admin/.test(main),
     "mapa: el admin ve atenuados los puntos ocultos", "no se distingue el punto oculto");
+}
+
+// ------------------- 11. Fase 3: categoría JW y actividades (2026-11-26) ------
+console.log("[11] Fase 3: categoría JW y actividades vinculadas");
+{
+  const sql16 = leerTexto("sql/16_jw_actividades.sql") || "";
+  const main = leerTexto("src/main.js") || "";
+  const html = leerTexto("index.html") || "";
+
+  // --- 1) SQL (vínculo actividad ↔ punto JW) --------------------------------
+  check(/add column if not exists map_point_id uuid/.test(sql16),
+    "JW: activities.map_point_id", "falta la columna del punto JW en actividades");
+  check(/drop constraint if exists map_points_icon_check/.test(sql16),
+    "JW: elimina el CHECK antiguo de iconos (salon no estaba permitido)",
+    "el icono salon sigue bloqueado por una restricción vieja");
+  check(/activities_map_point_id_fkey/.test(sql16) && /on delete set null/.test(sql16),
+    "JW: FK a map_points con ON DELETE SET NULL", "falta la FK/acción de borrado");
+  check(/create trigger activities_validar_punto/.test(sql16) &&
+        /v_categoria <> 'jw'/.test(sql16),
+    "JW: la actividad solo puede usar puntos de categoría JW", "no se valida la categoría");
+  check(/v_scope = 'group' and v_group is distinct from v_act_group/.test(sql16),
+    "JW: el punto de grupo debe ser del mismo grupo que la actividad",
+    "no se valida el grupo del punto");
+
+  // --- 2) Formulario de actividad ------------------------------------------
+  check(/id="activity-point"/.test(html) && /id="activity-mark-map"/.test(html),
+    "actividad: selector de punto JW + botón para marcar en el mapa",
+    "falta el selector o el botón");
+  check(!/id="activity-lat"/.test(html) && !/id="activity-lng"/.test(html),
+    "actividad: sin coordenadas manuales", "siguen los campos de latitud/longitud");
+  check(/async function cargarPuntosJW/.test(main) && /eq\("category","jw"\)/.test(main),
+    "actividad: carga los puntos JW disponibles", "no se cargan los puntos JW");
+  check(/map_point_id:puntoId/.test(main) && /reabrirActividadPendiente/.test(main),
+    "actividad: guarda el vínculo y reabre tras marcar en el mapa",
+    "no se guarda map_point_id o no se reabre");
+  check(/state\.puntoParaActividad/.test(main) && /Punto JW creado/.test(main),
+    "actividad: flujo de punto JW nuevo desde la actividad", "falta el flujo de marcado");
+
+  // --- 3) Marcadores JW -----------------------------------------------------
+  check(/el\.dataset\.jw=p\.category==="jw"/.test(main),
+    "JW: el marcador se identifica como JW", "no se marca el punto como JW");
+  check(/esJW\?tamIcono\*1\.2:tamIcono/.test(main),
+    "JW: icono 20 % más grande que el resto", "no se aplica el +20 %");
+  check(/const fijo=el\.dataset\.fijo==="1" \|\| esJW/.test(main),
+    "JW: siempre mantiene el icono (nunca punto de color)", "el JW se convierte en círculo");
+  check(/map-point-jw/.test(main),
+    "JW: clase propia para las animaciones futuras", "falta la clase map-point-jw");
+
+  // --- 4) Actividad en el mapa y popup JW ----------------------------------
+  check(/enlazarTarjetasActividad/.test(main) && /data-mapa=/.test(main),
+    "agenda: botón Ver en mapa en las tarjetas", "no hay acción para ver la actividad");
+  check(/function verActividadEnMapa/.test(main) && /togglePopup/.test(main),
+    "agenda: vuela al punto JW y abre su popup", "no se visualiza la actividad en el mapa");
+  check(/actividadesJW/.test(main) && /map_point_id===p\.id/.test(main),
+    "JW: el popup lista las actividades del punto", "el popup no muestra las actividades");
+  check(/sql\/16_jw_actividades\.sql/.test(main),
+    "compatibilidad: avisa si falta sql/16 al guardar la actividad",
+    "no hay respaldo sin la columna map_point_id");
 }
 
 // ---------------------------------------------------------------- resumen ----

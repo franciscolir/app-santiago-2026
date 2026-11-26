@@ -83,6 +83,10 @@ node scripts/optimizar-iconos.mjs
   **`sql/15_categorias_puntos.sql`** (categorías con color, gestión individual por categoría,
   alcance global/grupo y RLS de puntos). Después, recargar la app.
 
+- Fase 3 (JW y actividades): ejecutar **`sql/16_jw_actividades.sql`** (vínculo actividad ↔
+  punto JW, validación de categoría/grupo y eliminación del CHECK antiguo de iconos para
+  permitir `salon`). Después, recargar la app.
+
 - Separar los cuarteles de bomberos de la capa de seguridad (sin volver a Overpass; es
   idempotente y no sobrescribe nada si ya están separados):
 

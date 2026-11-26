@@ -116,6 +116,9 @@ create trigger map_categories_updated_at
 -- 2) MAP_POINTS: categoría (FK)
 -- ============================================================================
 alter table public.map_points drop constraint if exists map_points_category_check;
+-- El catálogo de iconos lo valida la app; el CHECK antiguo no conoce los SVG
+-- nuevos (salon, betel, predicación, exhibidor, …).
+alter table public.map_points drop constraint if exists map_points_icon_check;
 
 -- Las categorías antiguas se conservan: NO se renombran los puntos existentes.
 -- Solo se asegura que ningún valor quede fuera del catálogo (no debería).

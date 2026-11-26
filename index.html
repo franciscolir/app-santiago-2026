@@ -838,14 +838,19 @@ dialog::backdrop { background: rgba(44, 49, 50, .6); backdrop-filter: blur(2px);
         <input id="activity-end" type="time" class="w-full h-12 px-3 bg-surface rounded-lg text-on-surface border border-outline-variant focus:outline-none focus:ring-2 focus:ring-primary/40">
       </div>
     </div>
-    <div class="grid grid-cols-2 gap-3">
-      <div>
-        <label for="activity-lat" class="block font-label-md text-label-md text-on-surface font-semibold mb-1">Latitud (opcional)</label>
-        <input id="activity-lat" type="number" step="any" class="w-full h-12 px-3 bg-surface rounded-lg text-on-surface border border-outline-variant focus:outline-none focus:ring-2 focus:ring-primary/40">
-      </div>
-      <div>
-        <label for="activity-lng" class="block font-label-md text-label-md text-on-surface font-semibold mb-1">Longitud (opcional)</label>
-        <input id="activity-lng" type="number" step="any" class="w-full h-12 px-3 bg-surface rounded-lg text-on-surface border border-outline-variant focus:outline-none focus:ring-2 focus:ring-primary/40">
+    <div id="activity-jw">
+      <label for="activity-point" class="block font-label-md text-label-md text-on-surface font-semibold mb-1">Punto JW de la actividad</label>
+      <select id="activity-point" class="w-full h-12 px-3 bg-surface rounded-lg text-on-surface border border-outline-variant focus:outline-none focus:ring-2 focus:ring-primary/40">
+        <option value="">Sin punto JW</option>
+      </select>
+      <p id="activity-point-preview" class="text-[11px] text-on-surface-variant mt-1"></p>
+      <p id="activity-jw-hint" class="text-[11px] text-on-surface-variant mt-1">El punto JW define la ubicación de la actividad; no se piden coordenadas manuales.</p>
+      <div id="activity-jw-empty" class="hidden mt-2 rounded-lg bg-surface-container-low p-3 space-y-2">
+        <p class="text-body-sm text-on-surface">No hay puntos JW disponibles. Marca la ubicación en el mapa para crear el punto y vincularlo.</p>
+        <button type="button" id="activity-mark-map"
+                class="w-full h-10 rounded-full bg-primary-container text-on-primary-container font-label-md text-label-md font-bold active:scale-[0.98] transition-all">
+          Marcar actividad en el mapa
+        </button>
       </div>
     </div>
     <div>

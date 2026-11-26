@@ -14,7 +14,9 @@ const state = { user:null, profile:null, event:null, activities:[], category:"po
   regGroup:null, regGroupPassword:"",
   // Fase 2: categorías, colores y gestión por categoría.
   categorias:[], categoriasPorSlug:{}, categoriasCargadas:false,
-  gestion:{modo:"categorias",categoria:null,buscar:""}, categoriasEditadas:new Map() };
+  gestion:{modo:"categorias",categoria:null,buscar:""}, categoriasEditadas:new Map(),
+  // Fase 3: JW y actividades.
+  jwPuntos:[], puntoParaActividad:false, actividadPendiente:null };
 const statusText = {pending:"Pendiente", in_progress:"En curso", completed:"Completada", cancelled:"Cancelada"};
 const venueStatusText = {pending:"Programada", in_progress:"En curso", completed:"Finalizada", cancelled:"Cancelada"};
 const viewLabels = {agenda:"Agenda", mapa:"Mapa", muro:"Muro", emergencia:"Emergencia"};
@@ -461,6 +463,8 @@ async function loadEventAndActivities(){
   if(actError){ console.error("loadEventAndActivities: activities",actError); showAgendaError(describeError(actError,"activities")); throw actError; }
   state.activities=data||[];
   renderAgenda(); renderMap();
+  // Los popups de los puntos JW listan sus actividades: refrescarlos.
+  if(state.mapListo) renderPuntosMapa();
 }
 function renderEventBadge(){
   const el=$("#event-day-badge"); if(!el) return;
@@ -587,6 +591,7 @@ function renderAgenda(){
     });
     enlazarDias(past);
     enlazarDias(upcoming);
+    [past,activeList,upcoming].forEach(enlazarTarjetasActividad);
   } else {
     // Fallback: lista simple.
     root.innerHTML=[...byDate.entries()].map(([date,items])=>{
@@ -606,11 +611,7 @@ function renderAgenda(){
         ${items.map(activityCard).join("")}
       </section>`;
     }).join("");
-    root.querySelectorAll("[data-status]").forEach(b=>b.addEventListener("click",()=>updateMyStatus(b.dataset.id,b.dataset.status)));
-    root.querySelectorAll("[data-edit]").forEach(b=>b.addEventListener("click",()=>openActivity(state.activities.find(a=>a.id===b.dataset.edit))));
-    root.querySelectorAll("[data-delete]").forEach(b=>b.addEventListener("click",()=>deleteActivity(b.dataset.delete)));
-    root.querySelectorAll("[data-reopen]").forEach(b=>b.addEventListener("click",()=>reopenActivity(b.dataset.reopen)));
-    root.querySelectorAll("[data-cancel]").forEach(b=>b.addEventListener("click",()=>changeActivityStatus(b.dataset.cancel,"cancelled")));
+    enlazarTarjetasActividad(root);
   }
 }
 function toggleDay(dayId){
@@ -642,6 +643,9 @@ function activityCard(a){
       <span class="status ${status}">${statusText[status]||status}</span>
     </div>
     ${a.description?`<p class="activity-desc">${esc(a.description)}</p>`:""}
+    <div class="activity-actions">
+      <button class="secondary" data-mapa="${a.id}" type="button">Ver en mapa</button>
+    </div>
     ${assignment?`<div class="activity-actions">${["pending","in_progress","completed"].map(s=>
       `<button class="secondary${myStatus===s?" on":""}" data-id="${a.id}" data-status="${s}" type="button">${statusText[s]}</button>`).join("")}</div>`:""}
     ${isAdmin()?`<div class="activity-actions">
@@ -652,6 +656,37 @@ function activityCard(a){
     </div>`:""}
   </article>`;
 }
+// Enlaza los botones de las tarjetas de actividad (también en el diseño nuevo
+// de días, donde antes solo se enlazaban los toggles de día).
+function enlazarTarjetasActividad(root){
+  if(!root) return;
+  root.querySelectorAll("[data-status]").forEach(b=>b.addEventListener("click",()=>updateMyStatus(b.dataset.id,b.dataset.status)));
+  root.querySelectorAll("[data-edit]").forEach(b=>b.addEventListener("click",()=>openActivity(state.activities.find(a=>a.id===b.dataset.edit))));
+  root.querySelectorAll("[data-delete]").forEach(b=>b.addEventListener("click",()=>deleteActivity(b.dataset.delete)));
+  root.querySelectorAll("[data-reopen]").forEach(b=>b.addEventListener("click",()=>reopenActivity(b.dataset.reopen)));
+  root.querySelectorAll("[data-cancel]").forEach(b=>b.addEventListener("click",()=>changeActivityStatus(b.dataset.cancel,"cancelled")));
+  root.querySelectorAll("[data-mapa]").forEach(b=>b.addEventListener("click",()=>verActividadEnMapa(state.activities.find(a=>a.id===b.dataset.mapa))));
+}
+
+// Lleva al mapa a la ubicación de la actividad: usa su punto JW si lo tiene.
+function verActividadEnMapa(a){
+  if(!a) return;
+  const p=a.map_point_id?state.mapPoints.find(x=>x.id===a.map_point_id):null;
+  const lat=Number(p?.latitude ?? a.latitude), lng=Number(p?.longitude ?? a.longitude);
+  if(!Number.isFinite(lat)||!Number.isFinite(lng)||lat===0||lng===0){
+    showToast("La actividad no tiene ubicación en el mapa."); return;
+  }
+  gotoView("mapa");
+  const volar=(intentos=0)=>{
+    if(!state.map){ if(intentos<15) setTimeout(()=>volar(intentos+1),200); return; }
+    state.map.flyTo({center:[lng,lat],zoom:Math.max(state.map.getZoom(),15),duration:700});
+    if(a.map_point_id){
+      setTimeout(()=>state.pointMarkers.get(a.map_point_id)?.togglePopup(),500);
+    }
+  };
+  setTimeout(()=>volar(),250);
+}
+
 async function updateMyStatus(activityId,status){
   const {error}=await supabase.from("activity_assignments").update({status}).eq("activity_id",activityId).eq("user_id",state.user.id);
   if(error){console.error("updateMyStatus",error);alert("No se pudo actualizar el estado: "+describeError(error,"tu asignación"));return;}
@@ -1762,6 +1797,18 @@ async function cargarPuntosMapa(){
   renderPuntosMapa();
 }
 
+// --- puntos JW para las actividades (Fase 3) --------------------------------
+async function cargarPuntosJW(){
+  const {data,error}=await supabase.from("map_points")
+    .select("id,name,category,scope,group_id,latitude,longitude,address,comuna,active,visible")
+    .eq("category","jw").eq("active",true).order("name");
+  if(error){
+    console.warn("cargarPuntosJW:",error.message);
+    state.jwPuntos=[]; return;
+  }
+  state.jwPuntos=(data||[]).filter(p=>!state.groupId || p.scope==="global" || p.group_id===state.groupId);
+}
+
 // Comportamiento de los marcadores según el zoom (3 momentos, 2026-11-25):
 //   1) Muy alejado  → punto diminuto, casi imperceptible.
 //   2) Acercándose  → el punto crece poco hasta su tamaño actual y ahí se
@@ -1820,8 +1867,11 @@ function actualizarPuntosSegunZoom(){
   ]);
   state.pointMarkers.forEach(m=>{
     const el=m.getElement&&m.getElement(); if(!el) return;
-    const fijo=el.dataset.fijo==="1";
-    el.style.setProperty("--icono-tam",tamIcono.toFixed(1)+"px");
+    const esJW=el.dataset.jw==="1";
+    // Los JW se muestran siempre con icono (nunca como punto de color) y un
+    // 20 % más grandes que el resto (16→24 px pasa a 19,2→28,8 px).
+    const fijo=el.dataset.fijo==="1" || esJW;
+    el.style.setProperty("--icono-tam",(esJW?tamIcono*1.2:tamIcono).toFixed(1)+"px");
     el.style.setProperty("--nombre-tam",tamTexto+"px");
     // Texto: corte NÍTIDO en 12,5 (en 12,4 desaparece y en 12,5 aparece).
     // Vale también para los puntos de "vista fija": ellos conservan el icono,
@@ -1884,6 +1934,9 @@ function renderPuntosMapa(){
     el.style.setProperty("--punto-color",colorCategoria(p.category,"#006492"));
     // "Vista fija": el icono se muestra siempre, a cualquier zoom.
     el.dataset.fijo=p.fijo?"1":"0";
+    // JW: siempre icono (nunca punto de color) y +20 % de tamaño.
+    el.dataset.jw=p.category==="jw"?"1":"0";
+    el.classList.toggle("map-point-jw",p.category==="jw");
     el.classList.toggle("map-point-oculto-admin",admin && (p.visible===false || p.active===false));
     el.style.backgroundSize="contain";
     el.style.backgroundRepeat="no-repeat";
@@ -1897,6 +1950,7 @@ function renderPuntosMapa(){
     el.appendChild(etiqueta);
     const scope=scopeDe(p);
     const grupoNombre=p.group_id?(state.groups.find(g=>g.id===p.group_id)?.name||""):"";
+    const actividadesJW=p.category==="jw"?(state.activities||[]).filter(a=>a.map_point_id===p.id):[];
     const popup=new maplibregl.Popup({offset:22,closeButton:true}).setHTML(
       `<strong>${esc(p.name)}</strong>`+
       `<span class="muted" style="font-size:10px"> · ${p.tipo==="personal"?"personal":(scope==="global"?"global":"grupo")}</span>`+
@@ -1904,6 +1958,7 @@ function renderPuntosMapa(){
       (p.comuna?`<br><span class="muted">${esc(p.comuna)}</span>`:"")+
       `<br><span class="muted">${esc(nombreCategoria(p.category))}</span>`+
       (p.tipo==="general"&&grupoNombre?`<br><span class="muted">${esc(grupoNombre)}</span>`:"")+
+      (actividadesJW.length?`<br><span class="muted">Actividades: ${actividadesJW.map(a=>esc(a.title)).join(" · ")}</span>`:"")+
       (p.visible===false?`<br><span class="muted">Oculto en el mapa</span>`:"")
     );
     const m=new maplibregl.Marker({element:el,anchor:"bottom"})
@@ -1927,7 +1982,9 @@ function activarModoPunto(){
   if(!state.user){ showToast("Inicia sesión para agregar puntos."); return; }
   state.pointMode=true;
   $("#map-point-mode")?.classList.remove("hidden");
-  showToast(esAdminDeGrupo()?"Toca el mapa para ubicar un punto (general o personal).":"Toca el mapa para ubicar un punto personal.");
+  showToast(state.puntoParaActividad
+    ? "Toca el mapa para ubicar el punto JW de la actividad."
+    : (esAdminDeGrupo()?"Toca el mapa para ubicar un punto (general o personal).":"Toca el mapa para ubicar un punto personal."));
 }
 function desactivarModoPunto(){
   state.pointMode=false;
@@ -2208,12 +2265,15 @@ async function abrirFormPunto(p=null,lat=null,lng=null){
   $("#point-description").value=p?.description||"";
   poblarCategoriasFormulario();
   const selCat=$("#point-category");
-  const catSlug=p?.category||"general";
+  const catSlug=(!p && state.puntoParaActividad)?"jw":(p?.category||"general");
   if(selCat && ![...selCat.options].some(o=>o.value===catSlug)){
     selCat.insertAdjacentHTML("beforeend",`<option value="${esc(catSlug)}">${esc(nombreCategoria(catSlug))}</option>`);
   }
   if(selCat) selCat.value=catSlug;
   seleccionarIcono(iconoCategoria(catSlug,p?.icon));
+  if(!p && state.puntoParaActividad && !$("#point-name").value.trim()){
+    $("#point-name").value="Punto JW de actividad";
+  }
   $("#point-lat").value=p?p.latitude:(lat??"");
   $("#point-lng").value=p?p.longitude:(lng??"");
   $("#point-visible").checked=p?p.visible!==false:true;
@@ -2268,6 +2328,11 @@ function cerrarFormPunto(){
 }
 $("#point-close")?.addEventListener("click",cerrarFormPunto);
 $("#point-backdrop")?.addEventListener("click",cerrarFormPunto);
+// Si se cierra el formulario del punto durante "Marcar actividad en el mapa",
+// se descarta la actividad pendiente (no se creó el punto).
+["#point-close","#point-backdrop"].forEach(s=>$(s)?.addEventListener("click",()=>{
+  if(state.puntoParaActividad){ state.puntoParaActividad=false; state.actividadPendiente=null; }
+}));
 
 // Al cambiar la categoría se propone su icono por defecto (Fase 2: el icono
 // sale de map_categories, con respaldo en ICONO_PUNTO).
@@ -2325,8 +2390,17 @@ $("#point-form")?.addEventListener("submit",async e=>{
     console.error("point-form: guardar",res.error);
     notifyError($("#point-error"),describeError(res.error,"puntos del mapa")); return;
   }
+  const nuevoId=id || (res.data && res.data[0] ? res.data[0].id : null);
   cerrarFormPunto();
   await cargarPuntosMapa();
+  // Flujo "Marcar actividad en el mapa": al guardar el punto JW se reabre la
+  // actividad con ese punto seleccionado.
+  if(!id && state.puntoParaActividad && nuevoId){
+    state.puntoParaActividad=false;
+    await cargarPuntosJW();
+    await reabrirActividadPendiente(nuevoId);
+    return;
+  }
   showToast(id?"Punto actualizado.":
     tipo==="personal"?"Punto personal creado.":
     (scope==="global"?"Punto global creado.":"Punto del grupo creado."));
@@ -2403,17 +2477,90 @@ function ponerMarcadorUsuario(){
 }
 
 // ==================== ACTIVIDADES (admin) ====================
-function openActivity(a=null){
+async function openActivity(a=null){
   if(!state.event){ alert("No hay un evento publicado activo: crea o publica un evento antes de agregar actividades."); return; }
+  state.actividadEditada=a||null;
   $("#activity-error").textContent=""; $("#activity-dialog-title").textContent=a?"Editar actividad":"Nueva actividad";
   $("#activity-id").value=a?.id||""; $("#activity-title").value=a?.title||""; $("#activity-description").value=a?.description||"";
   $("#activity-date").value=a?.activity_date||state.event?.start_date||""; $("#activity-place").value=a?.place||"";
   $("#activity-start").value=timeFmt(a?.start_time); $("#activity-end").value=timeFmt(a?.end_time);
-  $("#activity-lat").value=a?(a.latitude ?? a.lat ?? ""):""; $("#activity-lng").value=a?(a.longitude ?? a.long ?? a.lng ?? ""):""; $("#activity-assignees").value="";
+  $("#activity-assignees").value="";
+  await cargarPuntosJW();
+  const sel=$("#activity-point");
+  if(sel){
+    sel.innerHTML=`<option value="">Sin punto JW</option>`+
+      state.jwPuntos.map(p=>`<option value="${esc(p.id)}">${esc(p.name)}</option>`).join("");
+    const seleccionado=a?.map_point_id && state.jwPuntos.some(p=>p.id===a.map_point_id)?a.map_point_id:"";
+    sel.value=seleccionado;
+  }
+  const vacio=state.jwPuntos.length===0;
+  $("#activity-jw-empty")?.classList.toggle("hidden",!vacio);
+  $("#activity-jw-hint")?.classList.toggle("hidden",vacio);
+  actualizarPreviewActividad();
   $("#activity-dialog").showModal();
 }
+function actualizarPreviewActividad(){
+  const id=$("#activity-point")?.value||"";
+  const p=state.jwPuntos.find(x=>x.id===id);
+  const prev=$("#activity-point-preview");
+  if(!prev) return;
+  prev.textContent=p
+    ? `${p.name}${p.address?" · "+p.address:""}${p.comuna?" · "+p.comuna:""} (${Number(p.latitude).toFixed(5)}, ${Number(p.longitude).toFixed(5)})`
+    : "";
+}
+$("#activity-point")?.addEventListener("change",()=>{
+  actualizarPreviewActividad();
+  const p=state.jwPuntos.find(x=>x.id===$("#activity-point").value);
+  if(p){
+    const place=$("#activity-place");
+    if(place && !place.value.trim()) place.value=p.name;
+  }
+});
 $("#new-activity-btn").addEventListener("click",()=>openActivity());
 $("#close-activity").addEventListener("click",()=>$("#activity-dialog").close());
+// "Marcar actividad en el mapa": cierra la actividad, activa el modo punto con
+// categoría JW y, al guardar el punto, reabre la actividad con el punto elegido.
+$("#activity-mark-map")?.addEventListener("click",()=>{
+  const titulo=$("#activity-title").value.trim();
+  if(!titulo){ notifyError($("#activity-error"),"Escribe el título de la actividad antes de marcarla en el mapa."); return; }
+  state.actividadPendiente={
+    title:titulo,
+    description:$("#activity-description").value,
+    activity_date:$("#activity-date").value,
+    start_time:$("#activity-start").value,
+    end_time:$("#activity-end").value,
+    place:$("#activity-place").value,
+    assignees:$("#activity-assignees").value
+  };
+  state.puntoParaActividad=true;
+  $("#activity-dialog").close();
+  gotoView("mapa");
+  setTimeout(()=>activarModoPunto(),350);
+  showToast("Toca el mapa para ubicar el punto JW de la actividad.");
+});
+async function reabrirActividadPendiente(puntoId){
+  const pend=state.actividadPendiente; if(!pend) return;
+  state.actividadPendiente=null;
+  await openActivity(null);
+  $("#activity-title").value=pend.title||"";
+  $("#activity-description").value=pend.description||"";
+  $("#activity-date").value=pend.activity_date||"";
+  $("#activity-start").value=pend.start_time||"";
+  $("#activity-end").value=pend.end_time||"";
+  $("#activity-place").value=pend.place||"";
+  $("#activity-assignees").value=pend.assignees||"";
+  await cargarPuntosJW();
+  const sel=$("#activity-point");
+  if(sel){
+    sel.innerHTML=`<option value="">Sin punto JW</option>`+
+      state.jwPuntos.map(p=>`<option value="${esc(p.id)}">${esc(p.name)}</option>`).join("");
+    sel.value=puntoId;
+  }
+  const p=state.jwPuntos.find(x=>x.id===puntoId);
+  if(p && !$("#activity-place").value.trim()) $("#activity-place").value=p.name;
+  actualizarPreviewActividad();
+  showToast("Punto JW creado. Completa y guarda la actividad.");
+}
 $("#activity-form").addEventListener("submit",async e=>{
   e.preventDefault(); if(!isAdmin()||!state.event)return;
   const id=$("#activity-id").value;
@@ -2428,17 +2575,33 @@ $("#activity-form").addEventListener("submit",async e=>{
   const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   const invalidos=ids.filter(u=>!UUID.test(u));
   if(invalidos.length){notifyError($("#activity-error"),`IDs de usuario inválidos (deben ser UUID): ${invalidos.join(", ")}`);return;}
+  const puntoId=$("#activity-point")?.value||"";
+  const punto=puntoId?state.jwPuntos.find(p=>p.id===puntoId):null;
+  let lat=null, lng=null;
+  if(punto){
+    lat=Number(punto.latitude); lng=Number(punto.longitude);
+  }else if(id && state.actividadEditada){
+    lat=Number(state.actividadEditada.latitude); lng=Number(state.actividadEditada.longitude);
+    if(!Number.isFinite(lat)) lat=null;
+    if(!Number.isFinite(lng)) lng=null;
+  }
   const payload={event_id:state.event.id,title:$("#activity-title").value.trim(),description:$("#activity-description").value.trim()||null,
-    activity_date:$("#activity-date").value,place:$("#activity-place").value.trim()||null,
+    activity_date:$("#activity-date").value,place:$("#activity-place").value.trim()||punto?.name||null,
     start_time:$("#activity-start").value||null,end_time:$("#activity-end").value||null,
-    latitude:$("#activity-lat").value===""?null:Number($("#activity-lat").value),
-    longitude:$("#activity-lng").value===""?null:Number($("#activity-lng").value)};
+    latitude:lat,longitude:lng,map_point_id:puntoId||null};
   // El grupo se envía explícitamente (el trigger de sql/10 también lo rellena
   // si el cliente no lo manda).
   if(state.groupId) payload.group_id=state.groupId;
-  let result=id
-    ? await supabase.from("activities").update(payload).eq("id",id).select("id")
-    : await supabase.from("activities").insert({...payload,created_by:state.user.id}).select("id");
+  const guardarActividad=async p=>id
+    ? await supabase.from("activities").update(p).eq("id",id).select("id")
+    : await supabase.from("activities").insert({...p,created_by:state.user.id}).select("id");
+  let result=await guardarActividad(payload);
+  // Compatibilidad: sin sql/16, la actividad se guarda sin el vínculo JW.
+  if(result.error && /map_point_id/i.test(result.error.message||"")){
+    const {map_point_id,...resto}=payload;
+    result=await guardarActividad(resto);
+    if(!result.error) showToast("Actividad guardada. Para vincular el punto JW falta aplicar sql/16_jw_actividades.sql.");
+  }
   if(result.error){console.error("activity-form: guardar",result.error);notifyError($("#activity-error"),describeError(result.error,"activities"));return;}
   // Asignados: se insertan solo los IDs que aún no estén asignados (evita duplicados por la restricción única).
   let avisoAsignados="";
@@ -2454,6 +2617,7 @@ $("#activity-form").addEventListener("submit",async e=>{
     }
   }
   $("#activity-dialog").close();
+  state.actividadEditada=null; state.actividadPendiente=null; state.puntoParaActividad=false;
   showToast(id?"Actividad actualizada.":"Actividad creada.");
   await loadEventAndActivities();
   if(avisoAsignados) alert(avisoAsignados);

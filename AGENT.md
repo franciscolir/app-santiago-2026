@@ -1397,5 +1397,60 @@ categoría y visibilidad global/grupo.
    si se quiere verificar en vivo; los únicos perfiles actuales son admins globales).
 3. `schema.sql` sigue desactualizado (se regenerará en la Fase 7 del plan).
 
+---
+
+## 32. Fase 3 de `UPDATE.md`: categoría JW y actividades (2026-11-26)
+
+Cubre la Etapa 4: categoría JW, su tamaño especial, el vínculo con actividades y el flujo
+“Marcar actividad en el mapa”.
+
+### SQL (`sql/16_jw_actividades.sql`)
+
+- `activities.map_point_id` (FK a `map_points`, `ON DELETE SET NULL`) + índice.
+- Trigger `validar_punto_actividad`: el punto debe existir, ser de categoría `jw` y, si es de
+  grupo, pertenecer al mismo grupo que la actividad (los globales valen para todos).
+- Elimina el **CHECK antiguo `map_points_icon_check`**: no conocía los SVG nuevos (`salon`,
+  `betel`, `predicación`, `exhibidor`, …) y bloqueaba el icono por defecto de JW. El catálogo
+  de iconos lo valida la app (`ICONOS_MAPA`).
+
+### Frontend
+
+- **Marcadores JW**: siempre icono (nunca se convierten en punto de color, ni por debajo del
+  zoom 10,5) y **20 % más grandes** (19,2 px al aparecer → 28,8 px al máximo; el resto
+  16 → 24). El nombre sigue el corte nítido de 12,5.
+- **Popup JW**: además de la categoría/alcance, lista las actividades vinculadas.
+- **Formulario de actividad**: se reemplazaron latitud/longitud por un **selector de punto
+  JW** con vista previa (nombre, dirección, comuna, coordenadas). La ubicación de la actividad
+  se copia del punto. Al editar una actividad antigua sin punto JW se conservan sus
+  coordenadas.
+- **Sin puntos JW**: aparece el botón **“Marcar actividad en el mapa”**; cierra la actividad,
+  activa el modo punto con categoría JW y, al guardar el punto, vuelve a abrir la actividad
+  con el punto recién creado seleccionado y los datos ya escritos.
+- **Ver en mapa** en todas las tarjetas de actividad: lleva al mapa, vuela al punto JW (o a
+  las coordenadas de la actividad) y abre el popup del punto.
+- **Botones de las tarjetas**: se unificó el enlazado (`enlazarTarjetasActividad`) para el
+  diseño nuevo de días; antes los botones Editar/Cancelar/etc. solo se enlazaban en el
+  fallback.
+- `loadEventAndActivities` refresca los popups de los puntos JW para mostrar sus actividades.
+
+### Verificación
+
+- `node scripts/verificar-mapa.mjs` → **310 pruebas · 0 fallos · 2 avisos** (bloque `[11]`
+  nuevo con 18 comprobaciones).
+- Navegador **antes** de aplicar `sql/16`: el formulario de actividad muestra el selector JW
+  y el estado “sin puntos JW”, sin lat/lng; “Editar” funciona en el diseño nuevo; “Ver en
+  mapa” abre la vista de mapa; el flujo “Marcar actividad en el mapa” abre el formulario de
+  punto con categoría **JW**, icono `salon` y alcance grupo. **0 errores JS**.
+- **Hallazgo**: el insert del punto JW fallaba con `map_points_icon_check` (el CHECK antiguo
+  no permitía `salon`). Se corrigió en `sql/16` (y en `sql/15`).
+
+### Pendiente
+
+1. Ejecutar `sql/16_jw_actividades.sql` y recargar.
+2. Completar la prueba en vivo: crear un punto JW, vincular una actividad, verificar el
+   trigger de categoría/grupo, el popup con la actividad, el +20 %, el icono permanente a
+   zoom bajo y el flujo completo “Marcar → crear punto → actividad”.
+3. La RLS con usuarios normales / admin de grupo sigue pendiente (solo hay admins globales).
+
 
 
