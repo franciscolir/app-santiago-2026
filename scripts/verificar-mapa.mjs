@@ -277,9 +277,19 @@ console.log("[6] Vista de mapa: espacio, controles y comportamiento de los punto
   check(/id="map-search-close"/.test(html), "buscador: botón cerrar", "falta #map-search-close");
   check(/function abrirBuscador|const abrirBuscador/.test(main), "buscador: función de apertura", "no abre el buscador");
 
-  // --- controles del mapa a la derecha, colapsables con flecha hacia abajo ---
+  // --- controles del mapa a la derecha, colapsables y en columna vertical ----
   check(/id="map-controls-toggle"/.test(html), "controles: botón colapsable", "falta #map-controls-toggle");
-  check(/id="map-controls-row"/.test(html), "controles: fila horizontal", "falta #map-controls-row");
+  check(/id="map-controls-row"/.test(html), "controles: contenedor de botones", "falta #map-controls-row");
+  check(/id="map-controls-row"[^>]*flex flex-col/.test(html),
+    "controles: los botones se apilan VERTICALMENTE (flex-col)", "la columna no es flex-col");
+  check(/id="map-controls"[^>]*flex flex-col items-end/.test(html),
+    "controles: el conjunto es una columna alineada a la derecha", "#map-controls no es flex-col items-end");
+  const posToggle = html.indexOf('id="map-controls-toggle"');
+  const posFila = html.indexOf('id="map-controls-row"');
+  check(posToggle > -1 && posFila > posToggle,
+    "controles: el botón de colapso queda ARRIBA de la columna", "el toggle no va antes que la fila");
+  check(/id="map-controls-row"[^>]*max-h-\[calc\(100dvh-7rem\)\]/.test(html),
+    "controles: la columna no desborda en pantallas bajas (max-h + scroll)", "falta el max-h de la columna");
   check(/keyboard_arrow_down/.test(html), "controles: flecha hacia abajo", "el botón no usa keyboard_arrow_down");
   check(/rotate-180/.test(main), "controles: la flecha rota al desplegar", "no rota la flecha");
   const bloqueControles = (html.match(/<div id="map-controls"[^>]*>/) || [""])[0];

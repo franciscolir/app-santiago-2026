@@ -17,7 +17,9 @@
 // número (1 punto); líneas del metro con corte en 9,3. Se elimina el medidor.
 // v11: −15 % proporcional en los puntos que reemplazan a los iconos
 // (ESCALA_PUNTO=0.85 sobre los 3 saltos: radio 2,975 / 4,25 / 5,95 px).
-const CACHE_NAME = "app-santiago-2026-v11";
+// v12: controles del mapa en columna vertical a la derecha (botón de colapso
+// arriba y la columna desplegándose hacia abajo).
+const CACHE_NAME = "app-santiago-2026-v12";
 const APP_SHELL = [
   "./",
   "./index.html",

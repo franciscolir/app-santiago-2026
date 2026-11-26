@@ -914,8 +914,8 @@ mercados y clínicas privadas). Se reescribió `scripts/importar-lugares.mjs` y 
 
 1. El mapa debe usar **el máximo espacio posible** y, solo en esa vista, **sin el header**.
 2. El **panel inferior de actividades** colapsable.
-3. Los **botones del mapa a la derecha**, en **fila horizontal**, **colapsables** en un único
-   **botón superior derecho con flecha hacia abajo**.
+3. Los **botones del mapa a la derecha**, en **columna vertical**, **colapsables** en un único
+   **botón superior derecho con flecha hacia abajo** (la columna se despliega hacia abajo).
 4. **Iconos al acercar / punto de color al alejar**: el punto se achica hasta desaparecer.
    Todos los puntos menos los marcados como **fijos**. Al agregar un punto debe existir la
    opción de vista fija.
@@ -927,7 +927,7 @@ mercados y clínicas privadas). Se reescribió `scripts/importar-lugares.mjs` y 
 |---|---|
 | Máximo espacio | `body.vista-mapa` (se activa en `gotoView("mapa")`): oculta `#app > header` y fija `#view-mapa` en `calc(100dvh - 4rem - safe-area)`; el marco pasó de `h-[62vh]` a `h-full` |
 | Panel inferior colapsable | `#mapa-panel-toggle` (asa + flecha) pliega `#mapa-panel-cuerpo` (269 px → 58 px); `colapsarPanelMapa()` reabre el panel al seleccionar una actividad |
-| Controles a la derecha y colapsables | `#map-controls-row` (8 botones en una fila horizontal de 362 px) + `#map-controls-toggle` con `keyboard_arrow_down` que rota 180° al desplegar |
+| Controles a la derecha y colapsables | `#map-controls-row` (**columna vertical** de 9 botones, todos con la misma X a la derecha) + `#map-controls-toggle` **arriba** con `keyboard_arrow_down` que rota 180° al desplegar (§28) |
 | Lupa colapsable | `#map-search-toggle` (lupa) → `#map-search-wrap` con foco automático; `#map-search-close` limpia el filtro |
 | Icono ↔ punto de color | `ZOOM_PUNTO_MIN=10.5`, `ZOOM_ICONO=12.5`, `RADIO_PUNTO_MAX=7` (§27). Capas de lugares: `circle` `${capa}-puntos-mini` (`minzoom:10.5`, `maxzoom:12.5`, radio en 3 saltos) + `symbol` `${capa}-puntos` (`minzoom:12.5`). Puntos propios: `actualizarPuntosSegunZoom()` en el evento `zoom` con las clases `.map-point-punto` / `.map-point-oculto` |
 | Vista fija | Columna `fijo` (`sql/06` y `sql/08_puntos_fijos.sql`), casilla `#point-fijo` en el formulario y `dataset.fijo` en el marcador: el icono se conserva a cualquier zoom |
@@ -1151,5 +1151,24 @@ cinco ajustes en un solo lote:
 - **Medidor de zoom ELIMINADO** (ya no hace falta: los tres momentos están
   calibrados): bloque `#medidores-calibracion` de `index.html`,
   `pintarMedidores()` y sus listeners `zoom`/`move`.
-- `sw.js` → **`CACHE_NAME` v11** (v10 fue el lote de calibración; v11 renueva la
-  precache con el −15 % de los puntos).
+- `sw.js` → **`CACHE_NAME` v12** (v10 fue el lote de calibración, v11 el del −15 % y
+  v12 el de la columna vertical de los controles, §28).
+
+## 28. Controles del mapa en columna vertical (2026-11-26)
+
+| Pedido | Solución | Archivos |
+|---|---|---|
+| Los botones del mapa que colapsan con un botón deben estar **ordenados verticalmente a la derecha** | `#map-controls` pasa de `flex items-start gap-2` a **`flex flex-col items-end gap-1.5`** y `#map-controls-row` de `flex flex-wrap-reverse justify-end` a **`flex flex-col items-end`**: los 9 botones (acercar, alejar, centrar, GPS, satélite, capas, pantalla completa, agregar punto, gestionar puntos) quedan **apilados hacia abajo**, todos con la **misma X** (derecha). El **botón de colapso va ARRIBA** de la columna (`#map-controls-toggle` antes de `#map-controls-row`), así la flecha `keyboard_arrow_down` apunta al contenido que se despliega y rota 180° al abrir | `index.html` |
+| — | La columna lleva `max-h-[calc(100dvh-7rem)] overflow-y-auto no-scrollbar` para que en pantallas bajas no se salga de la pantalla | `index.html` |
+| — | El JS del toggle **no cambia** (misma lógica `hidden` + `aria-expanded` + `rotate-180`): solo cambia el orden en el HTML | `src/main.js` (sin cambios) |
+| — | 5 comprobaciones nuevas en el verificador: `flex flex-col` en la fila, `flex flex-col items-end` en el conjunto, el toggle **antes** de la fila en el HTML, `max-h` de la columna y el `absolute right-3 top-3` | `scripts/verificar-mapa.mjs` |
+
+**Verificación**
+- `node scripts/verificar-mapa.mjs` → **214 pruebas · 0 fallos · 2 avisos**.
+- Navegador (medido con `getBoundingClientRect`): toggle en (856, 12) de 44 × 44 px;
+  desplegado, los 9 botones quedan en **x = 860** (todos iguales), en y = 62, 108, 154,
+  200, 246, 292, 338, 384 y 430 (46 px de paso: 40 px de botón + 6 px de separación),
+  todos **por debajo** del botón de colapso. Colapsado solo queda el toggle
+  (`display:none` en la fila, `aria-expanded="false"`, flecha `keyboard_arrow_down`).
+  **0 errores de consola**.
+- `sw.js` → **`CACHE_NAME` v12**.

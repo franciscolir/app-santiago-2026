@@ -325,11 +325,16 @@ dialog::backdrop { background: rgba(44, 49, 50, .6); backdrop-filter: blur(2px);
           </div>
         </div>
 
-        <!-- Controles del mapa: a la derecha, en fila horizontal y colapsables.
-             Colapsado queda solo el botón con flecha hacia abajo (arriba a la
-             derecha); al presionarlo se despliega el resto. -->
-        <div id="map-controls" class="absolute right-3 top-3 z-[1000] flex items-start gap-2">
-          <div id="map-controls-row" class="hidden flex flex-wrap-reverse justify-end items-center gap-1.5 max-w-[calc(100vw-4rem)]">
+        <!-- Controles del mapa: a la derecha, en columna VERTICAL y colapsables.
+             Colapsado queda solo el botón con flecha (arriba a la derecha); al
+             presionarlo se despliega la columna de botones HACIA ABAJO (por eso
+             la flecha apunta abajo al cerrar y arriba al abrir). -->
+        <div id="map-controls" class="absolute right-3 top-3 z-[1000] flex flex-col items-end gap-1.5">
+          <button type="button" aria-label="Mostrar controles del mapa" aria-expanded="false" id="map-controls-toggle"
+                  class="w-11 h-11 rounded-full bg-surface-container-lowest/95 backdrop-blur-md text-on-primary-container shadow-md flex items-center justify-center flex-shrink-0 active:scale-95 hover:bg-surface transition-all">
+            <span class="material-symbols-outlined text-[22px] transition-transform" id="map-controls-icon">keyboard_arrow_down</span>
+          </button>
+          <div id="map-controls-row" class="hidden flex flex-col items-end gap-1.5 max-h-[calc(100dvh-7rem)] overflow-y-auto no-scrollbar">
             <button aria-label="Acercar mapa" id="map-zoom-in" class="w-10 h-10 rounded-full bg-surface-container-lowest/95 backdrop-blur-md text-on-primary-container shadow-md flex items-center justify-center active:scale-95 hover:bg-surface transition-all">
               <span class="material-symbols-outlined text-[20px]">add</span>
             </button>
@@ -358,10 +363,6 @@ dialog::backdrop { background: rgba(44, 49, 50, .6); backdrop-filter: blur(2px);
               <span class="material-symbols-outlined text-[20px]">format_list_bulleted</span>
             </button>
           </div>
-          <button type="button" aria-label="Mostrar controles del mapa" aria-expanded="false" id="map-controls-toggle"
-                  class="w-11 h-11 rounded-full bg-surface-container-lowest/95 backdrop-blur-md text-on-primary-container shadow-md flex items-center justify-center flex-shrink-0 active:scale-95 hover:bg-surface transition-all">
-            <span class="material-symbols-outlined text-[22px] transition-transform" id="map-controls-icon">keyboard_arrow_down</span>
-          </button>
         </div>
 
         <!-- Modo edición: el admin hace clic en el mapa para ubicar el punto (mapas.txt §9) -->

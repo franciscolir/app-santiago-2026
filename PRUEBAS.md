@@ -20,7 +20,7 @@ Sin dependencias: solo Node.js ≥ 18. Comprueba:
 | 3. Lugares | Un archivo por capa, solo geometrías `Point`, dentro de la RM, campos §8 completos, sin duplicados (categoría+nombre+comuna), subcategorías dentro de la lista permitida por capa (filtros estrictos del usuario) |
 | 4. Frontend | Catálogo de iconos SVG completo (archivo, `viewBox` y tamaño), PNG de respaldo de cada icono, existe el GeoJSON de cada capa del panel, todos los recursos del precache existen, los paraderos no están en el precache, `CACHE_NAME` versionado, sin `onclick` inline (los módulos no exponen globales), sin hooks de depuración, iconos rasterizados sin `map.loadImage`, selector visual de iconos presente |
 | 5. Seguridad y SQL | Sin `service_role` en el frontend (se ignoran los comentarios), `config.js` con publishable key, políticas RLS de `sql/06`, `sql/07` con las 4 terminales y sus `external_id` OSM, `ON CONFLICT` con el predicado del índice parcial (regresión del error 42P10) |
-| 6. Vista de mapa (2026-11-25) | El header se oculta en la vista mapa y el mapa usa `100dvh`; lupa del buscador arriba a la izquierda; controles colapsables arriba a la derecha con flecha hacia abajo y fila horizontal; **panel inferior eliminado** y detalles en el cuadro de mensaje (`#toast-msg`, `mostrarMensaje`); umbrales de zoom y capa de punto de color (`-puntos-mini`) con radio interpolado; puntos con marca de "vista fija"; casilla `#point-fijo` y columna `fijo` en `sql/06`/`sql/08`; el mapa se crea con la **URL** del estilo (no con el objeto, que depende de `requestAnimationFrame`) y quita `ne2_shaded` en `style.load` |
+| 6. Vista de mapa (2026-11-25) | El header se oculta en la vista mapa y el mapa usa `100dvh`; lupa del buscador arriba a la izquierda; controles colapsables arriba a la derecha con flecha hacia abajo y **columna vertical** de botones; **panel inferior eliminado** y detalles en el cuadro de mensaje (`#toast-msg`, `mostrarMensaje`); umbrales de zoom y capa de punto de color (`-puntos-mini`) con radio interpolado; puntos con marca de "vista fija"; casilla `#point-fijo` y columna `fijo` en `sql/06`/`sql/08`; el mapa se crea con la **URL** del estilo (no con el objeto, que depende de `requestAnimationFrame`) y quita `ne2_shaded` en `style.load` |
 | 7. UX del 2026-11-25 | Rampa de zoom en 3 momentos (5 umbrales, radio con meseta e `icon-size` que nunca llega a ser grande); puntos fijos **sin** contorno punteado; **metro unificado** (un interruptor con estaciones + líneas) y rótulo con el nombre bajo el icono; **bomberos en capa propia** (el archivo existe, la seguridad ya no tiene cuarteles y el icono es distinto); etiqueta `.map-point-nombre` bajo el icono; **gestión de puntos del admin** (botón, hoja por tipo, renombrar, mostrar/ocultar, borrar y Guardar) + `sql/09`; **muro naranja** con el botón blanco y letras naranjas; **agenda sin scroll lateral** (`overflow-x: clip`) |
 
 ---
@@ -54,7 +54,7 @@ Sin dependencias: solo Node.js ≥ 18. Comprueba:
 | 24 | Iconos offline | Los iconos SVG ya descargados se sirven desde caché (cache-first del service worker) | ✅ |
 | 25 | Vista mapa a pantalla completa | Al abrir la pestaña **Mapa** desaparece el header y el mapa ocupa todo el alto disponible (614 px de 678 px, descontando la barra de navegación de 64 px) | ✅ |
 | 26 | Buscador colapsable | Arriba a la izquierda hay una **lupa**; al presionarla se abre el input con el foco puesto y al cerrarlo se limpia el filtro | ✅ |
-| 27 | Controles del mapa | Colapsados solo se ve el **botón con flecha hacia abajo** arriba a la derecha; al presionarlo se despliega la fila horizontal de 8 botones a su izquierda y la flecha rota 180° | ✅ |
+| 27 | Controles del mapa | Colapsados solo se ve el **botón con flecha hacia abajo** arriba a la derecha; al presionarlo se despliega la **columna vertical** de 9 botones, todos con la **misma X** (derecha) y **por debajo** del botón, y la flecha rota 180° | ✅ (medido en vivo: x = 860, y = 62…430; `flex flex-col`) |
 | 28 | Panel inferior de actividades | Se pliega a 58 px con la flecha hacia arriba y se despliega de nuevo; al elegir una actividad se reabre | ✅ |
 | 29 | Iconos al acercar / punto al alejar | Cerca (zoom ≥ 12,5) se ve el icono; al alejar aparece el punto del color del pin y se achica en 3 saltos hasta **desaparecer en el zoom 10,5** | ✅ (capas y CSS verificados) |
 | 30 | Vista fija | El formulario de punto tiene la casilla **“Vista fija (mostrar siempre el icono)”**; ese punto conserva su icono a cualquier zoom | ✅ (frontend) |
@@ -80,6 +80,12 @@ Sin dependencias: solo Node.js ≥ 18. Comprueba:
 
 ## 3. Resultados de la corrida automática
 
+- **2026-11-26 (controles del mapa en columna vertical)**: **214 pruebas · 0 fallos · 2 avisos**.
+  - 5 comprobaciones nuevas: `#map-controls-row` con `flex flex-col`, `#map-controls` con
+    `flex flex-col items-end`, el botón de colapso **antes** de la fila en el HTML, la
+    columna con `max-h-[calc(100dvh-7rem)]` y el anclaje `absolute right-3 top-3`.
+  - Verificado en vivo: toggle en (856, 12) y los 9 botones en **x = 860**, y = 62…430,
+    todos por debajo del toggle; **0 errores de consola**.
 - **2026-11-26 (calibración de momentos + −15 % en los puntos)**: **210 pruebas · 0 fallos · 2 avisos**.
   - Nuevo bloque `[8]` (19 comprobaciones): saltos del punto en 11 / 11,8 con corte en
     10,5, `saltoRampa()`, **`ESCALA_PUNTO=0.85` con los tamaños proporcionales**, grupos
@@ -108,8 +114,9 @@ Sin dependencias: solo Node.js ≥ 18. Comprueba:
 - Avisos no bloqueantes del navegador: Tailwind CDN (aviso conocido de producción) y 3 avisos
   de MapLibre (`Expected value to be of type number, but found null instead`) que provienen del
   estilo OpenFreeMap, no del código de la app.
-- El service worker quedó en `app-santiago-2026-v11` (precache renovada tras la
-  calibración de momentos y el −15 % en los puntos; los iconos SVG siguen en cache-first).
+- El service worker quedó en `app-santiago-2026-v12` (precache renovada tras la
+  calibración de momentos, el −15 % en los puntos y la columna vertical de los
+  controles; los iconos SVG siguen en cache-first).
 - **Limitación del navegador embebido de pruebas**: no dispara `requestAnimationFrame`, por lo
   que MapLibre no repinta (`map.loaded()` queda en `false` y `queryRenderedFeatures()` devuelve
   0). Se verificó por otra vía que el estilo se aplica, que `ne2_shaded` se elimina y que las

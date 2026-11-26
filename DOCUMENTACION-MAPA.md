@@ -93,11 +93,13 @@ cambio día a día está en `AGENT.md`; el plan de pruebas está en `PRUEBAS.md`
 - **Buscador colapsable**: arriba a la izquierda hay un botón con forma de **lupa**
   (`#map-search-toggle`); al presionarlo se despliega el input (`#map-search-wrap`) con el
   foco puesto y, al cerrarlo, se limpia el filtro de la lista de actividades.
-- **Controles del mapa a la derecha, en fila horizontal y colapsables**: quedan agrupados
+- **Controles del mapa a la derecha, en columna vertical y colapsables**: quedan agrupados
   en `#map-controls-row` (acercar, alejar, centrar, GPS, satélite, capas, pantalla completa,
-  agregar punto). Colapsados solo se ve el **botón superior derecho con flecha hacia abajo**
-  (`#map-controls-toggle`, `keyboard_arrow_down`); al presionarlo se despliega la fila a su
-  izquierda y la flecha rota 180° (`rotate-180`).
+  agregar punto, gestionar puntos), **apilados verticalmente** y alineados a la derecha
+  (`flex flex-col items-end`). El **botón de colapso va arriba** (`#map-controls-toggle`,
+  `keyboard_arrow_down`): al presionarlo se despliega la columna **hacia abajo** y la flecha
+  rota 180° (`rotate-180`). La columna tiene `max-h-[calc(100dvh-7rem)]` con scroll para no
+  desbordarse en pantallas bajas.
 - **Panel inferior de actividades: ELIMINADO** (2026-11-25). Ya no existe la vista
   inferior colapsable (`#mapa-panel-inferior`, `#mapa-panel-toggle`, `#mapa-panel-cuerpo`):
   los detalles de un **lugar** o de un **evento** se muestran en el **cuadro de mensaje**
@@ -357,7 +359,7 @@ No hay variables de entorno ni claves de mapas私 embebidas en el repositorio: e
 
 Detalle en `PRUEBAS.md`.
 
-- `node scripts/verificar-mapa.mjs` → **210 pruebas, 0 fallos, 2 avisos** (datos, coordenadas,
+- `node scripts/verificar-mapa.mjs` → **214 pruebas, 0 fallos, 2 avisos** (datos, coordenadas,
   duplicados, iconos SVG, vista de mapa a pantalla completa, controles colapsables,
   comportamiento de los puntos según el zoom, vista fija, referencias del frontend, RLS en
   los SQL, columnas existentes en las consultas SQL y ausencia de claves privadas). El bloque
@@ -403,8 +405,13 @@ Detalle en `PRUEBAS.md`.
   ajustes entre capas del metro y los pines de actividad (10,2 → 20,4 px). Verificado
   en vivo con `getPaintProperty`: `["step",["zoom"],2.975,11,4.25,11.8,5.95]` y
   `--punto-tam` 5,95 / 8,5 / 11,9 px; 0 errores de consola.
-- El service worker quedó en `app-santiago-2026-v11` (los iconos SVG se sirven cache-first
-  y la precache se renovó con el −15 % de los puntos del 2026-11-26).
+- Controles del mapa en **columna vertical** (2026-11-26): los botones que colapsan
+  quedaron **apilados hacia abajo, todos alineados a la derecha** (misma X), con el botón
+  de colapso **arriba** y la columna limitada a `100dvh - 7rem` con scroll. Medido en
+  vivo: toggle (856, 12) y botones en x = 860, y = 62…430 (46 px de paso); 0 errores
+  de consola.
+- El service worker quedó en `app-santiago-2026-v12` (los iconos SVG se sirven cache-first
+  y la precache se renovó con la columna vertical de los controles del 2026-11-26).
 
 ---
 
