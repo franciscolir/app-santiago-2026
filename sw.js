@@ -49,7 +49,8 @@
 // v31: categorías eliminables con subcategorías huérfanas y panel de capas
 //      generado desde categorías/subcategorías.
 // v32: botón "Deseleccionar todo" en puntos externos.
-const CACHE_NAME = "app-santiago-2026-v32";
+// v33: las categorías muestran su icono y color en el panel y en ajustes.
+const CACHE_NAME = "app-santiago-2026-v33";
 const APP_SHELL = [
   "./",
   "./index.html",

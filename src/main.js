@@ -2113,12 +2113,12 @@ function gruposPanelCapas(){
   const out=[];
   (state.categorias||[]).filter(c=>c.active!==false).forEach(c=>{
     const items=subcategoriasDeCategoria(c.slug).map(itemCapaDeSub).filter(Boolean);
-    if(items.length) out.push({grupo:c.name,items});
+    if(items.length) out.push({grupo:c.name,categoria:c,items});
   });
   const huerfanas=subcategoriasDeCategoria(null).map(itemCapaDeSub).filter(Boolean);
-  if(huerfanas.length) out.push({grupo:"Sin categoría",items:huerfanas});
+  if(huerfanas.length) out.push({grupo:"Sin categoría",categoria:null,items:huerfanas});
   const app=CAPAS_DEF.flatMap(g=>g.items).filter(it=>["satelite","comunas","actividades","puntos"].includes(it.id));
-  if(app.length) out.push({grupo:"Aplicación",items:app});
+  if(app.length) out.push({grupo:"Aplicación",categoria:null,items:app});
   return out;
 }
 function pintarPanelCapas(){
@@ -2129,7 +2129,10 @@ function pintarPanelCapas(){
   }));
   root.innerHTML=grupos.map(g=>`
     <div class="mt-3 first:mt-0">
-      <p class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wide mb-1.5">${esc(g.grupo)}</p>
+      <p class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wide mb-1.5 flex items-center gap-1.5">
+        ${g.categoria?`<span class="w-2.5 h-2.5 rounded-full flex-shrink-0" style="background:${esc(colorDeCategoria(g.categoria))}"></span><img src="./icons/${esc(iconoDeCategoria(g.categoria))}" alt="" class="w-4 h-4 flex-shrink-0">`:""}
+        <span>${esc(g.grupo)}</span>
+      </p>
       <div class="space-y-1">
         ${g.items.map(it=>{
           const on=it.customSub?capasEstado[it.id]!==false:capasEstado[it.id];
@@ -2206,6 +2209,8 @@ const CATEGORIAS_RESPALDO=[
 ];
 
 function categoriaDe(slug){ return state.categoriasPorSlug[slug]||null; }
+function iconoDeCategoria(c){ return (ICONOS_MAPA[c?.icon]||ICONOS_MAPA.place).svg; }
+function colorDeCategoria(c){ return c?.color || "#006492"; }
 function nombreCategoria(slug){ return categoriaDe(slug)?.name || CATEGORIA_PUNTO[slug] || slug || "General"; }
 function colorCategoria(slug,fallback="#006492"){
   return categoriaDe(slug)?.color || COLOR_PUNTO[slug] || fallback;
@@ -2631,7 +2636,11 @@ function renderAdminCapas(){
     return `<div class="rounded-xl bg-surface-container-low p-3 space-y-2">
       <div class="flex items-start justify-between gap-2">
         <div class="min-w-0">
-          <p class="text-sm font-bold text-on-surface">${esc(nombre)} ${slug?`<span class="text-[11px] font-normal text-on-surface-variant">/${esc(slug)}</span>`:`<span class="text-[10px] font-normal text-on-surface-variant">· esperando asignación</span>`}</p>
+          <p class="text-sm font-bold text-on-surface flex items-center gap-1.5 min-w-0">
+            ${c?`<span class="w-3 h-3 rounded-full flex-shrink-0" style="background:${esc(colorDeCategoria(c))}"></span><img src="./icons/${esc(iconoDeCategoria(c))}" alt="" class="w-4 h-4 flex-shrink-0">`:""}
+            <span class="truncate">${esc(nombre)}</span>
+            ${slug?`<span class="text-[11px] font-normal text-on-surface-variant flex-shrink-0">/${esc(slug)}</span>`:`<span class="text-[10px] font-normal text-on-surface-variant flex-shrink-0">· esperando asignación</span>`}
+          </p>
           <p class="text-[11px] text-on-surface-variant">${subs.length} subcategoría${subs.length===1?"":"s"}</p>
         </div>
         <div class="flex gap-1">
