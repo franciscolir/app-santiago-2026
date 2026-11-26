@@ -40,7 +40,8 @@
 // y contactos generales de emergencia (sql/17).
 // v24: vista Emergencia simplificada: contactos + botón inferior, sin hero SOS.
 // v25: título de la app STGO 2026 | Región 8 (encabezado, login, PWA).
-const CACHE_NAME = "app-santiago-2026-v25";
+// v26: manifest con cache-busting (?v=26) para instalaciones existentes.
+const CACHE_NAME = "app-santiago-2026-v26";
 const APP_SHELL = [
   "./",
   "./index.html",
