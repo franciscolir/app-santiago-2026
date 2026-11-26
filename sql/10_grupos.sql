@@ -386,12 +386,13 @@ $function$;
 
 -- ----------------------------------------------------------------------------
 -- 7) GRANTS
---    - `authenticated` lee la tabla groups (la app muestra el nombre del grupo).
+--    - `authenticated` lee la tabla groups y, con la política RLS de sql/11,
+--      solo el admin global (o el admin de su grupo) puede modificarla.
 --    - `service_role` la necesita la Edge Function login-username.
 --    - `anon` NO tiene select directo: usa la RPC grupos_publicos().
 -- ----------------------------------------------------------------------------
 grant usage on schema public to anon;
-grant select on public.groups to authenticated, service_role;
+grant select, insert, update, delete on public.groups to authenticated, service_role;
 
 -- ----------------------------------------------------------------------------
 -- 8) VERIFICACIÓN

@@ -560,8 +560,8 @@ console.log("[9] Fase 1: grupos, login por grupo y políticas RLS");
     "login: RPC grupos_publicos() expuesta a anon", "el selector de login no tiene fuente");
   check(/create or replace function public\.handle_new_user\(\)[\s\S]{0,1400}group_id/.test(sql10),
     "login: los perfiles nuevos nacen con grupo", "handle_new_user no asigna grupo");
-  check(/grant select on public\.groups to authenticated, service_role/.test(sql10),
-    "grupos: GRANT para authenticated y service_role (Edge Function)", "falta el GRANT de groups");
+  check(/grant select, insert, update, delete on public\.groups to authenticated, service_role/.test(sql10),
+    "grupos: GRANT completo para authenticated y service_role (Edge Function)", "falta el GRANT de groups");
 
   // --- 3) políticas RLS ------------------------------------------------------
   check(/create policy "Miembros consultan su grupo"/.test(sql11) &&
