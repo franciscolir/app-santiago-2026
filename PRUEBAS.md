@@ -56,11 +56,11 @@ Sin dependencias: solo Node.js ≥ 18. Comprueba:
 | 26 | Buscador colapsable | Arriba a la izquierda hay una **lupa**; al presionarla se abre el input con el foco puesto y al cerrarlo se limpia el filtro | ✅ |
 | 27 | Controles del mapa | Colapsados solo se ve el **botón con flecha hacia abajo** arriba a la derecha; al presionarlo se despliega la fila horizontal de 8 botones a su izquierda y la flecha rota 180° | ✅ |
 | 28 | Panel inferior de actividades | Se pliega a 58 px con la flecha hacia arriba y se despliega de nuevo; al elegir una actividad se reabre | ✅ |
-| 29 | Iconos al acercar / punto al alejar | Cerca (zoom ≥ 12,5) se ve el icono; al alejar aparece el punto del color del pin y se achica hasta desaparecer (zoom 7) | ✅ (capas y CSS verificados) |
+| 29 | Iconos al acercar / punto al alejar | Cerca (zoom ≥ 12,5) se ve el icono; al alejar aparece el punto del color del pin y se achica en 3 saltos hasta **desaparecer en el zoom 10,5** | ✅ (capas y CSS verificados) |
 | 30 | Vista fija | El formulario de punto tiene la casilla **“Vista fija (mostrar siempre el icono)”**; ese punto conserva su icono a cualquier zoom | ✅ (frontend) |
 | 31 | Atribución sobre el panel | El control de atribución de MapLibre se reposa sobre el panel (`--mapa-panel-h`: 279 px con el panel abierto, 68 px plegado) | ✅ |
 | 32 | Estilo sin `ne2_shaded` | La fuente inútil se elimina en `style.load` y **las capas propias siguen vivas** (`comunas-*`, `lugares-*`, `satelite-layer`) | ✅ |
-| 33 | Rampa de zoom en 3 momentos | Muy alejado: punto diminuto (zoom 6 → oculto, 9 → 5,2 px) · acercándose: crece poco y mantiene su meseta (zoom 11 → 12 px) · icono: aparece pequeño (zoom 12,5 → 16 px) y crece apenas hasta el techo de **24 px** (zoom 15, meseta) | ✅ (marcadores HTML y capas GeoJSON con `minzoom`/`icon-size` interpolados; calibrado el 2026-11-26) |
+| 33 | Rampa de zoom en saltos | Punto: 7 px (10,5–11) · 10 px (11–11,8) · 14 px (11,8–12,5) y **desaparece por debajo de 10,5** · icono: entra en 12,5 a 16 px y sube hasta **24 px** (zoom 15) | ✅ (marcadores HTML con `saltoRampa()` y capas GeoJSON con `minzoom`/`["step",["zoom"],…]`; calibrado el 2026-11-26) |
 | 34 | Puntos de vista fija | Se ven **exactamente igual** que los demás: sin contorno punteado ni ningún distintivo; solo cambian al no achicarse al alejar | ✅ |
 | 35 | Metro unificado | Un solo interruptor **“Metro (estaciones y líneas)”**: al encenderlo aparecen líneas, estaciones, iconos y rótulos | ✅ (`metro-lineas`, `metro-estaciones`, `metro-combo`, `metro-estaciones-icono`, `metro-combo-icono`, `metro-nombres`) |
 | 36 | Nombre de la estación | Aparece **debajo del icono** al acercarse (zoom ≥ 12,5), sin presionarla | ✅ (`metro-nombres`, `text-anchor: top`) |
@@ -71,11 +71,21 @@ Sin dependencias: solo Node.js ≥ 18. Comprueba:
 | 41 | Muro “Descárgate” | Al presionarlo el fondo se pone naranja (como el botón Publicar) y el botón queda blanco con letras naranjas | ✅ (`linear-gradient(#f25050,#d6a100)`, botón `#fff` / `#d96a00`) |
 | 42 | Agenda sin scroll lateral | A 390 px de ancho la agenda no tiene scroll horizontal (solo vertical) | ✅ (`scrollWidth = clientWidth = 390` en un iframe de 390 px) |
 | 43 | Iconos optimizados | Los 17 SVG del mapa pesan 415 KB en total (antes 3,2 MB) y ninguno supera 400 KB | ✅ (revisión visual de los 17 iconos) |
+| 44 | Grupos sin número | Si hay muchos puntos cerca se muestra **1 punto pequeño** (sin burbuja ni contador); al acercar (zoom 12) se deshacen y en 12,5 se ven los iconos | ✅ (capa `-cluster-count` eliminada; `-cluster` es un círculo con la misma rampa; `clusterMaxZoom` entero) |
+| 45 | Líneas del metro | Se siguen viendo **alejadas** (sobreviven a los puntos, que mueren en 10,5) y **desaparecen por debajo del zoom 9,3** | ✅ (`minzoom: 9.3` en `metro-lineas` y `metrotren-lineas`) |
+| 46 | Textos con corte nítido | En **12,4** desaparecen todos los textos de los iconos y en **12,5** vuelven; el nombre nace en **9 px** y sube en 2 saltos a 10 px (13,5) y 11 px (14,5) | ✅ (`metro-nombres` con `minzoom: 12.5` + `text-size` escalonado; `.map-point-con-nombre` con `--nombre-tam`) |
 
 ---
 
 ## 3. Resultados de la corrida automática
 
+- **2026-11-26 (calibración de momentos)**: **207 pruebas · 0 fallos · 2 avisos**.
+  - Nuevo bloque `[8]` (16 comprobaciones): saltos del punto en 11 / 11,8 con corte en
+    10,5, `saltoRampa()`, grupos sin número (`cluster-count` eliminada y `-cluster` como
+    punto), `clusterMaxZoom` entero, líneas del metro con corte en 9,3, textos con corte
+    nítido en 12,5 y tamaño en 2 saltos (9 → 10 → 11 px) y medidor eliminado.
+  - El test de la rampa del bloque `[7]` pasó de exigir una meseta lineal a exigir el
+    escalón `["step",["zoom"],…]`.
 - **2026-11-25 (lote de UX)**: **191 pruebas · 0 fallos · 2 avisos**.
   - Nuevo bloque `[7]`: rampa de zoom en 3 momentos, puntos fijos sin contorno, metro
     unificado con rótulo, bomberos en capa propia, etiquetas bajo el icono, gestión de
@@ -96,8 +106,8 @@ Sin dependencias: solo Node.js ≥ 18. Comprueba:
 - Avisos no bloqueantes del navegador: Tailwind CDN (aviso conocido de producción) y 3 avisos
   de MapLibre (`Expected value to be of type number, but found null instead`) que provienen del
   estilo OpenFreeMap, no del código de la app.
-- El service worker quedó en `app-santiago-2026-v9` (precache renovada tras el
-  regreso del medidor de zoom; los iconos SVG siguen en cache-first).
+- El service worker quedó en `app-santiago-2026-v10` (precache renovada tras la
+  calibración de momentos; los iconos SVG siguen en cache-first).
 - **Limitación del navegador embebido de pruebas**: no dispara `requestAnimationFrame`, por lo
   que MapLibre no repinta (`map.loaded()` queda en `false` y `queryRenderedFeatures()` devuelve
   0). Se verificó por otra vía que el estilo se aplica, que `ne2_shaded` se elimina y que las

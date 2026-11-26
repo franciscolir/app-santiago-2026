@@ -929,7 +929,7 @@ mercados y clínicas privadas). Se reescribió `scripts/importar-lugares.mjs` y 
 | Panel inferior colapsable | `#mapa-panel-toggle` (asa + flecha) pliega `#mapa-panel-cuerpo` (269 px → 58 px); `colapsarPanelMapa()` reabre el panel al seleccionar una actividad |
 | Controles a la derecha y colapsables | `#map-controls-row` (8 botones en una fila horizontal de 362 px) + `#map-controls-toggle` con `keyboard_arrow_down` que rota 180° al desplegar |
 | Lupa colapsable | `#map-search-toggle` (lupa) → `#map-search-wrap` con foco automático; `#map-search-close` limpia el filtro |
-| Icono ↔ punto de color | `ZOOM_PUNTO_MIN=7`, `ZOOM_ICONO=12.5`, `RADIO_PUNTO_MAX=7`. Capas de lugares: `circle` `${capa}-puntos-mini` (`minzoom:7`, `maxzoom:12.5`, radio interpolado) + `symbol` `${capa}-puntos` (`minzoom:12.5`). Puntos propios: `actualizarPuntosSegunZoom()` en el evento `zoom` con las clases `.map-point-punto` / `.map-point-oculto` |
+| Icono ↔ punto de color | `ZOOM_PUNTO_MIN=10.5`, `ZOOM_ICONO=12.5`, `RADIO_PUNTO_MAX=7` (§27). Capas de lugares: `circle` `${capa}-puntos-mini` (`minzoom:10.5`, `maxzoom:12.5`, radio en 3 saltos) + `symbol` `${capa}-puntos` (`minzoom:12.5`). Puntos propios: `actualizarPuntosSegunZoom()` en el evento `zoom` con las clases `.map-point-punto` / `.map-point-oculto` |
 | Vista fija | Columna `fijo` (`sql/06` y `sql/08_puntos_fijos.sql`), casilla `#point-fijo` en el formulario y `dataset.fijo` en el marcador: el icono se conserva a cualquier zoom |
 | Atribución | `--mapa-panel-h` se recalcula con `ResizeObserver` sobre el panel **y** el mapa (antes quedaba desfasada: 279 px con el panel plegado) |
 
@@ -987,7 +987,7 @@ Pedido del usuario (un solo lote) y cómo quedó resuelto:
 
 | Pedido | Solución | Dónde |
 |---|---|---|
-| Zoom de puntos en **3 momentos** | Rampa con 5 umbrales: `ZOOM_PUNTO_MIN=7`, `ZOOM_PUNTO_MEDIO=9,5`, `ZOOM_PUNTO_MAX=11`, `ZOOM_ICONO=12,5`, `ZOOM_ICONO_MAX=15`; radio 0,8→7 px (meseta entre 11 y 12,5) e `icon-size` 0,25→0,375 = 16→24 px (techo calibrado el 2026-11-26, §26) | `src/main.js` (constantes, `cargarLugares`, `cargarTransporte`, `actualizarPuntosSegunZoom`) |
+| Zoom de puntos en **3 momentos** | Rampa escalonada (§27): `ZOOM_PUNTO_MIN=10,5` (desaparece), `ZOOM_PUNTO_MEDIO=11`, `ZOOM_PUNTO_MAX=11,8`, `ZOOM_ICONO=12,5`, `ZOOM_ICONO_MAX=15`; radio 3,5→5→7 px en 3 saltos, `icon-size` 0,25→0,375 = 16→24 px y texto 9→10→11 px en 2 saltos | `src/main.js` (constantes, `cargarLugares`, `cargarTransporte`, `actualizarPuntosSegunZoom`) |
 | Puntos fijos **sin borde punteado** | Se eliminó la clase `.map-point-admin` y su `outline: dashed`; los fijos solo cambian que no se achican (`data-fijo`) | `src/main.js`, `styles.css` |
 | **Metro en una sola capa** + nombre bajo el icono | Un interruptor “Metro (estaciones y líneas)” (`id: metro`) agrupa líneas, estaciones, iconos y rótulos; la capa `metro-nombres` escribe `nombre` con `text-anchor: top` desde el zoom 12,5 | `src/main.js` (`CAPAS_DEF`, `cargarTransporte`) |
 | **Bomberos separados de la policía** | `data/lugares/seguridad.geojson` quedó con 167 puntos de policía y los 178 cuarteles pasaron a `data/lugares/bomberos.geojson`; dos capas, dos interruptores y dos iconos (`policia.svg`, `bomberos.svg`) | `scripts/separar-bomberos.mjs`, `scripts/importar-lugares.mjs`, `src/main.js` |
@@ -1084,20 +1084,12 @@ Se usaron los medidores temporales de calibración (zoom 0–100 + tamaño de ic
 - **Medidor de tamaño ELIMINADO** tras calibrar (se borró el bloque HTML
   `#medidores-calibracion`, la función `pintarMedidores()` con su listener y los
   listeners `zoom`/`move` en la creación del mapa).
-- **El medidor de zoom VOLVIÓ el 2026-11-26** (commit posterior) con un propósito
-  distinto: calibrar los **3 umbrales de momento** que quedan pendientes. Ahora
-  muestra la barra de zoom (0–100 + zoom real) y tres filas, cada una con su
-  marca de color en la barra:
-  1. **texto bajo icono** (`ZOOM_ICONO` → `.map-point-con-nombre` y
-     `metro-nombres`, hoy 12,5): estado *visible/oculto*;
-  2. **icono ↔ punto** (`ZOOM_ICONO` → capas GeoJSON y marcadores HTML, hoy
-     12,5): estado *icono/punto/oculto*;
-  3. **punto desaparece** (`ZOOM_PUNTO_MIN`, hoy 7): estado *visible/oculto*.
-  El usuario hace zoom hasta el momento deseado, lee el **zoom real** y lo
-  indica; si los tres momentos no comparten el mismo zoom hay que separar
-  `ZOOM_ICONO` en dos constantes (una para el texto y otra para el icono).
-  Para eliminar: mismo procedimiento que arriba (bloque HTML + `pintarMedidores()`
-  + sus 2 listeners + la llamada inicial).
+- **El medidor de zoom VOLVIÓ el 2026-11-26** (commit posterior) para calibrar
+  los **3 umbrales de momento** de la rampa: barra de zoom (0–100 + zoom real) y
+  tres filas con su marca de color (texto bajo icono · icono ↔ punto · punto
+  desaparece). El usuario leyó los valores con él y **quedó eliminado en el §27**
+  (mismo procedimiento que arriba: bloque HTML + `pintarMedidores()` + sus 2
+  listeners + la llamada inicial).
 - **`sw.js` → `CACHE_NAME` v8** (precache renovada: `index.html` y `main.js`
   cambiaron).
 
@@ -1106,3 +1098,55 @@ Se usaron los medidores temporales de calibración (zoom 0–100 + tamaño de ic
 - `CACHE_NAME` → **v9** (el precache v8 guardaba `index.html`/`main.js` sin el
   medidor de zoom; la estrategia de red es network-first, pero el precache se
   renueva para uso offline).
+
+---
+
+## 27. Calibración de momentos de la rampa (2026-11-26, segundo lote)
+
+Con el medidor de zoom (§26) el usuario indicó los momentos exactos y pidió
+cinco ajustes en un solo lote:
+
+| Pedido | Solución | Dónde |
+|---|---|---|
+| **1 · Texto bajo el icono**: nace en el corte círculo↔icono (12,5), más pequeño, y crece hasta el máximo actual (11 px) **en 2 saltos** | `TEXTO_MIN=9` → `TEXTO_MEDIO=10` (zoom 13,5) → `TEXTO_MAX=11` (zoom 14,5). En `metro-nombres`: `"text-size":["step",["zoom"],9,13.5,10,14.5,11]`; en los marcadores HTML: la variable `--nombre-tam` que fija `actualizarPuntosSegunZoom()` (CSS `font-size: var(--nombre-tam, 11px)`) | `src/main.js`, `styles.css` |
+| **2 · Círculos en 3 saltos** al alejar (12,5 → 11,8 → 11) y **desaparecen en 10,5** | `ZOOM_PUNTO_MIN` 7 → **10,5**, `ZOOM_PUNTO_MEDIO` 9,5 → **11**, `ZOOM_PUNTO_MAX` 11 → **11,8**; radio 3,5 → 5 → 7 px con `["step",["zoom"],…]` y `minzoom:10.5` en las capas circle; en HTML la nueva `saltoRampa()` (equivalente JS de `step`) con `TAM_PUNTO_MIN/MEDIO/MAX` = 7/10/14 px. Vale para `-puntos-mini`, `-cluster`, estaciones y combinaciones del metro y MetroTren | `src/main.js` (constantes, `cargarLugares`, `cargarTransporte`, `actualizarPuntosSegunZoom`, `saltoRampa`) |
+| **3 · Sin grupo con número**: si hay muchos cerca, **1 punto pequeño**; al acercar se deshace | Se borró la capa `${fuente}-cluster-count` (el número) y la burbuja `${fuente}-cluster` pasó a ser **un círculo más** con la misma rampa (`minzoom:10.5`, `maxzoom:12.5`, radio 3,5→5→7, color de la capa). El clic en el grupo sigue haciendo zoom a su contenido; el clustering sigue activo (`clusterRadius:52`, `clusterMaxZoom:12`) | `src/main.js` (`cargarLugares`, `aplicarCapas`) |
+| **4 · Líneas del metro visibles alejadas y corte en 9,3** | `const ZOOM_LINEAS_METRO=9.3` y `minzoom:ZOOM_LINEAS_METRO` en `metro-lineas` y `metrotren-lineas`: se ven desde 9,3 hacia arriba (sobreviven a los puntos, que mueren en 10,5) y desaparecen por debajo | `src/main.js` (`cargarTransporte`) |
+| **5 · Corte nítido de textos: 12,4 fuera, 12,5 dentro** | Todos los textos de icono usan el mismo corte `ZOOM_ICONO=12.5`: `metro-nombres` con `minzoom:12.5` y los marcadores HTML con `classList.toggle("map-point-con-nombre", z>=ZOOM_ICONO)` (también los puntos de "vista fija": conservan el icono, pero el nombre obedece al corte) | `src/main.js`, `styles.css` |
+
+### Dos errores que salieron al probar
+
+1. **`clusterMaxZoom` no admite decimales.** Se probó con `ZOOM_ICONO` (12,5) para
+   que los grupos duraran hasta el icono y la fuente revienta con
+   `Error: Invalid array length` (Supercluster hace `new Array(maxZoom+1)`).
+   Quedó en **entero 12**: del zoom 12 al 12,5 los puntos se desagrupan como
+   círculos y en 12,5 pasan a iconos. Hay una prueba que exige
+   `clusterMaxZoom:\d+,clusterRadius`.
+2. **`maxzoom` vs `minzoom` en las líneas.** Un corte con `maxzoom:9.3` esconde
+   las líneas al **acercarse** (se pintan por debajo de 9,3), justo al revés de
+   lo pedido: para desaparecer al **alejar** hace falta `minzoom:9.3`.
+
+### Verificación
+
+- `node scripts/verificar-mapa.mjs` → **207 pruebas · 0 fallos · 2 avisos**
+  (bloque nuevo `[8]` con 16 comprobaciones; el test de la rampa del bloque `[7]`
+  se adaptó al escalón en vez de la meseta lineal).
+- **Navegador** (0 errores de consola, con las capas Metro/Parques/Salud/Seguridad
+  encendidas y barrido de zoom por todos los cortes):
+  | Zoom | Marcador HTML |
+  |---|---|
+  | 6 y 10,4 | oculto (desaparece por debajo de 10,5) |
+  | 10,6 | punto **7 px** |
+  | 11,5 | punto **10 px** |
+  | 12,4 | punto **14 px**, **sin texto** |
+  | 12,5 | icono 16 px + nombre **9 px** |
+  | 13,5 | nombre **10 px** |
+  | 14,5 y 16 | nombre **11 px** (meseta), icono 24 px |
+  Capas leídas con `getLayer`/`getPaintProperty`: `-cluster` y `-puntos-mini`
+  `min 10.5 / max 12.5` con `["step",["zoom"],3.5,11,5,11.8,7]`,
+  `-cluster-count` **no existe**, `metro-lineas` `min 9.3`, `metro-nombres`
+  `min 12.5` con `text-size ["step",["zoom"],9,13.5,10,14.5,11]`.
+- **Medidor de zoom ELIMINADO** (ya no hace falta: los tres momentos están
+  calibrados): bloque `#medidores-calibracion` de `index.html`,
+  `pintarMedidores()` y sus listeners `zoom`/`move`.
+- `sw.js` → **`CACHE_NAME` v10**.

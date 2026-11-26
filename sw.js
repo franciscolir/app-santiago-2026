@@ -11,7 +11,11 @@
 // v9: vuelve el medidor de zoom temporal, ahora con las marcas de los tres
 // umbrales que faltan por calibrar (texto bajo icono, icono ↔ punto, punto
 // desaparece).
-const CACHE_NAME = "app-santiago-2026-v9";
+// v10: calibración de los momentos con el medidor (2026-11-26): punto de
+// color en 3 saltos (12,5 → 11,8 → 11) que desaparece en el zoom 10,5; textos
+// con corte nítido en 12,5 y tamaño en 2 saltos (9 → 10 → 11 px); grupos sin
+// número (1 punto); líneas del metro con corte en 9,3. Se elimina el medidor.
+const CACHE_NAME = "app-santiago-2026-v10";
 const APP_SHELL = [
   "./",
   "./index.html",

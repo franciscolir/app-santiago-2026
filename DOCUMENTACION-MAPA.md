@@ -105,27 +105,42 @@ cambio día a día está en `AGENT.md`; el plan de pruebas está en `PRUEBAS.md`
   resultados del buscador también se listan ahí (`renderMapList()`). El cuadro tiene botón de
   cerrar; los avisos simples siguen usando `showToast()` con autocierre a los 3,5 s.
 
-### 1.7 Comportamiento de los puntos según el zoom (2026-11-25)
+### 1.7 Comportamiento de los puntos según el zoom (calibrado 2026-11-26)
 
-Rampa de **tres momentos**, igual para las capas GeoJSON y para los marcadores HTML:
+Rampa **escalonada en saltos** (no lineal), igual para las capas GeoJSON y para los
+marcadores HTML:
 
 | Momento | Zoom | Qué se ve |
 |---|---|---|
-| 1 · Muy alejado | ≤ 7 | Punto diminuto, casi imperceptible (radio 0,8 px / 2 px de diámetro). |
-| 2 · Acercándose | 7 → 11 | El punto **crece poco** (radio 0,8 → 3,15 → 7 px) y a partir del zoom 11 **se mantiene** (meseta) hasta que aparece el icono. |
-| 3 · Icono | 12,5 → 15 | Aparece el icono **pequeño** (`icon-size` 0,25 = 16 px), **crece un poco** hasta 0,375 = 24 px (zoom 15) y ahí se mantiene: nunca es grande (techo calibrado el 2026-11-26). |
+| 1 · Muy alejado | < 10,5 | **Nada**: el punto de color desaparece (`ZOOM_PUNTO_MIN=10,5`). |
+| 2 · Punto de color | 10,5 → 11 | Punto pequeño: **7 px** de diámetro (radio 3,5 px). |
+| 3 · Punto de color | 11 → 11,8 | 2.º salto: **10 px** (radio 5 px). |
+| 4 · Punto de color | 11,8 → 12,5 | 3.er salto: **14 px** (radio 7 px), el más grande. |
+| 5 · Icono + texto | 12,5 → 15 | Corte **nítido** (en 12,4 desaparece todo, en 12,5 entra): icono **pequeño** (16 px) con su nombre **pequeño** (9 px). El icono crece hasta 24 px (zoom 15) y el texto sube en **2 saltos**: 9 → 10 px (zoom 13,5) → 11 px (zoom 14,5), que ya no crece. |
 
-- **Al acercar** (zoom ≥ 12,5) cada punto muestra su **icono**.
-- **Al alejar** el icono se transforma en un **punto del color del pin** y ese punto se
-  **achica a medida que se aleja hasta desaparecer** (por debajo del zoom 7 no se dibuja).
-  - Capa de lugares (GeoJSON): capa `circle` `${capa}-puntos-mini` (`minzoom: 7`,
-    `maxzoom: 12,5`, `circle-radius` interpolado) + capa `symbol` `${capa}-puntos`
-    (`minzoom: 12,5`, `icon-size` interpolado).
-  - Puntos personalizados: la misma lógica en CSS (`actualizarPuntosSegunZoom()` al evento
-    `zoom`): `.map-point-punto` (círculo de color) y `.map-point-oculto` (desaparecido).
+- Los tres saltos del punto (12,5 → 11,8 → 11) y el corte en 10,5 son
+  `["step",["zoom"],…]` en las capas `circle` (`minzoom: 10,5`, `maxzoom: 12,5`) y
+  `saltoRampa()` en los marcadores HTML (`TAM_PUNTO_MIN/MEDIO/MAX` = 7/10/14 px).
+  - Capa de lugares: `${capa}-puntos-mini` (círculo) + `${capa}-puntos`
+    (`minzoom: 12,5`, `icon-size` interpolado 0,25 → 0,375).
+  - Puntos personalizados: la misma lógica en CSS (`actualizarPuntosSegunZoom()` al
+    evento `zoom`): `.map-point-punto`, `.map-point-oculto` y `--punto-tam`.
+- **Sin grupos con número**: el clustering sigue activo (`clusterRadius: 52`,
+  `clusterMaxZoom: 12`, que debe ser **entero**), pero un grupo se pinta como **1 punto
+  más** del mismo tamaño que los sueltos —sin burbuja grande ni contador—; al acercar
+  (zoom 12) se deshace y en 12,5 se ven los iconos. El clic en el grupo sigue haciendo
+  zoom a su contenido.
+- **Texto bajo el icono**: corte nítido en **12,5** (en 12,4 no está) y tamaño en 2 saltos
+  hasta el máximo de 11 px. En los marcadores HTML lo controla `--nombre-tam`
+  (`font-size: var(--nombre-tam, 11px)` en `.map-point-nombre`); en `metro-nombres`,
+  `"text-size":["step",["zoom"],9,13.5,10,14.5,11]`.
+- **Líneas del metro**: se siguen viendo **alejadas** y desaparecen por debajo del zoom
+  **9,3** (`ZOOM_LINEAS_METRO` y `minzoom` en `metro-lineas` y `metrotren-lineas`):
+  sobreviven a los puntos de color, que mueren en 10,5.
 - **Vista fija**: los puntos marcados como fijos (`fijo = true`, opción `#point-fijo` del
   formulario) **conservan siempre su icono**, a cualquier zoom. Se ven **exactamente igual
-  que los demás**: no llevan ningún contorno punteado ni distintivo visual.
+  que los demás**: no llevan ningún contorno punteado ni distintivo visual. Su **nombre**
+  sí obedece al corte de 12,5 como el resto de los textos.
 - Los pines de **actividad** también se reducen a un punto de color, pero con un **tamaño
   mínimo** (12 px): no desaparecen nunca, para que la sede siempre sea seleccionable.
 
@@ -335,7 +350,7 @@ No hay variables de entorno ni claves de mapas私 embebidas en el repositorio: e
 
 Detalle en `PRUEBAS.md`.
 
-- `node scripts/verificar-mapa.mjs` → **191 pruebas, 0 fallos, 2 avisos** (datos, coordenadas,
+- `node scripts/verificar-mapa.mjs` → **207 pruebas, 0 fallos, 2 avisos** (datos, coordenadas,
   duplicados, iconos SVG, vista de mapa a pantalla completa, controles colapsables,
   comportamiento de los puntos según el zoom, vista fija, referencias del frontend, RLS en
   los SQL, columnas existentes en las consultas SQL y ausencia de claves privadas). El bloque
@@ -369,7 +384,14 @@ Detalle en `PRUEBAS.md`.
 - Fix del fontstack del metro (2026-11-26): `metro-nombres` ahora declara
   `"text-font":["Noto Sans Regular"]` (el default daba 404 en los tiles de
   OpenFreeMap y tumbaba todas las capas `symbol` de la fuente `transporte-estaciones`).
-- El service worker quedó en `app-santiago-2026-v9` (los iconos SVG se sirven cache-first
+- Calibración de los momentos (2026-11-26, segundo lote, verificado en navegador):
+  el punto de color se apaga en **3 saltos** (zoom 11,5 → 10 px · 12,4 → 14 px) y
+  **desaparece por debajo de 10,5**; en 12,4 no hay ni texto ni icono y en 12,5 entran
+  ambos; el nombre nace en **9 px** y sube a 10 px (13,5) y 11 px (14,5); los grupos
+  de puntos ya no muestran número (se pintan como 1 punto más); las líneas del metro
+  tienen `minzoom: 9.3`. Con el medidor de zoom se leyeron los tres umbrales y el
+  medidor quedó **eliminado**.
+- El service worker quedó en `app-santiago-2026-v10` (los iconos SVG se sirven cache-first
   y la precache se renovó con la calibración del 2026-11-26).
 
 ---

@@ -154,13 +154,15 @@ body.vista-mapa .mapa-frame { height: 100% !important; min-height: 0 !important;
   border: none; box-shadow: 0 2px 8px rgba(0,0,0,.35);
 }
 
-/* Nombre del punto debajo del icono (p. ej. "Terminal Alameda"): aparece al
-   acercar el mapa, sin necesidad de presionar el punto. */
+/* Nombre del punto debajo del icono (p. ej. "Terminal Alameda"): aparece con
+   el corte nítido del zoom 12,5 (en 12,4 ya no está) y nace PEQUEÑO: sube en
+   2 saltos (9 → 10 → 11 px) hasta el tamaño máximo actual. Lo calibra
+   `actualizarPuntosSegunZoom()` con la variable --nombre-tam. */
 .map-point-nombre {
   position: absolute; top: 100%; left: 50%; transform: translateX(-50%);
   margin-top: 3px; padding: 1px 7px; border-radius: 999px;
   background: rgba(4,33,48,.82); color: #fff;
-  font-size: 11px; font-weight: 700; line-height: 1.5;
+  font-size: var(--nombre-tam, 11px); font-weight: 700; line-height: 1.5;
   white-space: nowrap; max-width: 180px; overflow: hidden; text-overflow: ellipsis;
   pointer-events: none; display: none;
 }

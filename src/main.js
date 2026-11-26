@@ -483,10 +483,6 @@ function renderMap(){
     });
     // Al cambiar el zoom, los iconos se convierten en puntos de color (§5).
     state.map.on("zoom",actualizarPuntosSegunZoom);
-    // MEDIDOR DE ZOOM TEMPORAL (calibración de los 3 umbrales — ELIMINAR):
-    state.map.on("zoom",pintarMedidores);
-    state.map.on("move",pintarMedidores);
-    pintarMedidores();
     // El arranque se hace con `style.load` (el estilo ya está aplicado y se
     // pueden añadir sources/layers). Si alguna fuente del estilo se demora,
     // el vigilante reintenta: `addSource` lanza si el estilo no está listo.
@@ -839,21 +835,33 @@ const CAPAS_LUGARES={
 // Zoom de los iconos: al alejar, cada lugar se dibuja como un punto de color
 // que se achica hasta desaparecer; al acercar aparece el icono.
 //
-// El usuario pidió TRES momentos bien marcados (2026-11-25):
-//   1) Muy alejado  → punto diminuto, casi imperceptible.
-//   2) Acercándose  → el punto crece poco hasta llegar a su tamaño actual y
-//                      ahí se mantiene (meseta) hasta que aparece el icono.
-//   3) Icono        → aparece PEQUEÑO y sigue creciendo apenas hasta un
-//                      máximo discreto (nunca un tamaño grande).
-const ZOOM_PUNTO_MIN=7;        // punto casi imperceptible
-const ZOOM_PUNTO_MEDIO=9.5;    // crecimiento lento del punto
-const ZOOM_PUNTO_MAX=11;       // tamaño del punto reached (meseta)
-const ZOOM_ICONO=12.5;         // aparece el icono (tamaño pequeño)
+// Calibración del 2026-11-26 (§26 de AGENT.md): el usuario marcó los
+// momentos exactos con el medidor de zoom:
+//   1) Punto/círculo de color → se achica en 3 saltos al ALEJAR el mapa
+//      (12,5 → 11,8 → 11) y DESAPARECE en el zoom 10,5.
+//   2) Círculo ↔ icono        → corte nítido en 12,5: en 12,4 no hay ni
+//      icono ni texto y en 12,5 vuelven los dos.
+//   3) Texto bajo el icono    → nace pequeño en 12,5 y sube en 2 saltos
+//      hasta el tamaño máximo actual (11 px).
+const ZOOM_PUNTO_MIN=10.5;     // el punto de color desaparece
+const ZOOM_PUNTO_MEDIO=11;     // 3.er salto: el punto queda en su tamaño mínimo
+const ZOOM_PUNTO_MAX=11.8;     // 2.º salto: tamaño intermedio
+const ZOOM_ICONO=12.5;         // 1.er salto: icono + texto (corte nítido)
 const ZOOM_ICONO_MAX=15;       // el icono deja de crecer
-const RADIO_PUNTO_MIN=0.8;     // radio (px) del punto casi imperceptible
-const RADIO_PUNTO_MAX=7;       // radio (px) del punto en su meseta
-const TAM_PUNTO_MIN=2;         // diámetro (px) del punto propio casi imperceptible
-const TAM_PUNTO_MAX=12;        // diámetro (px) del punto propio en su meseta
+const RADIO_PUNTO_MIN=3.5;     // radio (px) del punto entre 10,5 y 11
+const RADIO_PUNTO_MEDIO=5;     // radio (px) del punto entre 11 y 11,8
+const RADIO_PUNTO_MAX=7;       // radio (px) del punto entre 11,8 y 12,5
+const TAM_PUNTO_MIN=7;         // diámetro (px) del punto propio más pequeño
+const TAM_PUNTO_MEDIO=10;      // diámetro (px) del punto propio intermedio
+const TAM_PUNTO_MAX=14;        // diámetro (px) del punto propio más grande
+// Texto bajo el icono: aparece pequeño en 12,5 y crece en 2 saltos hasta 11 px.
+const TEXTO_MIN=9;             // px al aparecer el texto (zoom 12,5)
+const TEXTO_MEDIO=10;          // px desde el primer salto
+const TEXTO_MAX=11;            // px: tamaño máximo actual (no vuelve a crecer)
+const ZOOM_TEXTO_MEDIO=13.5;   // 1.er salto del texto (9 → 10 px)
+const ZOOM_TEXTO_MAX=14.5;     // 2.º salto del texto (10 → 11 px)
+// Las líneas del metro se siguen viendo alejadas y desaparecen en el zoom 9,3.
+const ZOOM_LINEAS_METRO=9.3;
 // Calibrado el 2026-11-26 con los medidores temporales (§26 de AGENT.md):
 // `icon-size` 1 ≈ 64 px en pantalla (128 px rasterizados con pixelRatio 2),
 // así que 0,25 → 16 px al aparecer y 0,375 → 24 px como máximo (techo que
@@ -1017,18 +1025,23 @@ async function cargarTransporte(){
   // la estación (sin necesidad de presionarla).
   const idIconoMetro=await asegurarIcono("metro","#e30613");
   const idIconoCombo=await asegurarIcono("metro_combinacion","#f08a00");
+  // Líneas: se siguen viendo ALEJADAS (sobreviven a los puntos de color, que
+  // se apagan en 10,5) y desaparecen por debajo del zoom 9,3 (pedido el
+  // 2026-11-26): por eso el corte es `minzoom`, no `maxzoom`.
   insertarBajoSimbolos({id:"metro-lineas",type:"line",source:"transporte-lineas",
-    filter:["==",["get","tipo"],"metro"],
+    filter:["==",["get","tipo"],"metro"],minzoom:ZOOM_LINEAS_METRO,
     paint:{"line-color":["match",["get","linea"],...Object.entries(COLOR_LINEA).flatMap(([k,v])=>[k,v]),"#e30613"],
            "line-width":3,"line-opacity":0.9}});
   insertarBajoSimbolos({id:"metrotren-lineas",type:"line",source:"transporte-lineas",
-    filter:["==",["get","tipo"],"metrotren"],
+    filter:["==",["get","tipo"],"metrotren"],minzoom:ZOOM_LINEAS_METRO,
     paint:{"line-color":"#0079c2","line-width":3,"line-opacity":0.9}});
-  // Estaciones: punto de color al alejar (mismos 3 momentos que los lugares).
+  // Estaciones: punto de color en 3 saltos (12,5 → 11,8 → 11) que desaparece
+  // en el zoom 10,5; desde 12,5 toma el icono.
   insertarBajoSimbolos({id:"metro-estaciones",type:"circle",source:"transporte-estaciones",
-    filter:["==",["get","tipo"],"metro"],maxzoom:ZOOM_ICONO,
+    filter:["==",["get","tipo"],"metro"],minzoom:ZOOM_PUNTO_MIN,maxzoom:ZOOM_ICONO,
     paint:{"circle-color":"#ffffff",
-            "circle-radius":["interpolate",["linear"],["zoom"],ZOOM_PUNTO_MIN,RADIO_PUNTO_MIN*1.6,ZOOM_PUNTO_MAX,5],
+            "circle-radius":["step",["zoom"],
+              RADIO_PUNTO_MIN,ZOOM_PUNTO_MEDIO,RADIO_PUNTO_MEDIO,ZOOM_PUNTO_MAX,RADIO_PUNTO_MAX-1],
             "circle-stroke-color":"#181c1d","circle-stroke-width":1.5}});
   insertarBajoSimbolos({id:"metro-estaciones-icono",type:"symbol",source:"transporte-estaciones",
     filter:["==",["get","tipo"],"metro"],minzoom:ZOOM_ICONO,
@@ -1036,9 +1049,11 @@ async function cargarTransporte(){
             "icon-size":["interpolate",["linear"],["zoom"],ZOOM_ICONO,ICONO_MIN,ZOOM_ICONO_MAX,ICONO_MAX],
             "icon-allow-overlap":true,"icon-ignore-placement":true}});
   insertarBajoSimbolos({id:"metro-combo",type:"circle",source:"transporte-estaciones",
-    filter:["all",["==",["get","tipo"],"metro"],["==",["get","combinaciones"],true]],maxzoom:ZOOM_ICONO,
+    filter:["all",["==",["get","tipo"],"metro"],["==",["get","combinaciones"],true]],
+    minzoom:ZOOM_PUNTO_MIN,maxzoom:ZOOM_ICONO,
     paint:{"circle-color":"#ffd54f",
-            "circle-radius":["interpolate",["linear"],["zoom"],ZOOM_PUNTO_MIN,RADIO_PUNTO_MIN*2,ZOOM_PUNTO_MAX,7],
+            "circle-radius":["step",["zoom"],
+              RADIO_PUNTO_MIN+1,ZOOM_PUNTO_MEDIO,RADIO_PUNTO_MEDIO+1,ZOOM_PUNTO_MAX,RADIO_PUNTO_MAX+1],
             "circle-stroke-color":"#181c1d","circle-stroke-width":1.5}});
   insertarBajoSimbolos({id:"metro-combo-icono",type:"symbol",source:"transporte-estaciones",
     filter:["all",["==",["get","tipo"],"metro"],["==",["get","combinaciones"],true]],minzoom:ZOOM_ICONO,
@@ -1046,17 +1061,24 @@ async function cargarTransporte(){
             "icon-size":["interpolate",["linear"],["zoom"],ZOOM_ICONO,ICONO_MIN,ZOOM_ICONO_MAX,ICONO_MAX],
             "icon-allow-overlap":true,"icon-ignore-placement":true}});
   insertarBajoSimbolos({id:"metrotren-estaciones",type:"circle",source:"transporte-estaciones",
-    filter:["==",["get","tipo"],"metrotren"],
-    paint:{"circle-color":"#ffffff","circle-radius":5,"circle-stroke-color":"#0079c2","circle-stroke-width":2}});
+    filter:["==",["get","tipo"],"metrotren"],minzoom:ZOOM_PUNTO_MIN,
+    paint:{"circle-color":"#ffffff",
+            "circle-radius":["step",["zoom"],
+              RADIO_PUNTO_MIN,ZOOM_PUNTO_MEDIO,RADIO_PUNTO_MEDIO,ZOOM_PUNTO_MAX,RADIO_PUNTO_MAX],
+            "circle-stroke-color":"#0079c2","circle-stroke-width":2}});
 
   // Rótulos de estación: nombre DEBAJO del icono, al acercar el mapa.
   // `text-font` EXPLÍCITO: sin él se usa el fontstack por defecto de MapLibre
   // ("Open Sans Regular"), que tiles.openfreemap.org NO sirve (404). Ese 404
   // hace que el worker rechace el tile entero → las capas symbol de ESTA fuente
   // (iconos y nombres del metro) dejan de renderizar en los zooms medios.
+  // Texto: corte NÍTIDO en 12,5 (en 12,4 desaparece, en 12,5 aparece) y
+  // tamaño en 2 saltos: 9 px al nacer → 10 px → 11 px (tamaño máximo).
   map.addLayer({id:"metro-nombres",type:"symbol",source:"transporte-estaciones",
     filter:["==",["get","tipo"],"metro"],minzoom:ZOOM_ICONO,
-    layout:{"text-field":["get","nombre"],"text-size":11,"text-offset":[0,2.2],"text-anchor":"top",
+    layout:{"text-field":["get","nombre"],
+             "text-size":["step",["zoom"],TEXTO_MIN,ZOOM_TEXTO_MEDIO,TEXTO_MEDIO,ZOOM_TEXTO_MAX,TEXTO_MAX],
+             "text-offset":[0,2.2],"text-anchor":"top",
              "text-max-width":14,"text-allow-overlap":false,"text-font":["Noto Sans Regular"]},
     paint:{"text-color":"#ffffff","text-halo-color":"#0b2b3d","text-halo-width":1.6}});
 
@@ -1105,26 +1127,29 @@ async function cargarLugares(capa){
   const idIcono=await asegurarIcono(claveIcono,cfg.color);
 
   const fuente=`lugares-${capa}`;
-  // `clusterMaxZoom: 12`: desde el zoom 12 los puntos ya no se agrupan, así el
-  // punto de color (hasta zoom 12,5) y luego el icono encadenan sin huecos.
+  // El clustering sigue activo (la RM tiene miles de puntos), pero SIN grupo
+  // visible: un grupo se pinta como UN SOL punto del mismo tamaño que los
+  // sueltos y sin número (pedido el 2026-11-26: "si hay muchos cerca solo
+  // muestra 1 pequeño; al ir acercando se muestran los demás"). Al llegar al
+  // zoom 12 los puntos dejan de agruparse y se separan hasta el icono (12,5).
+  // OJO: `clusterMaxZoom` DEBE ser un entero — Supercluster hace
+  // `new Array(maxZoom+1)` y con 12,5 revienta con "Invalid array length".
   map.addSource(fuente,{type:"geojson",data:geo,cluster:true,clusterMaxZoom:12,clusterRadius:52});
 
-  // Burbujas de grupo: tamaño según la cantidad de puntos.
+  // Grupo = un punto de color más, sin burbuja ni número. Se apaga en los
+  // mismos 3 saltos que los sueltos y desaparece en el zoom 10,5.
   insertarBajoSimbolos({id:`${fuente}-cluster`,type:"circle",source:fuente,
-    filter:["has","point_count"],
-    paint:{"circle-color":["step",["get","point_count"],cfg.color,50,cfg.color,200,"#e8590c",750,"#c2255c"],
-           "circle-radius":["step",["get","point_count"],16,50,20,200,25,750,31],
-           "circle-stroke-color":"#ffffff","circle-stroke-width":1.5,"circle-opacity":0.92}});
-  // Número de puntos dentro del grupo.
-  insertarBajoSimbolos({id:`${fuente}-cluster-count`,type:"symbol",source:fuente,
-    filter:["has","point_count"],
-    layout:{"text-field":["get","point_count_abbreviated"],"text-size":12,"text-font":["Noto Sans Regular"]},
-    paint:{"text-color":"#ffffff"}});
+    filter:["has","point_count"],minzoom:ZOOM_PUNTO_MIN,maxzoom:ZOOM_ICONO,
+    paint:{"circle-color":cfg.color,
+           "circle-radius":["step",["zoom"],
+             RADIO_PUNTO_MIN,ZOOM_PUNTO_MEDIO,RADIO_PUNTO_MEDIO,ZOOM_PUNTO_MAX,RADIO_PUNTO_MAX],
+           "circle-opacity":0.92,
+           "circle-stroke-color":"#ffffff","circle-stroke-width":1}});
   // Puntos sueltos: icono SVG en vez de círculo de color.
   // - Cerca (zoom >= ZOOM_ICONO): se ve el icono, que aparece PEQUEÑO y crece
   //   apenas hasta ICONO_MAX (nunca un tamaño grande).
-  // - Lejos (zoom < ZOOM_ICONO): punto de color casi imperceptible que crece
-  //   poco hasta RADIO_PUNTO_MAX y ahí se mantiene hasta que aparece el icono.
+  // - Lejos (10,5 <= zoom < 12,5): punto de color que se achica en 3 saltos
+  //   (12,5 → 11,8 → 11) y desaparece por debajo del zoom 10,5.
   insertarBajoSimbolos({id:`${fuente}-puntos`,type:"symbol",source:fuente,
     filter:["!",["has","point_count"]],minzoom:ZOOM_ICONO,
     layout:{"icon-image":idIcono,
@@ -1133,11 +1158,8 @@ async function cargarLugares(capa){
   insertarBajoSimbolos({id:`${fuente}-puntos-mini`,type:"circle",source:fuente,
     filter:["!",["has","point_count"]],minzoom:ZOOM_PUNTO_MIN,maxzoom:ZOOM_ICONO,
     paint:{"circle-color":cfg.color,
-            "circle-radius":["interpolate",["linear"],["zoom"],
-              ZOOM_PUNTO_MIN,RADIO_PUNTO_MIN,
-              ZOOM_PUNTO_MEDIO,RADIO_PUNTO_MAX*0.45,
-              ZOOM_PUNTO_MAX,RADIO_PUNTO_MAX,
-              ZOOM_ICONO,RADIO_PUNTO_MAX],
+            "circle-radius":["step",["zoom"],
+              RADIO_PUNTO_MIN,ZOOM_PUNTO_MEDIO,RADIO_PUNTO_MEDIO,ZOOM_PUNTO_MAX,RADIO_PUNTO_MAX],
             "circle-opacity":0.92,
             "circle-stroke-color":"#ffffff","circle-stroke-width":1}});
 
@@ -1275,7 +1297,7 @@ function aplicarCapas(){
     if(it.capas) it.capas.forEach(id=>{ if(map.getLayer(id)) map.setLayoutProperty(id,"visibility",vis); });
     if(it.capaLugares){
       const f=`lugares-${it.capaLugares}`;
-      [`${f}-cluster`,`${f}-cluster-count`,`${f}-puntos`,`${f}-puntos-mini`].forEach(id=>{
+      [`${f}-cluster`,`${f}-puntos`,`${f}-puntos-mini`].forEach(id=>{
         if(map.getLayer(id)) map.setLayoutProperty(id,"visibility",vis);
       });
     }
@@ -1434,78 +1456,62 @@ function interpolarRampa(z, puntos){
   return puntos[puntos.length-1][1];
 }
 
-// ══ MEDIDOR DE ZOOM TEMPORAL (ELIMINAR tras calibrar los 3 umbrales) ══
-// Panel `#medidores-calibracion` (index.html): barra de zoom (0–100 + zoom
-// real) con las marcas de los tres momentos de la rampa que faltan por
-// calibrar (el usuario lee el "zoom real" deseado y lo indica):
-//   1) corte del texto bajo el icono    → ZOOM_ICONO (`.map-point-con-nombre`
-//      y la capa `metro-nombres`, hoy 12,5)
-//   2) paso icono ↔ punto de color      → ZOOM_ICONO (capas GeoJSON y
-//      marcadores HTML, hoy 12,5)
-//   3) desaparición de los puntos color → ZOOM_PUNTO_MIN (hoy 7)
-// Las tres filas muestran el umbral actual (leen las constantes del §5, así
-// que se solas al cambiarlas) y el estado con el zoom en que se está.
-function pintarMedidores(){
-  const cont=document.getElementById("medidores-calibracion");
-  if(!cont) return;
-  const set=(id,v)=>{const el=document.getElementById(id); if(el) el.textContent=v;};
-  const pctBarra=(id,pct)=>{const el=document.getElementById(id); if(el) el.style.width=`${Math.max(0,Math.min(100,pct))}%`;};
-  const pctMarca=(id,pct)=>{const el=document.getElementById(id); if(el) el.style.left=`${Math.max(0,Math.min(100,pct))}%`;};
-  const mapa=state.map;
-  if(!mapa){ set("med-zoom-valor","—"); set("med-zoom-real","sin mapa"); return; }
-  const zoom=mapa.getZoom();
-  const zMin=mapa.getMinZoom(), zMax=mapa.getMaxZoom();
-  const pct=z=>zMax>zMin?((z-zMin)/(zMax-zMin))*100:0;
-  // Barra de zoom (0–100) + zoom real.
-  const escala=pct(zoom);
-  set("med-zoom-valor",String(Math.round(escala)));
-  pctBarra("med-zoom-barra",escala);
-  set("med-zoom-real",zoom.toFixed(1));
-  // Los tres momentos: umbral + estado con el zoom actual.
-  set("med-umbral-texto",ZOOM_ICONO.toFixed(1));
-  set("med-estado-texto",zoom>=ZOOM_ICONO?"visible":"oculto");
-  set("med-umbral-icono",ZOOM_ICONO.toFixed(1));
-  set("med-estado-icono",zoom>=ZOOM_ICONO?"icono":(zoom>=ZOOM_PUNTO_MIN?"punto":"oculto"));
-  set("med-umbral-punto",ZOOM_PUNTO_MIN.toFixed(1));
-  set("med-estado-punto",zoom>=ZOOM_PUNTO_MIN?"visible":"oculto");
-  // Marcas de color en la barra (1 y 2 comparten zoom hoy: una sale arriba y
-  // la otra abajo para que las dos se vean).
-  pctMarca("med-marca-texto",pct(ZOOM_ICONO));
-  pctMarca("med-marca-icono",pct(ZOOM_ICONO));
-  pctMarca("med-marca-punto",pct(ZOOM_PUNTO_MIN));
+// Igual que `interpolarRampa`, pero el valor cambia DE GOLPE en cada zoom
+// (los "saltos" que pidió el usuario el 2026-11-26): es el equivalente JS de
+// `["step",["zoom"],...]` de MapLibre, para que los marcadores HTML sigan la
+// misma rampa escalonada que las capas GeoJSON.
+//   pasos: [[zoom, valor], ...] de menor a mayor; antes del primer zoom se
+//   queda en el primer valor.
+function saltoRampa(z, pasos){
+  let valor=pasos[0][1];
+  for(const [zw,val] of pasos){ if(z>=zw) valor=val; }
+  return valor;
 }
-document.getElementById("medidores-ocultar")?.addEventListener("click",()=>{
-  document.getElementById("medidores-calibracion")?.remove();
-});
-// ══ FIN MEDIDOR DE ZOOM TEMPORAL ══
 
 function actualizarPuntosSegunZoom(){
   const map=state.map; if(!map) return;
   const z=map.getZoom();
-  // Tamaño del punto (px de diámetro): diminuto → meseta.
-  const tamPunto=interpolarRampa(z,[
-    [ZOOM_PUNTO_MIN,TAM_PUNTO_MIN],
-    [ZOOM_PUNTO_MEDIO,TAM_PUNTO_MAX*0.5],
-    [ZOOM_PUNTO_MAX,TAM_PUNTO_MAX],
-    [ZOOM_ICONO,TAM_PUNTO_MAX],
+  // Diámetro del punto (px): se achica en 3 saltos al ALEJAR el mapa
+  // (12,5 → 11,8 → 11) y desaparece por debajo del zoom 10,5. Es el mismo
+  // escalón que las capas GeoJSON (["step",["zoom"],...]).
+  const tamPunto=saltoRampa(z,[
+    [ZOOM_PUNTO_MIN,TAM_PUNTO_MIN],     // 10,5 → 11: 7 px
+    [ZOOM_PUNTO_MEDIO,TAM_PUNTO_MEDIO], // 11 → 11,8: 10 px
+    [ZOOM_PUNTO_MAX,TAM_PUNTO_MAX],     // 11,8 → 12,5: 14 px
   ]);
   // Tamaño del icono (px): pequeño al aparecer → mismo techo que las capas
   // GeoJSON (calibrado 2026-11-26: 16 px al zoom 12,5 → 24 px al zoom 15).
   const tamIcono=interpolarRampa(z,[[ZOOM_ICONO,16],[ZOOM_ICONO_MAX,24]]);
+  // Texto bajo el icono: nace pequeño en el zoom 12,5 y sube en 2 saltos
+  // hasta el tamaño máximo actual (11 px).
+  const tamTexto=saltoRampa(z,[
+    [ZOOM_ICONO,TEXTO_MIN],         // 12,5 → 13,5: 9 px
+    [ZOOM_TEXTO_MEDIO,TEXTO_MEDIO], // 13,5 → 14,5: 10 px
+    [ZOOM_TEXTO_MAX,TEXTO_MAX],     // desde 14,5: 11 px (no vuelve a crecer)
+  ]);
   state.pointMarkers.forEach(m=>{
     const el=m.getElement&&m.getElement(); if(!el) return;
     const fijo=el.dataset.fijo==="1";
     el.style.setProperty("--icono-tam",tamIcono.toFixed(1)+"px");
-    // El icono (y su nombre) se muestran si el punto es fijo o si ya estamos
-    // suficientemente cerca.
-    if(fijo||z>=ZOOM_ICONO){
+    el.style.setProperty("--nombre-tam",tamTexto+"px");
+    // Texto: corte NÍTIDO en 12,5 (en 12,4 desaparece y en 12,5 aparece).
+    // Vale también para los puntos de "vista fija": ellos conservan el icono,
+    // pero el nombre obedece al mismo corte que el resto.
+    el.classList.toggle("map-point-con-nombre",z>=ZOOM_ICONO);
+    // Los puntos de vista fija nunca se achican ni desaparecen.
+    if(fijo){
       el.classList.remove("map-point-punto","map-point-oculto");
-      el.classList.add("map-point-con-nombre");
       el.style.removeProperty("--punto-tam");
       return;
     }
-    el.classList.remove("map-point-con-nombre");
-    if(z<=ZOOM_PUNTO_MIN){
+    // Cerca (zoom >= 12,5): icono.
+    if(z>=ZOOM_ICONO){
+      el.classList.remove("map-point-punto","map-point-oculto");
+      el.style.removeProperty("--punto-tam");
+      return;
+    }
+    // Lejos: punto de color en 3 saltos; por debajo de 10,5 desaparece.
+    if(z<ZOOM_PUNTO_MIN){
       el.classList.add("map-point-oculto");
       el.classList.remove("map-point-punto");
       return;
@@ -1514,7 +1520,9 @@ function actualizarPuntosSegunZoom(){
     el.classList.add("map-point-punto");
     el.style.setProperty("--punto-tam",tamPunto.toFixed(1)+"px");
   });
-  const tam=Math.max(12,Math.min(30,Math.round(10+(tamPunto/TAM_PUNTO_MAX)*20)));
+  // Pines de actividad: NO desaparecen (hay que poder seleccionarlos), solo
+  // se reducen a un punto de color (12 → 24 px con la rampa nueva).
+  const tam=Math.max(12,Math.min(24,Math.round((tamPunto/TAM_PUNTO_MAX)*24)));
   state.markers.forEach(m=>{
     const el=m.getElement&&m.getElement(); if(!el) return;
     el.classList.toggle("modo-punto",z<ZOOM_ICONO);

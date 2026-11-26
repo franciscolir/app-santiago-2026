@@ -378,8 +378,10 @@ console.log("[7] UX del 2026-11-25: zoom escalonado, metro, bomberos, puntos, mu
     "zoom: los cinco umbrales de la rampa están definidos", "faltan ZOOM_PUNTO_MEDIO / ZOOM_PUNTO_MAX / ZOOM_ICONO_MAX");
   check(/const RADIO_PUNTO_MIN\s*=/.test(main) && /const RADIO_PUNTO_MAX\s*=/.test(main),
     "zoom: radio mínimo y máximo del punto", "faltan RADIO_PUNTO_MIN / RADIO_PUNTO_MAX");
-  check(/ZOOM_PUNTO_MIN,RADIO_PUNTO_MIN,[\s\S]{0,120}ZOOM_PUNTO_MAX,RADIO_PUNTO_MAX,[\s\S]{0,80}ZOOM_ICONO,RADIO_PUNTO_MAX/.test(main),
-    "zoom: el punto crece poco y mantiene su meseta hasta el icono", "la rampa del radio no tiene meseta antes del icono");
+  check(/\["step",\["zoom"\],\s*RADIO_PUNTO_MIN,ZOOM_PUNTO_MEDIO,RADIO_PUNTO_MEDIO,ZOOM_PUNTO_MAX,RADIO_PUNTO_MAX/.test(main),
+    "zoom: el punto se achica en 3 saltos (12,5 → 11,8 → 11)", "falta el escalón del radio");
+  check(/minzoom:ZOOM_PUNTO_MIN,maxzoom:ZOOM_ICONO/.test(main),
+    "zoom: el punto de color desaparece en el zoom 10,5", "falta minzoom:ZOOM_PUNTO_MIN en la capa");
   check(/ZOOM_ICONO,ICONO_MIN,ZOOM_ICONO_MAX,ICONO_MAX/.test(main),
     "zoom: el icono aparece pequeño y crece apenas hasta su máximo", "falta la rampa de icon-size");
   check(/ICONO_MAX\s*=\s*0\.\d+/.test(main) && /0\.\d+/.test(main),
@@ -454,6 +456,53 @@ console.log("[7] UX del 2026-11-25: zoom escalonado, metro, bomberos, puntos, mu
     "agenda: sin scroll lateral (overflow-x: clip)", "falta overflow-x en #view-agenda");
   check(/#view-agenda \.activity-card/.test(css),
     "agenda: las tarjetas se adaptan al ancho", "faltan reglas de ancho en la agenda");
+}
+
+// ------------------- 8. calibración de momentos del 2026-11-26 ---------------
+console.log("[8] Calibración 2026-11-26: 3 saltos del punto, corte de textos, grupos sin número");
+{
+  const main = leerTexto("src/main.js") || "";
+  const html = leerTexto("index.html") || "";
+  const css = leerTexto("styles.css") || "";
+
+  // --- 1) puntos de color: 3 saltos y desaparición en 10,5 -------------------
+  check(/const ZOOM_PUNTO_MIN\s*=\s*10\.5/.test(main),
+    "punto: desaparece en el zoom 10,5", "ZOOM_PUNTO_MIN ya no es 10,5");
+  check(/const ZOOM_PUNTO_MEDIO\s*=\s*11/.test(main) && /const ZOOM_PUNTO_MAX\s*=\s*11\.8/.test(main),
+    "punto: saltos en los zooms 11 y 11,8", "faltan los umbrales 11 / 11,8");
+  check(/saltoRampa/.test(main), "punto: escalón en los marcadores HTML (saltoRampa)", "falta saltoRampa");
+  check(/-puntos-mini[\s\S]{0,300}RADIO_PUNTO_MIN,ZOOM_PUNTO_MEDIO,RADIO_PUNTO_MEDIO,ZOOM_PUNTO_MAX,RADIO_PUNTO_MAX/.test(main),
+    "punto: los círculos GeoJSON bajan en 3 saltos", "la rampa de -puntos-mini no escalona");
+
+  // --- 2) grupos: 1 punto pequeño, sin número -------------------------------
+  check(!/cluster-count/.test(main) && !/point_count_abbreviated/.test(main),
+    "grupos: sin capa de número (cluster-count eliminada)", "sigue el contador de puntos");
+  check(/-cluster`,type:"circle"[\s\S]{0,260}minzoom:ZOOM_PUNTO_MIN/.test(main),
+    "grupos: el grupo se pinta como 1 punto (con el mismo corte en 10,5)", "el grupo no usa la rampa de puntos");
+  check(/clusterMaxZoom:\d+,clusterRadius/.test(main),
+    "grupos: clusterMaxZoom entero (un decimal rompe Supercluster)", "clusterMaxZoom no es un entero");
+
+  // --- 3) líneas del metro: visibles alejadas y corte en 9,3 ---------------
+  check(/const ZOOM_LINEAS_METRO\s*=\s*9\.3/.test(main),
+    "metro: las líneas desaparecen en el zoom 9,3", "ZOOM_LINEAS_METRO no es 9,3");
+  check(/id:"metro-lineas"[\s\S]{0,220}minzoom:ZOOM_LINEAS_METRO/.test(main),
+    "metro: corte de las líneas en 9,3 (visibles desde 9,3 hacia arriba)", "metro-lineas no tiene minzoom");
+
+  // --- 4) textos: corte nítido 12,4 / 12,5 y tamaño en 2 saltos ------------
+  check(/const ZOOM_ICONO\s*=\s*12\.5/.test(main),
+    "texto: el corte es en 12,5 (12,4 sin texto)", "ZOOM_ICONO ya no es 12,5");
+  check(/classList\.toggle\("map-point-con-nombre",z>=ZOOM_ICONO\)/.test(main),
+    "texto: corte nítido en los marcadores HTML", "el nombre no obedece a z>=ZOOM_ICONO");
+  check(/id:"metro-nombres"[\s\S]{0,420}"text-size":\["step",\["zoom"\],TEXTO_MIN,ZOOM_TEXTO_MEDIO,TEXTO_MEDIO,ZOOM_TEXTO_MAX,TEXTO_MAX\]/.test(main),
+    "texto: tamaño del rótulo en 2 saltos (9 → 10 → 11 px)", "metro-nombres no escalona el text-size");
+  check(/font-size:\s*var\(--nombre-tam/.test(css),
+    "texto: el nombre del marcador usa --nombre-tam", "falta var(--nombre-tam) en .map-point-nombre");
+  check(/const TEXTO_MAX\s*=\s*11/.test(main),
+    "texto: el tamaño máximo sigue siendo 11 px", "TEXTO_MAX ya no es 11");
+
+  // --- 5) el medidor de zoom quedó fuera ------------------------------------
+  check(!/medidores-calibracion/.test(html) && !/pintarMedidores/.test(main),
+    "medidor: eliminado tras calibrar", "sigue el medidor de zoom");
 }
 
 // ---------------------------------------------------------------- resumen ----
