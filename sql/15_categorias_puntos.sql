@@ -156,11 +156,17 @@ update public.map_points p
    set group_id = pr.group_id
   from public.profiles pr
  where p.group_id is null
+   and p.scope = 'group'
    and pr.id = p.created_by;
 
 update public.map_points
    set group_id = (select id from public.groups where slug = 'principal')
  where group_id is null and scope = 'group';
+
+-- Los puntos GLOBALES no llevan grupo, aunque su autor pertenezca a uno.
+update public.map_points
+   set group_id = null
+ where scope = 'global';
 
 -- Constraints (después del backfill para no validar datos intermedios).
 do $$

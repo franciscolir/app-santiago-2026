@@ -148,8 +148,10 @@ function sincronizarGrupoVisible(){
 // personal. La separación REAL de datos la aplican las políticas RLS.
 function esAdminDeGrupo(){ return isAdmin() || !!state.profile?.group_admin; }
 // ¿El usuario actual puede gestionar ESTE punto? El admin de grupo solo los
-// de su grupo; los globales (group_id null) quedan para el admin global.
-function puntoGestionable(p){ return isAdmin() || (!!p.group_id && p.group_id===state.groupId); }
+// de su grupo; los globales quedan para el admin global.
+function puntoGestionable(p){
+  return isAdmin() || (scopeDe(p)!=="global" && !!p.group_id && p.group_id===state.groupId);
+}
 // Filtra una consulta por el grupo activo. Si la migración aún no está aplicada
 // (state.groupId null), la deja tal cual: la app sigue funcionando.
 function filtrarGrupo(q){ return state.groupId ? q.eq("group_id",state.groupId) : q; }

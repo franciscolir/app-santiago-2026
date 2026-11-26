@@ -1365,24 +1365,37 @@ categoría y visibilidad global/grupo.
 
 ### Verificación
 
-- `node scripts/verificar-mapa.mjs` → **291 pruebas · 0 fallos · 2 avisos** (bloque `[10]`
-  nuevo con 26 comprobaciones).
+- `node scripts/verificar-mapa.mjs` → **292 pruebas · 0 fallos · 2 avisos** (bloque `[10]`
+  con 27 comprobaciones).
 - Navegador **antes** de aplicar `sql/15`: modo respaldo con el catálogo antiguo, 6 puntos
   (2 generales + 4 terminales en Transporte), hoja de gestión con conteos `2/2` y `4/4`,
   buscador (`sur` → 1), seleccionar/deseleccionar y contador, formulario con alcance/grupo,
   **0 errores JS** (el 404 es la tabla `map_categories` aún no creada).
+- **En vivo con `sql/15` aplicado**:
+  - **19 categorías** (12 nuevas + 7 conservadas); los 4 terminales siguen en `transporte`.
+  - Color de `transporte` cambiado a `#ff00ff`: guardado, aplicado a los 4 marcadores y
+    **persistente tras recargar**; revertido a `#0f7fd4`.
+  - Terminal Alameda desactivado: contador `3/4`, marcador **atenuado** para el admin,
+    persistente; reactivado.
+  - Punto **Kiosco** (grupo principal) creado con icono `store` y color `#7048e8`, visible en
+    la categoría `1/1`, y **borrado** (vuelve a 6 puntos).
+  - Metro `#f2b705` y parques `#2e9e4f` leídos con `getPaintProperty` en las capas externas.
+  - **Detalle corregido**: los puntos globales conservaban el `group_id` del autor (la
+    visibilidad era correcta, el dato no). Se agregó `group_id=null where scope='global'` y
+    `puntoGestionable()` exige que el punto no sea global. **Re-ejecutar `sql/15`** (o el
+    `update` de limpieza) para corregir los datos.
+- **Pendiente**: RLS de puntos con un **usuario normal** y con un **admin de grupo** (tras la
+  limpieza solo quedan `admin` y `test`, ambos admins globales).
 - `sw.js` → **v15**.
 
 ### Pendiente
 
-1. Ejecutar `sql/15_categorias_puntos.sql` y recargar.
-2. Probar: color por categoría en el mapa (incluido el metro), guardado del color, selección
-   individual persistente, punto general **global** vs **de grupo**, y que un admin de grupo
-   no pueda editar puntos globales.
-3. Limpiar el perfil de prueba `test1` (Dashboard → Authentication) y el grupo
-   `prueba_acceso` (`delete from public.groups where slug = 'prueba_acceso';` después de
-   borrar el usuario).
-4. `schema.sql` sigue desactualizado (se regenerará en la Fase 7 del plan).
+1. Re-ejecutar `sql/15_categorias_puntos.sql` (o ejecutar
+   `update public.map_points set group_id = null where scope = 'global';`) para limpiar el
+   `group_id` de los puntos globales.
+2. Probar la RLS de puntos con un usuario normal y con un admin de grupo (crear uno temporal
+   si se quiere verificar en vivo; los únicos perfiles actuales son admins globales).
+3. `schema.sql` sigue desactualizado (se regenerará en la Fase 7 del plan).
 
 
 

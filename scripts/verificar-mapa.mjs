@@ -720,6 +720,9 @@ console.log("[10] Fase 2: categorías, color por categoría y alcance global/gru
   check(/set scope = 'global', group_id = null/.test(sql15),
     "alcance: los puntos generales existentes quedan globales",
     "no se hace el backfill de los puntos generales");
+  check(/set group_id = null\s+where scope = 'global'/.test(sql15),
+    "alcance: los puntos globales no conservan group_id",
+    "un punto global queda con el grupo de su autor");
   check(/create trigger map_points_asignar_grupo/.test(sql15) &&
         /asignar_grupo_punto/.test(sql15),
     "alcance: trigger de compatibilidad rellena grupo/scope", "falta el trigger");
