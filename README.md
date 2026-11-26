@@ -87,6 +87,16 @@ node scripts/optimizar-iconos.mjs
   punto JW, validación de categoría/grupo y eliminación del CHECK antiguo de iconos para
   permitir `salon`). Después, recargar la app.
 
+- Jerarquía **ADMIN / MANAGER** (vista simplificada, grupos, actividades multi-grupo,
+  puntos fijos bloqueados y contactos generales): ejecutar
+  **`sql/17_admin_manager.sql`**. Después:
+  1. La cuenta **ADMIN** debe tener `role = 'admin'`.
+  2. Los gestores de cada grupo usan `role = 'manager'` (el ADMIN los nombra desde
+     **Grupos → Miembros**).
+  3. Los usuarios normales quedan con `role = 'user'`.
+  El archivo migra los antiguos `group_admin = true` a `manager` y elimina la columna.
+  Después, recargar la app (`sw` v23).
+
 - Separar los cuarteles de bomberos de la capa de seguridad (sin volver a Overpass; es
   idempotente y no sobrescribe nada si ya están separados):
 

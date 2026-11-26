@@ -117,15 +117,32 @@ Sin dependencias: solo Node.js ≥ 18. Comprueba:
 | 87 | JW zona horaria | Usa la hora de pared de Chile (`America/Santiago`) | ✅ (UTC 20:30Z → 17:30 en noviembre) |
 | 88 | JW sin consultas | Un temporizador de 60 s actualiza sin consultar Supabase | ✅ (`setInterval(aplicarEstadoJW,60000)`) |
 | 89 | JW clases CSS | Destello y latido con `@keyframes` y `prefers-reduced-motion`, en el **icono interior** (no en el marcador) | ✅ |
-| 90 | Esquema final | `schema.sql` documenta el estado de las migraciones 10–16 sin fingir un `pg_dump` | ✅ (sección 9; fuente de verdad: `sql/`, declarado) |
+| 90 | Esquema final | `schema.sql` documenta el estado de las migraciones 10–17 sin fingir un `pg_dump` | ✅ (sección 9; fuente de verdad: `sql/`, declarado) |
 | 91 | Documentación de cierre | `AGENT.md` §36 y `DOCUMENTACION-MAPA.md` §7 resumen la entrega | ✅ |
-| 92 | Verificador final | La corrida completa sigue en verde tras el cierre | ✅ (352 pruebas · 0 fallos · 2 avisos) |
+| 92 | Verificador final | La corrida completa sigue en verde tras el cierre | ✅ (375 pruebas · 0 fallos · 2 avisos) |
 | 93 | Artefactos | No quedan usuarios, grupos, actividades ni puntos de prueba | ✅ (`principal`, `admin`/`test`, 5 actividades, 6 puntos) |
+| 94 | Rol MANAGER | `role='manager'` administra solo su grupo (evento, actividades, puntos, muro) | ✅ (en vivo: `test` como MANAGER; solo actividades de principal; creó una actividad) |
+| 95 | Rol ADMIN | `role='admin'` ve Grupos/Actividades/Mapa/Emergencia, sin Agenda ni Muro | ✅ (en vivo; 4 pestañas, sin Agenda/Muro) |
+| 96 | Grupos | El ADMIN crea número, nombre, contraseña y evento; el MANAGER no puede | ✅ (grupo `99` creado; MANAGER recibió 403 al intentar crear grupo/cambiar contraseña) |
+| 97 | Actividad multi-grupo | Una actividad se replica por grupo con `series_id` común | ✅ (2 filas principal+99; editar la serie actualizó ambas; el MANAGER solo vio la suya) |
+| 98 | Punto bloqueado | Solo el ADMIN lo crea/edita/borra; todos lo ven aunque apaguen la capa | ✅ (MANAGER no pudo editar/borrar; siguió visible con la capa apagada; el ADMIN lo editó) |
+| 99 | Contactos generales | El ADMIN agrega/edita/borra contactos que ven todos | ✅ (ADMIN lo creó; MANAGER lo vio sin botones de edición) |
+| 100 | Nombramiento | El ADMIN nombra/quita MANAGER desde los miembros del grupo | ✅ (UI: quitar → Usuario, hacer → MANAGER) |
 
 ---
 
 ## 3. Resultados de la corrida automática
 
+- **2026-11-26 (ADMIN/MANAGER)**: **375 pruebas · 0 fallos · 2 avisos**.
+  - Bloque `[15]`: roles `admin/manager/user`, `group_admin` eliminado, `can_manage_group`
+    limitado al grupo del MANAGER, `admin_grupos()` sin hash, puntos bloqueados
+    (CHECK + trigger), `series_id`, grupo derivado del evento, slug numérico, navegación por
+    rol, multi-grupo, contactos generales y nombramiento de managers.
+  - En vivo: grupo 99 + registro con contraseña; `test` como MANAGER (solo su grupo, sin
+    Grupos/Actividades); actividad multi-grupo (2 filas, edición de serie); punto bloqueado
+    no editable por el MANAGER y visible con la capa apagada; contacto general visible;
+    **0 errores JS**. Artefactos borrados: quedan 5 actividades, 6 puntos, 1 grupo y 2 perfiles
+    (`admin` ADMIN, `test` MANAGER).
 - **2026-11-26 (Fase 6: animaciones JW)**: **352 pruebas · 0 fallos · 2 avisos**.
   - Bloque `[14]` (21 comprobaciones): `estadoJW`/`ahoraChile` con fechas fijas (−30, inicio,
     +30, siguiente, otro día, cancelada, UTC−3), temporizador de 60 s sin consultas,
@@ -229,8 +246,8 @@ Sin dependencias: solo Node.js ≥ 18. Comprueba:
 - Avisos no bloqueantes del navegador: Tailwind CDN (aviso conocido de producción) y 3 avisos
   de MapLibre (`Expected value to be of type number, but found null instead`) que provienen del
   estilo OpenFreeMap, no del código de la app.
-- El service worker quedó en `app-santiago-2026-v22` (precache renovada con las animaciones
-  JW y el icono interior; los iconos SVG siguen en cache-first).
+- El service worker quedó en `app-santiago-2026-v23` (precache renovada con la jerarquía
+  ADMIN/MANAGER, los puntos bloqueados y los contactos generales).
 - **Limitación del navegador embebido de pruebas**: no dispara `requestAnimationFrame`, por lo
   que MapLibre no repinta (`map.loaded()` queda en `false` y `queryRenderedFeatures()` devuelve
   0). Se verificó por otra vía que el estilo se aplica, que `ne2_shaded` se elimina y que las
@@ -241,17 +258,22 @@ Sin dependencias: solo Node.js ≥ 18. Comprueba:
 
 ## 4. Pendiente de verificación por el administrador
 
-Las migraciones `sql/06`–`sql/16` **ya están aplicadas** (incluidas `10_grupos`,
-`11_rls_grupos`, `14_registro_perfiles`, `15_categorias_puntos` y `16_jw_actividades`), y las
-Edge Functions `login-username` (v2) y `register-profile` desplegadas.
+Las migraciones `sql/06`–`sql/17` **ya están aplicadas** (incluidas `10_grupos`,
+`11_rls_grupos`, `14_registro_perfiles`, `15_categorias_puntos`, `16_jw_actividades` y
+`17_admin_manager`), y las Edge Functions `login-username` (v2) y `register-profile`
+redesplegadas sin `group_admin`.
 
-Queda pendiente, por falta de perfiles no globales (hoy solo existen `admin` y `test`):
+Cuentas actuales: `admin` = ADMIN, `test` = MANAGER del grupo principal. El usuario temporal
+`manager99` y el grupo `99` se eliminaron al limpiar las pruebas.
 
-1. Repetir las pruebas 11–15, 23 y 40 con una cuenta **normal** y con un **admin de grupo**.
+Queda pendiente, por falta de una cuenta normal (hoy solo existen `admin` y `test`, ambos
+verificados como ADMIN y MANAGER):
+
+1. Repetir las pruebas 11–15, 23 y 40 con una cuenta **normal**.
 2. Verificar que el usuario normal recibe error al intentar insertar un punto
-   `tipo='general'` o `scope='global'`.
-3. Verificar que el admin de grupo puede gestionar puntos/evento de su grupo pero **no** los
-   globales ni los de otro grupo.
+   `tipo='general'` o `scope='global'` (el MANAGER ya se verificó: 403).
+3. Verificar que el MANAGER puede gestionar puntos/evento de su grupo pero **no** los
+   globales ni los de otro grupo (verificado en vivo: 403).
 4. Probar el alta de evento cuando no existe ninguno (la ruta `insert` está cubierta por el
    verificador, pero siempre hay un evento en la base).
 5. Observar en vivo el corte **+30 → siguiente actividad** de las animaciones JW (la lógica

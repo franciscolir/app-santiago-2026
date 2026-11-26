@@ -17,10 +17,12 @@ const state = { user:null, profile:null, event:null, activities:[], category:"po
   categorias:[], categoriasPorSlug:{}, categoriasCargadas:false,
   gestion:{modo:"categorias",categoria:null,buscar:""}, categoriasEditadas:new Map(),
   // Fase 3: JW y actividades.
-  jwPuntos:[], puntoParaActividad:false, actividadPendiente:null };
+  jwPuntos:[], puntoParaActividad:false, actividadPendiente:null, puntoBloqueadoOriginal:false,
+  // Jerarquía ADMIN/MANAGER (sql/17): grupos/eventos para la vista del ADMIN.
+  adminGroups:[], adminEventos:[], adminFiltroGrupo:"", grupoMiembros:[], contactos:[] };
 const statusText = {pending:"Pendiente", in_progress:"En curso", completed:"Completada", cancelled:"Cancelada"};
 const venueStatusText = {pending:"Programada", in_progress:"En curso", completed:"Finalizada", cancelled:"Cancelada"};
-const viewLabels = {agenda:"Agenda", mapa:"Mapa", muro:"Muro", emergencia:"Emergencia"};
+const viewLabels = {agenda:"Agenda", mapa:"Mapa", muro:"Muro", emergencia:"Emergencia", grupos:"Grupos", actividades:"Actividades"};
 const dateFmt = new Intl.DateTimeFormat("es-CL",{weekday:"long",day:"numeric",month:"long"});
 const dayFmt = new Intl.DateTimeFormat("es-CL",{day:"numeric",month:"short"});
 const timeFmt = (v) => v ? v.slice(0,5) : "";
@@ -36,8 +38,12 @@ const todayStr = () => { const d=new Date(); return `${d.getFullYear()}-${String
 const initials = (name="") => name.trim().split(/\s+/).filter(Boolean).slice(0,2).map(w=>w[0]).join("").toUpperCase() || "?";
 
 function showLogin(){ $("#login-screen").classList.remove("hidden"); $("#app").classList.add("hidden"); mostrarRegistro(false); if(!state.groupsListos) cargarGruposRegistro(); }
-function showApp(){ $("#login-screen").classList.add("hidden"); $("#app").classList.remove("hidden"); if(!gpsIntentado){gpsIntentado=true;activarGps();} }
-function isAdmin(){ return state.profile?.role === "admin"; }
+function showApp(){ $("#login-screen").classList.add("hidden"); $("#app").classList.remove("hidden"); if(!gpsIntentado){gpsIntentado=true;activarGps();} if(state.profile) configurarVistaPorRol(); }
+// Jerarquía sql/17: admin = ADMIN general; manager = MANAGER de su grupo.
+function esAdminGeneral(){ return state.profile?.role === "admin"; }
+function esManager(){ return state.profile?.role === "manager"; }
+function esGestorDeGrupo(){ return esAdminGeneral() || esManager(); }
+function isAdmin(){ return esAdminGeneral(); } // compatibilidad: poderes globales
 function notifyError(el,msg){ el.textContent=msg || ""; }
 
 // Toast honesto: informa sin fingir que algo se guardó.
@@ -109,11 +115,11 @@ async function loadProfile(){
   // Grupo (UPDATE.md Fase 1). Si sql/10_grupos.sql todavía no se aplicó, se
   // usa el select base: el login no debe romperse por eso.
   const base="id,username,full_name,role,active";
-  let res=await supabase.from("profiles").select(base+",group_id,group_admin").eq("id",state.user.id).single();
-  if(res.error && /group_id|group_admin/i.test(res.error.message||"")){
-    console.warn("loadProfile: faltan las columnas de grupo (ejecuta sql/10_grupos.sql). Se continúa sin grupo.");
+  let res=await supabase.from("profiles").select(base+",group_id").eq("id",state.user.id).single();
+  if(res.error && /group_id/i.test(res.error.message||"")){
+    console.warn("loadProfile: falta la columna de grupo (ejecuta sql/10_grupos.sql). Se continúa sin grupo.");
     res=await supabase.from("profiles").select(base).eq("id",state.user.id).single();
-    if(res.data){ res.data.group_id=null; res.data.group_admin=false; }
+    if(res.data){ res.data.group_id=null; }
   }
   const {data,error}=res;
   if(error){
@@ -128,16 +134,18 @@ async function loadProfile(){
   const name=data.full_name || data.username || "";
   $("#user-label").textContent=name;
   $("#user-initials").textContent=initials(name);
-  $("#admin-create-wrap").classList.toggle("hidden",!isAdmin());
-  // Alta de puntos: cualquier usuario autenticado (solo personales); el admin
-  // y el admin de grupo pueden crear generales.
+  // Alta de actividades y puntos: ADMIN general y MANAGER de grupo.
+  $("#admin-create-wrap").classList.toggle("hidden",!esGestorDeGrupo());
+  // Alta de puntos: cualquier usuario autenticado (solo personales); el gestor
+  // puede crear generales de su grupo y el ADMIN globales.
   $("#map-add-point")?.classList.remove("hidden");
-  // Gestión por categoría (colores, visibilidad, borrar): admin global o de grupo.
-  $("#map-puntos-btn")?.classList.toggle("hidden",!esAdminDeGrupo());
-  // Editar/crear el evento general: admin global o de grupo.
-  $("#event-edit-btn")?.classList.toggle("hidden",!esAdminDeGrupo());
+  // Gestión por categoría (colores, visibilidad, borrar): ADMIN o MANAGER.
+  $("#map-puntos-btn")?.classList.toggle("hidden",!esGestorDeGrupo());
+  // Editar/crear el evento general: ADMIN o MANAGER (el MANAGER solo el suyo).
+  $("#event-edit-btn")?.classList.toggle("hidden",!esGestorDeGrupo() || esAdminGeneral());
   if(state.mapListo) renderPuntosMapa();
   iniciarAnimacionesJW();
+  configurarVistaPorRol();
 }
 // Muestra el chip del grupo en el header. Si la lista de grupos aún no llegó,
 // se completa cuando termina cargarGruposRegistro().
@@ -152,11 +160,12 @@ function sincronizarGrupoVisible(){
 // Login: usuario + contraseña; el grupo se detecta del perfil (sql/14).
 // Registro progresivo: grupo + contraseña del grupo → usuario + contraseña
 // personal. La separación REAL de datos la aplican las políticas RLS.
-function esAdminDeGrupo(){ return isAdmin() || !!state.profile?.group_admin; }
-// ¿El usuario actual puede gestionar ESTE punto? El admin de grupo solo los
-// de su grupo; los globales quedan para el admin global.
+// ¿El usuario actual puede gestionar ESTE punto? El MANAGER solo los de su
+// grupo; los globales y los bloqueados quedan para el ADMIN.
 function puntoGestionable(p){
-  return isAdmin() || (scopeDe(p)!=="global" && !!p.group_id && p.group_id===state.groupId);
+  if(p.bloqueado) return esAdminGeneral();
+  if(esAdminGeneral()) return true;
+  return esManager() && scopeDe(p)!=="global" && !!p.group_id && p.group_id===state.groupId;
 }
 // Filtra una consulta por el grupo activo. Si la migración aún no está aplicada
 // (state.groupId null), la deja tal cual: la app sigue funcionando.
@@ -218,6 +227,274 @@ async function cargarGruposRegistro(){
   }
 }
 
+// ==================== VISTA ADMIN (sql/17) ====================
+// El ADMIN general no tiene agenda: gestiona grupos, actividades, mapa y
+// contactos. `admin_grupos()` devuelve solo campos seguros (nunca el hash).
+async function cargarGruposAdmin(){
+  const {data,error}=await supabase.rpc("admin_grupos");
+  if(error){
+    console.error("cargarGruposAdmin",error);
+    // Respaldo: si sql/17 aún no está aplicado, al menos se listan los grupos.
+    const r=await supabase.from("groups").select("id,slug,name,description,active").order("slug");
+    if(r.error){ showToast("No se pudieron cargar los grupos: "+describeError(r.error,"los grupos")); return; }
+    state.adminGroups=(r.data||[]).map(g=>({...g,has_password:false,member_count:0,manager_count:0}));
+  }else{
+    state.adminGroups=data||[];
+  }
+  state.groups=state.adminGroups.map(g=>({id:g.id,slug:g.slug,name:g.name,description:g.description,active:g.active,abierto:!!g.has_password}));
+  const sel=$("#actividades-filtro"); if(sel) sel.dataset.listo="";
+  if(state.mapListo) renderPuntosMapa();
+}
+async function cargarActividadesAdmin(){
+  const {data:eventos,error:e1}=await supabase.from("events").select("*").order("start_date",{ascending:false});
+  const {data:acts,error:e2}=await supabase.from("activities")
+    .select("*,activity_assignments(user_id,status)")
+    .order("activity_date",{ascending:false}).order("start_time",{ascending:false});
+  if(e1||e2){
+    console.error("cargarActividadesAdmin",e1||e2);
+    showToast("No se pudieron cargar las actividades: "+describeError(e1||e2,"las actividades"));
+    return;
+  }
+  state.adminEventos=eventos||[];
+  state.activities=acts||[];
+  if(state.mapListo) renderMap();
+}
+function grupoPorId(id){ return state.adminGroups.find(g=>g.id===id) || state.groups.find(g=>g.id===id) || null; }
+function eventoActualDeGrupo(groupId,fecha){
+  const evs=(state.adminEventos||[]).filter(e=>e.group_id===groupId);
+  const pub=evs.filter(e=>e.status==="published");
+  const lista=pub.length?pub:evs;
+  return lista.find(e=>fecha && e.start_date<=fecha && fecha<=e.end_date)
+    || lista.filter(e=>fecha && e.start_date>fecha).sort((a,b)=>a.start_date.localeCompare(b.start_date))[0]
+    || lista[0] || null;
+}
+async function asegurarEventoGrupo(groupId,fecha){
+  let ev=eventoActualDeGrupo(groupId,fecha);
+  if(ev) return ev;
+  const g=grupoPorId(groupId);
+  const f=fecha||todayStr();
+  const {data,error}=await supabase.from("events").insert({
+    name:`Evento ${g?.name||"del grupo"}`, description:"Evento creado desde Actividades.",
+    start_date:f, end_date:f, status:"published",
+    group_id:groupId, created_by:state.user.id
+  }).select("*").single();
+  if(error){ console.error("asegurarEventoGrupo",error); throw error; }
+  state.adminEventos.push(data);
+  return data;
+}
+function renderGruposAdmin(){
+  const root=$("#grupos-lista"); if(!root) return;
+  if(!state.adminGroups.length){
+    root.innerHTML='<div class="empty">Todavía no hay grupos. Crea el primero.</div>';
+    return;
+  }
+  root.innerHTML=state.adminGroups.map(g=>{
+    const ev=g.event_id?`${esc(g.event_name||"Evento")} · ${esc(g.event_start||"")}${g.event_end&&g.event_end!==g.event_start?" → "+esc(g.event_end):""}`:"Sin evento";
+    return `<article class="group-card" data-group-card="${g.id}">
+      <div class="flex items-start justify-between gap-2">
+        <div class="min-w-0">
+          <p class="group-number">Grupo ${esc(g.slug)}</p>
+          <h3 class="group-name">${esc(g.name)}</h3>
+          <p class="group-desc">${esc(g.description||"")}</p>
+        </div>
+        <span class="status ${g.active?"completed":"cancelled"}">${g.active?"Activo":"Inactivo"}</span>
+      </div>
+      <div class="group-meta">
+        <span>${g.member_count||0} miembro${Number(g.member_count)===1?"":"s"}</span>
+        <span>${g.manager_count||0} manager${Number(g.manager_count)===1?"":"s"}</span>
+        <span>${g.has_password?"Contraseña definida":"Sin contraseña"}</span>
+      </div>
+      <p class="group-event">${ev}</p>
+      <div class="group-actions">
+        <button class="secondary" data-group-edit="${g.id}" type="button">Editar</button>
+        <button class="secondary" data-group-members="${g.id}" type="button">Miembros</button>
+        <button class="secondary" data-group-event="${g.id}" type="button">Evento</button>
+      </div>
+    </article>`;
+  }).join("");
+  root.querySelectorAll("[data-group-edit]").forEach(b=>b.addEventListener("click",()=>abrirFormGrupo(state.adminGroups.find(g=>g.id===b.dataset.groupEdit))));
+  root.querySelectorAll("[data-group-members]").forEach(b=>b.addEventListener("click",()=>abrirMiembrosGrupo(b.dataset.groupMembers)));
+  root.querySelectorAll("[data-group-event]").forEach(b=>b.addEventListener("click",()=>abrirFormGrupo(state.adminGroups.find(g=>g.id===b.dataset.groupEvent),"evento")));
+}
+function renderActividadesAdmin(){
+  const root=$("#actividades-lista"); if(!root) return;
+  const sel=$("#actividades-filtro");
+  if(sel && !sel.dataset.listo){
+    sel.innerHTML=`<option value="">Todos los grupos</option>`+state.adminGroups.map(g=>`<option value="${esc(g.id)}">Grupo ${esc(g.slug)} · ${esc(g.name)}</option>`).join("");
+    sel.dataset.listo="1";
+    sel.value=state.adminFiltroGrupo||"";
+  }
+  const acts=(state.activities||[]).filter(a=>!state.adminFiltroGrupo||a.group_id===state.adminFiltroGrupo);
+  if(!acts.length){ root.innerHTML='<div class="empty">No hay actividades para este filtro.</div>'; return; }
+  root.innerHTML=acts.map(a=>{
+    const g=grupoPorId(a.group_id);
+    const ev=state.adminEventos.find(e=>e.id===a.event_id);
+    const hora=`${timeFmt(a.start_time)}${a.end_time?" – "+timeFmt(a.end_time):""}`;
+    return `<article class="activity-card admin-activity">
+      <div class="activity-top">
+        <div class="min-w-0 flex-1">
+          <p class="activity-group">Grupo ${esc(g?.slug||"")}${g?.name?" · "+esc(g.name):""}</p>
+          <h3>${esc(a.title)}</h3>
+          <div class="activity-meta">${esc(a.activity_date)} · ${esc(hora)}${a.place?" · "+esc(a.place):""}</div>
+          ${ev?`<div class="activity-meta">Evento: ${esc(ev.name)}</div>`:""}
+        </div>
+        <span class="status ${a.status||"pending"}">${statusText[a.status]||a.status||"Pendiente"}</span>
+      </div>
+      ${a.description?`<p class="activity-desc">${esc(a.description)}</p>`:""}
+      <div class="activity-actions">
+        <button class="secondary" data-mapa="${a.id}" type="button">Ver en mapa</button>
+        <button class="secondary" data-edit="${a.id}" type="button">Editar</button>
+        <button class="secondary danger" data-delete="${a.id}" type="button">Eliminar</button>
+      </div>
+    </article>`;
+  }).join("");
+  enlazarTarjetasActividad(root);
+}
+$("#actividades-filtro")?.addEventListener("change",e=>{
+  state.adminFiltroGrupo=e.target.value;
+  renderActividadesAdmin();
+});
+$("#new-activity-admin")?.addEventListener("click",()=>openActivity());
+$("#grupo-nuevo-btn")?.addEventListener("click",()=>abrirFormGrupo());
+$("#grupo-close")?.addEventListener("click",()=>$("#grupo-dialog").close());
+$("#miembros-close")?.addEventListener("click",()=>$("#miembros-dialog").close());
+$("#contacto-close")?.addEventListener("click",()=>$("#contacto-dialog").close());
+$("#contacto-nuevo-btn")?.addEventListener("click",()=>abrirFormContacto());
+
+function abrirFormGrupo(g=null){
+  if(!esAdminGeneral()) return;
+  const hoy=todayStr();
+  $("#grupo-dialog-title").textContent=g?"Editar grupo":"Nuevo grupo";
+  $("#grupo-id").value=g?.id||"";
+  $("#grupo-slug").value=g?.slug||"";
+  $("#grupo-slug").readOnly=!!g;
+  $("#grupo-name").value=g?.name||"";
+  $("#grupo-description").value=g?.description||"";
+  $("#grupo-password").value="";
+  $("#grupo-password").required=!g;
+  $("#grupo-password-hint").textContent=g
+    ? "Déjala vacía para conservar la contraseña actual."
+    : "Obligatoria para que los usuarios puedan registrarse en este grupo (mínimo 6).";
+  $("#grupo-active").checked=g?g.active!==false:true;
+  $("#grupo-event-name").value=g?.event_name||"";
+  $("#grupo-event-start").value=g?.event_start||hoy;
+  $("#grupo-event-end").value=g?.event_end||sumarDias(hoy,7);
+  notifyError($("#grupo-form-error"),"");
+  $("#grupo-dialog").showModal();
+}
+$("#grupo-form")?.addEventListener("submit",async e=>{
+  e.preventDefault();
+  if(!esAdminGeneral()) return;
+  const id=$("#grupo-id").value;
+  const slug=$("#grupo-slug").value.trim().toLowerCase();
+  const name=$("#grupo-name").value.trim();
+  const password=$("#grupo-password").value;
+  const active=$("#grupo-active").checked;
+  if(!/^[a-z0-9][a-z0-9_-]{0,40}$/.test(slug)){ notifyError($("#grupo-form-error"),"El número/slug debe empezar con letra o número y usar solo minúsculas, números, _ o -."); return; }
+  if(name.length<2){ notifyError($("#grupo-form-error"),"El nombre del grupo es obligatorio (mínimo 2 caracteres)."); return; }
+  if(!id && password.length<6){ notifyError($("#grupo-form-error"),"La contraseña del grupo debe tener al menos 6 caracteres."); return; }
+  if(password && password.length<6){ notifyError($("#grupo-form-error"),"La contraseña del grupo debe tener al menos 6 caracteres."); return; }
+  if(password && !active){ notifyError($("#grupo-form-error"),"Activa el grupo para poder definir su contraseña."); return; }
+  let groupId=id;
+  if(!id){
+    const {data,error}=await supabase.from("groups").insert({
+      slug,name,description:$("#grupo-description").value.trim()||null,active
+    }).select("id").single();
+    if(error){ notifyError($("#grupo-form-error"),describeError(error,"el grupo")); return; }
+    groupId=data.id;
+  }else{
+    const {error}=await supabase.from("groups").update({
+      name,description:$("#grupo-description").value.trim()||null,active
+    }).eq("id",id);
+    if(error){ notifyError($("#grupo-form-error"),describeError(error,"el grupo")); return; }
+  }
+  if(password){
+    const {error}=await supabase.rpc("definir_password_grupo",{p_slug:slug,p_password:password});
+    if(error){ notifyError($("#grupo-form-error"),describeError(error,"la contraseña del grupo")); return; }
+  }
+  const evName=$("#grupo-event-name").value.trim()||`Evento ${name}`;
+  const evStart=$("#grupo-event-start").value||todayStr();
+  const evEnd=$("#grupo-event-end").value||sumarDias(evStart,7);
+  if(evEnd<evStart){ notifyError($("#grupo-form-error"),"La fecha de término del evento no puede ser anterior al inicio."); return; }
+  const gActual=state.adminGroups.find(x=>x.id===groupId);
+  const evPayload={name:evName,start_date:evStart,end_date:evEnd,status:"published",group_id:groupId};
+  if(gActual?.event_id){
+    const {error}=await supabase.from("events").update(evPayload).eq("id",gActual.event_id);
+    if(error){ notifyError($("#grupo-form-error"),describeError(error,"el evento del grupo")); return; }
+  }else{
+    const {error}=await supabase.from("events").insert({...evPayload,created_by:state.user.id});
+    if(error){ notifyError($("#grupo-form-error"),describeError(error,"el evento del grupo")); return; }
+  }
+  $("#grupo-dialog").close();
+  showToast(id?"Grupo actualizado.":"Grupo creado.");
+  await cargarGruposAdmin(); await cargarActividadesAdmin();
+  renderGruposAdmin(); renderActividadesAdmin();
+});
+
+async function abrirMiembrosGrupo(groupId){
+  if(!esAdminGeneral()) return;
+  const g=grupoPorId(groupId);
+  $("#miembros-title").textContent=`Miembros · ${g?.name||"Grupo"}`;
+  $("#miembros-lista").innerHTML='<div class="empty">Cargando…</div>';
+  notifyError($("#miembros-error"),"");
+  $("#miembros-dialog").showModal();
+  const {data,error}=await supabase.from("profiles")
+    .select("id,username,full_name,role,active")
+    .eq("group_id",groupId).order("username");
+  if(error){ notifyError($("#miembros-error"),describeError(error,"los miembros")); $("#miembros-lista").innerHTML=""; return; }
+  state.grupoMiembros=data||[];
+  renderMiembrosGrupo(groupId);
+}
+function renderMiembrosGrupo(groupId){
+  const root=$("#miembros-lista"); if(!root) return;
+  if(!state.grupoMiembros.length){ root.innerHTML='<div class="empty">El grupo no tiene miembros.</div>'; return; }
+  root.innerHTML=state.grupoMiembros.map(p=>{
+    const rol=p.role==="admin"?"ADMIN":(p.role==="manager"?"MANAGER":"Usuario");
+    const accion=p.role==="admin"
+      ? ""
+      : `<button type="button" class="secondary${p.role==="manager"?" warn":""}" data-miembro-rol="${p.id}" data-rol="${p.role==="manager"?"user":"manager"}">${p.role==="manager"?"Quitar manager":"Hacer manager"}</button>`;
+    return `<div class="flex items-center gap-2 bg-surface-container-low rounded-xl p-2.5">
+      <div class="min-w-0 flex-1">
+        <p class="text-sm font-semibold text-on-surface truncate">${esc(p.full_name||p.username)}</p>
+        <p class="text-[11px] text-on-surface-variant">@${esc(p.username)} · ${rol}${p.active===false?" · inactivo":""}</p>
+      </div>
+      ${accion}
+    </div>`;
+  }).join("");
+  root.querySelectorAll("[data-miembro-rol]").forEach(b=>b.addEventListener("click",async()=>{
+    const {error}=await supabase.from("profiles").update({role:b.dataset.rol}).eq("id",b.dataset.miembroRol);
+    if(error){ notifyError($("#miembros-error"),describeError(error,"el rol del miembro")); return; }
+    await abrirMiembrosGrupo(groupId);
+    await cargarGruposAdmin(); renderGruposAdmin();
+  }));
+}
+
+async function abrirFormContacto(c=null){
+  if(!esAdminGeneral()) return;
+  $("#contacto-dialog-title").textContent=c?"Editar contacto":"Nuevo contacto";
+  $("#contacto-id").value=c?.id||"";
+  $("#contacto-name").value=c?.name||"";
+  $("#contacto-phone").value=c?.phone||"";
+  $("#contacto-description").value=c?.description||"";
+  notifyError($("#contacto-error"),"");
+  $("#contacto-dialog").showModal();
+}
+$("#contacto-form")?.addEventListener("submit",async e=>{
+  e.preventDefault();
+  if(!esAdminGeneral()) return;
+  const id=$("#contacto-id").value;
+  const name=$("#contacto-name").value.trim();
+  const phone=$("#contacto-phone").value.trim();
+  if(!name||!phone){ notifyError($("#contacto-error"),"Nombre y teléfono son obligatorios."); return; }
+  const payload={name,phone,description:$("#contacto-description").value.trim()||null,is_general:true,user_id:null};
+  const q=id?supabase.from("emergency_contacts").update(payload).eq("id",id)
+           :supabase.from("emergency_contacts").insert(payload);
+  const {error}=await q;
+  if(error){ notifyError($("#contacto-error"),describeError(error,"los contactos de emergencia")); return; }
+  $("#contacto-dialog").close();
+  showToast(id?"Contacto actualizado.":"Contacto agregado.");
+  await loadEmergencyContacts();
+});
 async function usernameLogin(username,password){
   const {data,error}=await supabase.functions.invoke("login-username",{body:{username,password}});
   if(error || !data?.session) throw await errorDeFuncion(error,data);
@@ -371,9 +648,12 @@ $("#logout-btn").addEventListener("click",async()=>{
   state.profile=null;
   state.groupId=null;
   state.group=null;
+  state.adminGroups=[]; state.adminEventos=[]; state.groups=[]; state.groupsListos=false;
+  document.body.classList.remove("modo-admin");
   $("#group-label")?.classList.add("hidden");
   $("#password").value="";
   showLogin();
+  cargarGruposRegistro();
 });
 supabase.auth.onAuthStateChange((_event,session)=>{
   if(!session){
@@ -381,6 +661,8 @@ supabase.auth.onAuthStateChange((_event,session)=>{
     state.profile=null;
     state.groupId=null;
     state.group=null;
+    state.adminGroups=[]; state.adminEventos=[]; state.groups=[]; state.groupsListos=false;
+    document.body.classList.remove("modo-admin");
     showLogin();
   }
 });
@@ -388,9 +670,42 @@ supabase.auth.onAuthStateChange((_event,session)=>{
 cargarGruposRegistro();
 
 async function refreshAll(){
+  // El ADMIN general no carga agenda ni muro: solo grupos, actividades,
+  // mapa, puntos y contactos. MANAGER y usuarios conservan las secciones.
+  if(esAdminGeneral()){
+    const results=await Promise.allSettled([
+      cargarGruposAdmin(), cargarActividadesAdmin(), cargarPuntosMapa(),
+      loadEmergencyContacts(), cargarCategorias()
+    ]);
+    results.forEach((r,i)=>{ if(r.status==="rejected") console.error("refreshAll admin sección "+i+":",r.reason); });
+    renderGruposAdmin(); renderActividadesAdmin();
+    return;
+  }
   // Cada sección carga de forma independiente: un fallo en una no debe impedir las demás.
   const results=await Promise.allSettled([loadEventAndActivities(),loadWall(),loadEmergencyContacts(),cargarCategorias()]);
   results.forEach((r,i)=>{ if(r.status==="rejected") console.error("refreshAll sección "+i+":",r.reason); });
+}
+// Ajusta la navegación según el rol. El ADMIN general ve una app simplificada;
+// MANAGER y usuarios conservan Agenda/Mapa/Emergencia/Muro.
+function configurarVistaPorRol(){
+  const admin=esAdminGeneral();
+  document.body.classList.toggle("modo-admin",admin);
+  $$(".nav-item").forEach(b=>{
+    const v=b.dataset.view;
+    if(v==="grupos" || v==="actividades") b.classList.toggle("hidden",!admin);
+    if(v==="agenda" || v==="muro") b.classList.toggle("hidden",admin);
+  });
+  $("#group-label")?.classList.toggle("hidden",admin || !state.group?.name);
+  $("#admin-create-wrap")?.classList.toggle("hidden",!esGestorDeGrupo() || admin);
+  $("#contacto-nuevo-btn")?.classList.toggle("hidden",!admin);
+  if(admin){
+    // El ADMIN no usa la agenda ni el muro; su inicio es Grupos.
+    const actual=[...$$(".view")].find(v=>v.classList.contains("active"))?.id;
+    if(actual==="view-agenda" || actual==="view-muro" || actual==="view-actividades" || !actual) gotoView("grupos");
+  }else{
+    const actual=[...$$(".view")].find(v=>v.classList.contains("active"))?.id;
+    if(actual==="view-grupos" || actual==="view-actividades" || !actual) gotoView("agenda");
+  }
 }
 
 // ==================== NAVEGACIÓN ====================
@@ -457,7 +772,7 @@ async function loadEventAndActivities(){
   // El admin debe ver también las canceladas (para poder reabrirlas); el usuario normal no.
   // Si la columna "status" no existe en la BD real, no se rompe toda la agenda:
   // se reintenta sin ese filtro y se avisa por consola (AGENT.md §5: no asumir columnas).
-  const base=()=>{let x=filtrarGrupo(supabase.from("activities").select("*,activity_assignments(user_id,status)").eq("event_id",state.event.id)).order("activity_date").order("start_time");return isAdmin()?x:x.neq("status","cancelled");};
+  const base=()=>{let x=filtrarGrupo(supabase.from("activities").select("*,activity_assignments(user_id,status)").eq("event_id",state.event.id)).order("activity_date").order("start_time");return esGestorDeGrupo()?x:x.neq("status","cancelled");};
   let {data,error:actError}=await base();
   if(actError && actError.code==="PGRST204" && /status/i.test(actError.message||"")){
     console.warn('La columna "status" no existe en activities; se omite el filtro de canceladas. Compara el esquema con sql/01_diagnostico.sql.');
@@ -489,7 +804,7 @@ function sumarDias(fecha,n){
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
 }
 function openEventForm(){
-  if(!esAdminDeGrupo()) return;
+  if(!esGestorDeGrupo()) return;
   const e=state.event;
   $("#event-dialog-title").textContent=e?"Editar evento":"Crear evento";
   $("#event-id").value=e?.id||"";
@@ -504,7 +819,7 @@ $("#event-edit-btn")?.addEventListener("click",openEventForm);
 $("#event-close")?.addEventListener("click",()=>$("#event-dialog").close());
 $("#event-form")?.addEventListener("submit",async e=>{
   e.preventDefault();
-  if(!esAdminDeGrupo()) return;
+  if(!esGestorDeGrupo()) return;
   const id=$("#event-id").value;
   const nombre=$("#event-name").value.trim();
   const descripcion=$("#event-description").value.trim()||null;
@@ -683,7 +998,7 @@ function activityCard(a){
     </div>
     ${assignment?`<div class="activity-actions">${["pending","in_progress","completed"].map(s=>
       `<button class="secondary${myStatus===s?" on":""}" data-id="${a.id}" data-status="${s}" type="button">${statusText[s]}</button>`).join("")}</div>`:""}
-    ${isAdmin()?`<div class="activity-actions">
+    ${esGestorDeGrupo()?`<div class="activity-actions">
       <button class="secondary" data-edit="${a.id}" type="button">Editar</button>
       ${a.status!=="cancelled"?`<button class="secondary warn" data-cancel="${a.id}" type="button">Cancelar</button>`:""}
       <button class="secondary danger" data-delete="${a.id}" type="button">Eliminar</button>
@@ -909,9 +1224,11 @@ function selectVenue(a,pan=true){
     `<span class="opacity-80 font-semibold">${esc(venueStatusText[a.status]||"Programada")}</span>`,
     esc(cuando),
     a.place?esc(a.place):"Lugar por confirmar",
+    esAdminGeneral()&&a.group_id?`Grupo: ${esc(grupoPorId(a.group_id)?.name||"")}`:"",
     a.description?esc(a.description):"",
   ].filter(Boolean);
-  const acciones=[{texto:"Ver actividad",icono:"calendar_today",fn:()=>gotoView("agenda")}];
+  const acciones=[{texto:esAdminGeneral()?"Editar actividad":"Ver actividad",icono:"calendar_today",
+    fn:()=>esAdminGeneral()?openActivity(a):gotoView("agenda")}];
   if(conCoords(a)){
     const c=coords(a);
     acciones.push({texto:"Cómo llegar",icono:"navigation",fn:()=>window.open(
@@ -1648,7 +1965,12 @@ async function alternarCapa(it,on){
   if(it.custom==="actividades"){ aplicarActividades(); return; }
   if(it.custom==="puntos"){
     // Los marcadores de punto son elementos DOM: se ocultan, no se ocultan capas.
-    state.pointMarkers.forEach(m=>m.getElement().classList.toggle("hidden",!on));
+    // Los puntos BLOQUEADOS no se pueden ocultar (sql/17).
+    state.pointMarkers.forEach((m,id)=>{
+      const p=state.mapPoints.find(x=>x.id===id);
+      if(p?.bloqueado) m.getElement().classList.remove("hidden");
+      else m.getElement().classList.toggle("hidden",!on);
+    });
     return;
   }
 
@@ -1830,9 +2152,10 @@ async function cargarPuntosMapa(){
     console.warn("cargarPuntosMapa:",error.message);
     state.mapPoints=[]; renderPuntosMapa(); return;
   }
-  // RLS ya limita a los usuarios normales. El admin global recibe todos los
-  // grupos: la app lo acota a los globales + el grupo activo.
+  // RLS ya limita a los usuarios normales. El ADMIN general recibe todos los
+  // grupos; el MANAGER recibe los globales + su grupo.
   state.mapPoints=(data||[]).filter(p=>{
+    if(esAdminGeneral()) return true;
     if(state.groupId && p.tipo==="personal" && p.group_id && p.group_id!==state.groupId) return false;
     if(state.groupId && p.tipo==="general") return scopeDe(p)==="global" || p.group_id===state.groupId;
     return true;
@@ -1849,7 +2172,7 @@ async function cargarPuntosJW(){
     console.warn("cargarPuntosJW:",error.message);
     state.jwPuntos=[]; return;
   }
-  state.jwPuntos=(data||[]).filter(p=>!state.groupId || p.scope==="global" || p.group_id===state.groupId);
+  state.jwPuntos=(data||[]).filter(p=>esAdminGeneral() || !state.groupId || p.scope==="global" || p.group_id===state.groupId);
 }
 
 // --- animaciones JW (Fase 6) ------------------------------------------------
@@ -1991,7 +2314,7 @@ function renderPuntosMapa(){
   state.pointMarkers.forEach(m=>m.remove());
   state.pointMarkers.clear();
   const map=state.map; if(!map||!state.mapListo) return;
-  const admin=esAdminDeGrupo();
+  const admin=esGestorDeGrupo();
   // El admin ve también los deshabilitados (atenuados) para poder ubicarlos.
   const visibles=state.mapPoints.filter(p=>admin || (p.visible!==false && p.active!==false));
   visibles.forEach(p=>{
@@ -2019,6 +2342,8 @@ function renderPuntosMapa(){
     el.style.setProperty("--punto-color",colorCategoria(p.category,"#006492"));
     // "Vista fija": el icono se muestra siempre, a cualquier zoom.
     el.dataset.fijo=p.fijo?"1":"0";
+    el.dataset.bloqueado=p.bloqueado?"1":"0";
+    if(p.bloqueado) el.classList.add("map-point-bloqueado");
     // JW: siempre icono (nunca punto de color) y +20 % de tamaño.
     el.dataset.jw=p.category==="jw"?"1":"0";
     el.classList.toggle("map-point-jw",p.category==="jw");
@@ -2043,6 +2368,7 @@ function renderPuntosMapa(){
       (p.comuna?`<br><span class="muted">${esc(p.comuna)}</span>`:"")+
       `<br><span class="muted">${esc(nombreCategoria(p.category))}</span>`+
       (p.tipo==="general"&&grupoNombre?`<br><span class="muted">${esc(grupoNombre)}</span>`:"")+
+      (p.bloqueado?`<br><span class="muted">Punto fijo (solo ADMIN)</span>`:"")+
       (actividadesJW.length?`<br><span class="muted">Actividades: ${actividadesJW.map(a=>esc(a.title)).join(" · ")}</span>`:"")+
       (p.visible===false?`<br><span class="muted">Oculto en el mapa</span>`:"")
     );
@@ -2055,9 +2381,12 @@ function renderPuntosMapa(){
   });
   actualizarPuntosSegunZoom();   // icono ⇄ punto según el zoom actual
   aplicarCapas();   // la capa "Puntos personalizados" puede estar apagada
-  // Respeta el interruptor del panel para los marcadores de punto
-  // (`display` en línea: no depende de las utilidades de Tailwind).
-  state.pointMarkers.forEach(m=>m.getElement().style.display=capasEstado.puntos?"":"none");
+  // Los puntos BLOQUEADOS se muestran siempre, aunque la capa de puntos esté
+  // apagada: ningún usuario/manager puede ocultarlos.
+  state.pointMarkers.forEach((m,id)=>{
+    const p=state.mapPoints.find(x=>x.id===id);
+    m.getElement().style.display=(p?.bloqueado || capasEstado.puntos)?"":"none";
+  });
   aplicarEstadoJW();
 }
 
@@ -2070,7 +2399,7 @@ function activarModoPunto(){
   $("#map-point-mode")?.classList.remove("hidden");
   showToast(state.puntoParaActividad
     ? "Toca el mapa para ubicar el punto JW de la actividad."
-    : (esAdminDeGrupo()?"Toca el mapa para ubicar un punto (general o personal).":"Toca el mapa para ubicar un punto personal."));
+    : (esGestorDeGrupo()?"Toca el mapa para ubicar un punto (general o personal).":"Toca el mapa para ubicar un punto personal."));
 }
 function desactivarModoPunto(){
   state.pointMode=false;
@@ -2086,7 +2415,7 @@ const PUNTOS_ELIMINADOS=new Set();   // ids marcados para borrar
 const PUNTOS_EDITADOS=new Map();     // id → {name, visible}
 
 function abrirGestionPuntos(){
-  if(!esAdminDeGrupo()){ showToast("Solo los administradores pueden gestionar los puntos."); return; }
+  if(!esGestorDeGrupo()){ showToast("Solo los administradores pueden gestionar los puntos."); return; }
   PUNTOS_ELIMINADOS.clear();
   PUNTOS_EDITADOS.clear();
   state.categoriasEditadas.clear();
@@ -2266,7 +2595,7 @@ $("#puntos-todos")?.addEventListener("click",()=>aplicarVisibilidadGestion(true)
 $("#puntos-ninguno")?.addEventListener("click",()=>aplicarVisibilidadGestion(false));
 
 $("#puntos-guardar")?.addEventListener("click",async()=>{
-  if(!esAdminDeGrupo()) return;
+  if(!esGestorDeGrupo()) return;
   const btn=$("#puntos-guardar");
   btn.disabled=true;
   try{
@@ -2364,13 +2693,16 @@ async function abrirFormPunto(p=null,lat=null,lng=null){
   $("#point-lng").value=p?p.longitude:(lng??"");
   $("#point-visible").checked=p?p.visible!==false:true;
   $("#point-fijo").checked=p?!!p.fijo:false;
+  if($("#point-bloqueado")) $("#point-bloqueado").checked=p?!!p.bloqueado:false;
+  state.puntoBloqueadoOriginal=!!p?.bloqueado;
 
   // Tipo / alcance / grupo (Fase 2).
-  const admin=esAdminDeGrupo(); const global=isAdmin();
+  const admin=esGestorDeGrupo(); const global=isAdmin();
   const tipoSel=$("#point-tipo");
   const tipo=p?.tipo || (admin?"general":"personal");
   if(tipoSel) tipoSel.value=tipo;
   $("#point-tipo-label")?.classList.toggle("hidden",!admin);
+  $("#point-bloqueado-label")?.classList.toggle("hidden",!global);
 
   const grupos=(state.groups||[]).filter(g=>g.id);
   const disponibles=global?grupos:grupos.filter(g=>g.id===state.groupId);
@@ -2387,23 +2719,35 @@ async function abrirFormPunto(p=null,lat=null,lng=null){
   if(selGrupo && grupoId) selGrupo.value=grupoId;
 
   actualizarCamposPunto();
-  $("#point-delete")?.classList.toggle("hidden",!p||!admin);
+  $("#point-delete")?.classList.toggle("hidden",!p || !puntoGestionable(p));
   notifyError($("#point-error"),"");
   $("#point-dialog")?.classList.remove("hidden");
 }
 // Ajusta qué campos se ven según tipo (personal/general), alcance y rol.
 function actualizarCamposPunto(){
   const tipo=$("#point-tipo")?.value||"personal";
-  const admin=esAdminDeGrupo(); const global=isAdmin();
+  const admin=esGestorDeGrupo(); const global=isAdmin();
+  const bloqueado=global && !!$("#point-bloqueado")?.checked;
+  if(bloqueado){
+    if($("#point-tipo")) $("#point-tipo").value="general";
+    if($("#point-scope")) $("#point-scope").value="global";
+    if($("#point-visible")) $("#point-visible").checked=true;
+    if($("#point-fijo")) $("#point-fijo").checked=true;
+  }
   const scope=$("#point-scope")?.value||"group";
   if(admin && !global && tipo==="general" && $("#point-scope")) $("#point-scope").value="group";
-  const ambito=$("#point-scope")?.value||"group";
+  const ambito=bloqueado?"global":($("#point-scope")?.value||"group");
   $("#point-tipo-label")?.classList.toggle("hidden",!admin);
-  $("#point-scope-label")?.classList.toggle("hidden",!(admin && global && tipo==="general"));
-  $("#point-group-label")?.classList.toggle("hidden",!(admin && global && tipo==="general" && ambito==="group"));
+  $("#point-bloqueado-label")?.classList.toggle("hidden",!global);
+  $("#point-scope-label")?.classList.toggle("hidden",!(admin && global && tipo==="general") || bloqueado);
+  $("#point-group-label")?.classList.toggle("hidden",!(admin && global && tipo==="general" && ambito==="group") || bloqueado);
+  $("#point-visible")?.toggleAttribute("disabled",bloqueado);
+  $("#point-fijo")?.toggleAttribute("disabled",bloqueado);
   const lab=$("#point-visible-label");
   if(lab){
-    lab.textContent = tipo==="general"
+    lab.textContent = bloqueado
+      ? "Punto fijo bloqueado: visible siempre para todos"
+      : tipo==="general"
       ? (ambito==="global"&&global ? "Visible para todos los grupos" : "Visible para el grupo")
       : "Visible en el mapa";
   }
@@ -2428,6 +2772,7 @@ $("#point-category")?.addEventListener("change",e=>{
 });
 $("#point-tipo")?.addEventListener("change",actualizarCamposPunto);
 $("#point-scope")?.addEventListener("change",actualizarCamposPunto);
+$("#point-bloqueado")?.addEventListener("change",actualizarCamposPunto);
 
 // --- guardar / eliminar -----------------------------------------------------
 $("#point-form")?.addEventListener("submit",async e=>{
@@ -2441,17 +2786,20 @@ $("#point-form")?.addEventListener("submit",async e=>{
   // Rango de la Región Metropolitana (mismo check que la tabla en SQL).
   if(lat<-34.5||lat>-32.7||lng<-72||lng>-69.5){
     notifyError($("#point-error"),"Las coordenadas deben estar dentro de la Región Metropolitana."); return; }
-  const admin=esAdminDeGrupo();
+  const admin=esGestorDeGrupo();
   const tipo=admin?$("#point-tipo").value:"personal";
   let scope="group", grupoId=state.groupId;
   if(tipo==="general" && isAdmin()){
     scope=$("#point-scope").value==="global"?"global":"group";
     grupoId=scope==="global"?null:($("#point-group").value||state.groupId);
   }
+  const bloqueado=!!(isAdmin() && $("#point-bloqueado")?.checked);
+  if(bloqueado){ scope="global"; grupoId=null; }
   const payload={name,description:$("#point-description").value.trim(),
     category:$("#point-category").value,icon:$("#point-icon").value,
-    latitude:lat,longitude:lng,visible:$("#point-visible").checked,tipo,
-    scope,group_id:grupoId,fijo:$("#point-fijo").checked};
+    latitude:lat,longitude:lng,visible:bloqueado?true:$("#point-visible").checked,tipo:bloqueado?"general":tipo,
+    scope,group_id:grupoId,fijo:bloqueado?true:$("#point-fijo").checked};
+  if(isAdmin() && (bloqueado || state.puntoBloqueadoOriginal)) payload.bloqueado=bloqueado;
   const guardar=async p=>id
     ? await supabase.from("map_points").update(p).eq("id",id).select("id")
     : await supabase.from("map_points").insert({...p,created_by:state.user.id}).select("id");
@@ -2562,15 +2910,52 @@ function ponerMarcadorUsuario(){
   } else gpsMarker.setLngLat([gpsPos.lng,gpsPos.lat]);
 }
 
-// ==================== ACTIVIDADES (admin) ====================
+// ==================== ACTIVIDADES (ADMIN / MANAGER) ====================
+// El ADMIN puede elegir varios grupos: se crea una fila por grupo, unidas por
+// series_id. El MANAGER solo trabaja con el evento de su grupo.
+function gruposActividadSeleccionados(){
+  return [...($("#activity-groups")?.selectedOptions||[])].map(o=>o.value).filter(Boolean);
+}
+function poblarGruposActividad(a){
+  const block=$("#activity-groups-block");
+  const sel=$("#activity-groups");
+  if(!block || !sel) return;
+  block.classList.toggle("hidden",!esAdminGeneral());
+  if(!esAdminGeneral()) return;
+  const grupos=(state.adminGroups||[]).filter(g=>g.active!==false);
+  sel.innerHTML=grupos.map(g=>`<option value="${esc(g.id)}">Grupo ${esc(g.slug)} · ${esc(g.name)}</option>`).join("");
+  let ids=[];
+  if(a?.series_id){
+    ids=state.activities.filter(x=>x.series_id===a.series_id).map(x=>x.group_id);
+  }else if(a?.group_id){
+    ids=[a.group_id];
+  }else if(state.adminFiltroGrupo){
+    ids=[state.adminFiltroGrupo];
+  }else if(grupos[0]){
+    ids=[grupos[0].id];
+  }
+  // Al editar, incluir también grupos inactivos que ya forman parte de la serie.
+  const faltan=ids.filter(id=>id && !grupos.some(g=>g.id===id));
+  faltan.forEach(id=>{
+    const g=grupoPorId(id);
+    if(g) sel.insertAdjacentHTML("beforeend",`<option value="${esc(g.id)}">Grupo ${esc(g.slug)} · ${esc(g.name)}${g.active===false?" (inactivo)":""}</option>`);
+  });
+  [...sel.options].forEach(o=>{ o.selected=ids.includes(o.value); });
+  if(!sel.options.length) sel.innerHTML='<option value="">No hay grupos activos</option>';
+}
 async function openActivity(a=null){
-  if(!state.event){ alert("No hay un evento publicado activo: crea o publica un evento antes de agregar actividades."); return; }
+  if(!esAdminGeneral() && !state.event){
+    alert("No hay un evento publicado activo: crea o publica un evento antes de agregar actividades."); return;
+  }
   state.actividadEditada=a||null;
   $("#activity-error").textContent=""; $("#activity-dialog-title").textContent=a?"Editar actividad":"Nueva actividad";
   $("#activity-id").value=a?.id||""; $("#activity-title").value=a?.title||""; $("#activity-description").value=a?.description||"";
-  $("#activity-date").value=a?.activity_date||state.event?.start_date||""; $("#activity-place").value=a?.place||"";
+  $("#activity-date").value=a?.activity_date||(esAdminGeneral()?todayStr():state.event?.start_date)||"";
+  $("#activity-place").value=a?.place||"";
   $("#activity-start").value=timeFmt(a?.start_time); $("#activity-end").value=timeFmt(a?.end_time);
   $("#activity-assignees").value="";
+  $("#activity-assignees-block")?.classList.toggle("hidden",esAdminGeneral());
+  poblarGruposActividad(a);
   await cargarPuntosJW();
   const sel=$("#activity-point");
   if(sel){
@@ -2616,7 +3001,9 @@ $("#activity-mark-map")?.addEventListener("click",()=>{
     start_time:$("#activity-start").value,
     end_time:$("#activity-end").value,
     place:$("#activity-place").value,
-    assignees:$("#activity-assignees").value
+    assignees:$("#activity-assignees").value,
+    groups:gruposActividadSeleccionados(),
+    editId:$("#activity-id").value||""
   };
   state.puntoParaActividad=true;
   $("#activity-dialog").close();
@@ -2627,7 +3014,8 @@ $("#activity-mark-map")?.addEventListener("click",()=>{
 async function reabrirActividadPendiente(puntoId){
   const pend=state.actividadPendiente; if(!pend) return;
   state.actividadPendiente=null;
-  await openActivity(null);
+  const edit=pend.editId?state.activities.find(a=>a.id===pend.editId):null;
+  await openActivity(edit);
   $("#activity-title").value=pend.title||"";
   $("#activity-description").value=pend.description||"";
   $("#activity-date").value=pend.activity_date||"";
@@ -2635,6 +3023,9 @@ async function reabrirActividadPendiente(puntoId){
   $("#activity-end").value=pend.end_time||"";
   $("#activity-place").value=pend.place||"";
   $("#activity-assignees").value=pend.assignees||"";
+  if(esAdminGeneral() && Array.isArray(pend.groups)){
+    [...($("#activity-groups")?.options||[])].forEach(o=>{ o.selected=pend.groups.includes(o.value); });
+  }
   await cargarPuntosJW();
   const sel=$("#activity-point");
   if(sel){
@@ -2648,48 +3039,94 @@ async function reabrirActividadPendiente(puntoId){
   showToast("Punto JW creado. Completa y guarda la actividad.");
 }
 $("#activity-form").addEventListener("submit",async e=>{
-  e.preventDefault(); if(!isAdmin()||!state.event)return;
+  e.preventDefault(); if(!esGestorDeGrupo())return;
   const id=$("#activity-id").value;
-  // Validaciones antes de tocar Supabase (AGENT.md §3/§8: fechas dentro del evento, hora coherente).
+  const edit=state.actividadEditada;
   const date=$("#activity-date").value;
-  if(state.event?.start_date && date<state.event.start_date){notifyError($("#activity-error"),`La fecha no puede ser anterior al inicio del evento (${state.event.start_date}).`);return;}
-  if(state.event?.end_date && date>state.event.end_date){notifyError($("#activity-error"),`La fecha no puede ser posterior al fin del evento (${state.event.end_date}).`);return;}
   const st=$("#activity-start").value, en=$("#activity-end").value;
+  if(!date){notifyError($("#activity-error"),"La fecha es obligatoria.");return;}
   if(st&&en&&en<=st){notifyError($("#activity-error"),"La hora de término debe ser posterior a la hora de inicio.");return;}
-  // Los asignados se validan ANTES de guardar: un UUID malo no debe dejar la actividad a medias.
-  const ids=$("#activity-assignees").value.split(",").map(x=>x.trim()).filter(Boolean);
-  const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-  const invalidos=ids.filter(u=>!UUID.test(u));
-  if(invalidos.length){notifyError($("#activity-error"),`IDs de usuario inválidos (deben ser UUID): ${invalidos.join(", ")}`);return;}
+  // El MANAGER solo agenda dentro del evento de su grupo.
+  if(!esAdminGeneral()){
+    if(!state.event){notifyError($("#activity-error"),"No hay un evento publicado activo.");return;}
+    if(state.event.start_date && date<state.event.start_date){notifyError($("#activity-error"),`La fecha no puede ser anterior al inicio del evento (${state.event.start_date}).`);return;}
+    if(state.event.end_date && date>state.event.end_date){notifyError($("#activity-error"),`La fecha no puede ser posterior al fin del evento (${state.event.end_date}).`);return;}
+  }
+  // Los asignados (solo MANAGER) se validan antes de guardar.
+  let ids=[];
+  if(!esAdminGeneral()){
+    ids=$("#activity-assignees").value.split(",").map(x=>x.trim()).filter(Boolean);
+    const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const invalidos=ids.filter(u=>!UUID.test(u));
+    if(invalidos.length){notifyError($("#activity-error"),`IDs de usuario inválidos (deben ser UUID): ${invalidos.join(", ")}`);return;}
+  }
   const puntoId=$("#activity-point")?.value||"";
   const punto=puntoId?state.jwPuntos.find(p=>p.id===puntoId):null;
+  const grupos=esAdminGeneral()?gruposActividadSeleccionados():[];
+  if(esAdminGeneral() && !grupos.length){notifyError($("#activity-error"),"Selecciona al menos un grupo.");return;}
+  if(esAdminGeneral() && grupos.length>1 && punto && punto.scope!=="global"){
+    notifyError($("#activity-error"),"Para varios grupos el punto JW debe ser global. Crea el punto como global o elige uno por actividad.");
+    return;
+  }
   let lat=null, lng=null;
   if(punto){
     lat=Number(punto.latitude); lng=Number(punto.longitude);
-  }else if(id && state.actividadEditada){
-    lat=Number(state.actividadEditada.latitude); lng=Number(state.actividadEditada.longitude);
+  }else if(id && edit){
+    lat=Number(edit.latitude); lng=Number(edit.longitude);
     if(!Number.isFinite(lat)) lat=null;
     if(!Number.isFinite(lng)) lng=null;
   }
-  const payload={event_id:state.event.id,title:$("#activity-title").value.trim(),description:$("#activity-description").value.trim()||null,
-    activity_date:$("#activity-date").value,place:$("#activity-place").value.trim()||punto?.name||null,
-    start_time:$("#activity-start").value||null,end_time:$("#activity-end").value||null,
+  const base={title:$("#activity-title").value.trim(),description:$("#activity-description").value.trim()||null,
+    activity_date:date,place:$("#activity-place").value.trim()||punto?.name||null,
+    start_time:st||null,end_time:en||null,
     latitude:lat,longitude:lng,map_point_id:puntoId||null};
-  // El grupo se envía explícitamente (el trigger de sql/10 también lo rellena
-  // si el cliente no lo manda).
-  if(state.groupId) payload.group_id=state.groupId;
+  if(!base.title){notifyError($("#activity-error"),"El título es obligatorio.");return;}
+
+  if(esAdminGeneral()){
+    // Una fila por grupo; series_id las mantiene unidas.
+    const seriesId=edit?.series_id || (grupos.length>1 ? crypto.randomUUID() : null);
+    const existentes=edit?.series_id
+      ? state.activities.filter(x=>x.series_id===edit.series_id)
+      : (edit?[edit]:[]);
+    const eventos={};
+    try{
+      for(const gid of grupos) eventos[gid]=await asegurarEventoGrupo(gid,date);
+    }catch(err){ notifyError($("#activity-error"),describeError(err,"el evento del grupo")); return; }
+    for(const gid of grupos){
+      const fila=existentes.find(x=>x.group_id===gid);
+      const eventId=fila?.event_id || eventos[gid]?.id;
+      const payload={...base,event_id:eventId,group_id:gid};
+      if(seriesId) payload.series_id=seriesId;
+      const res=fila
+        ? await supabase.from("activities").update(payload).eq("id",fila.id)
+        : await supabase.from("activities").insert({...payload,created_by:state.user.id});
+      if(res.error){console.error("activity-form admin: guardar",res.error);notifyError($("#activity-error"),describeError(res.error,"activities"));return;}
+    }
+    // Quitar de la serie los grupos que se desmarcaron.
+    const sobrantes=existentes.filter(x=>!grupos.includes(x.group_id));
+    for(const fila of sobrantes){
+      const {error}=await supabase.from("activities").delete().eq("id",fila.id);
+      if(error){console.error("activity-form admin: limpiar serie",error);notifyError($("#activity-error"),describeError(error,"activities"));return;}
+    }
+    $("#activity-dialog").close();
+    state.actividadEditada=null; state.actividadPendiente=null; state.puntoParaActividad=false;
+    showToast(id?"Actividad actualizada.":"Actividad creada.");
+    await cargarGruposAdmin(); await cargarActividadesAdmin();
+    renderGruposAdmin(); renderActividadesAdmin();
+    return;
+  }
+
+  const payload={...base,event_id:state.event.id,group_id:state.groupId};
   const guardarActividad=async p=>id
     ? await supabase.from("activities").update(p).eq("id",id).select("id")
     : await supabase.from("activities").insert({...p,created_by:state.user.id}).select("id");
   let result=await guardarActividad(payload);
-  // Compatibilidad: sin sql/16, la actividad se guarda sin el vínculo JW.
   if(result.error && /map_point_id/i.test(result.error.message||"")){
     const {map_point_id,...resto}=payload;
     result=await guardarActividad(resto);
     if(!result.error) showToast("Actividad guardada. Para vincular el punto JW falta aplicar sql/16_jw_actividades.sql.");
   }
   if(result.error){console.error("activity-form: guardar",result.error);notifyError($("#activity-error"),describeError(result.error,"activities"));return;}
-  // Asignados: se insertan solo los IDs que aún no estén asignados (evita duplicados por la restricción única).
   let avisoAsignados="";
   if(ids.length){
     const activityId=id||result.data?.[0]?.id;
@@ -2708,7 +3145,21 @@ $("#activity-form").addEventListener("submit",async e=>{
   await loadEventAndActivities();
   if(avisoAsignados) alert(avisoAsignados);
 });
-async function deleteActivity(id){if(!confirm("¿Eliminar esta actividad?"))return;const {error}=await supabase.from("activities").delete().eq("id",id);if(error){console.error("deleteActivity",error);alert(describeError(error,"activities"));}else{showToast("Actividad eliminada.");await loadEventAndActivities();}}
+async function deleteActivity(id){
+  const a=state.activities.find(x=>x.id===id);
+  if(!a) return;
+  const serie=esAdminGeneral() && a.series_id;
+  if(!confirm(serie?"¿Eliminar esta actividad de TODOS los grupos de la serie?":"¿Eliminar esta actividad?")) return;
+  const q=serie?supabase.from("activities").delete().eq("series_id",a.series_id)
+              :supabase.from("activities").delete().eq("id",id);
+  const {error}=await q;
+  if(error){console.error("deleteActivity",error);alert(describeError(error,"activities"));}
+  else{
+    showToast("Actividad eliminada.");
+    if(esAdminGeneral()){ await cargarActividadesAdmin(); renderActividadesAdmin(); }
+    else await loadEventAndActivities();
+  }
+}
 
 // ==================== MURO ====================
 function openWallModal(){
@@ -2766,7 +3217,7 @@ async function loadWall(){
       <header class="wall-head">
         <span class="wall-avatar">${esc(initials(name))}</span>
         <div class="min-w-0 flex-1"><strong>${esc(name)}</strong><span class="muted small">${esc(when)}</span></div>
-        ${(esAdminDeGrupo()||p.user_id===state.user.id)?`<button class="icon-btn" data-wall-delete="${p.id}" type="button" title="Eliminar"><span class="material-symbols-outlined">delete</span></button>`:""}
+        ${(esGestorDeGrupo()||p.user_id===state.user.id)?`<button class="icon-btn" data-wall-delete="${p.id}" type="button" title="Eliminar"><span class="material-symbols-outlined">delete</span></button>`:""}
       </header>
       <p>${esc(p.content)}</p>
     </article>`;}).join(""):'<div class="empty">Todavía no hay publicaciones en esta categoría.</div>';
@@ -2777,13 +3228,28 @@ async function loadWall(){
 async function loadEmergencyContacts(){
   const {data,error}=await supabase.from("emergency_contacts").select("*").order("is_general",{ascending:false});
   if(error){console.error("loadEmergencyContacts",error);$("#emergency-contacts").innerHTML=`<p class="error">${esc(describeError(error,"los contactos de emergencia"))}</p>`;return;}
-  $("#emergency-contacts").innerHTML=data?.length?data.map(c=>`<article class="contact-card">
+  // Solo los generales y los propios: un ADMIN no debe ver los personales de otros.
+  const lista=(data||[]).filter(c=>c.is_general || c.user_id===state.user?.id);
+  state.contactos=lista;
+  const admin=esAdminGeneral();
+  $("#emergency-contacts").innerHTML=lista.length?lista.map(c=>`<article class="contact-card">
     <div class="contact-top">
       <span class="contact-avatar"><span class="material-symbols-outlined">person</span></span>
       <div class="min-w-0 flex-1"><strong>${esc(c.name)}</strong><p>${esc(c.description||"")}</p></div>
+      ${admin&&c.is_general?`<div class="flex items-center gap-1">
+        <button type="button" class="icon-btn" data-contacto-edit="${c.id}" title="Editar"><span class="material-symbols-outlined">edit</span></button>
+        <button type="button" class="icon-btn" data-contacto-delete="${c.id}" title="Eliminar"><span class="material-symbols-outlined">delete</span></button>
+      </div>`:""}
     </div>
     ${c.phone?`<a class="secondary contact-call" href="tel:${esc(c.phone)}" type="link"><span class="material-symbols-outlined">call</span> ${esc(c.phone)}</a>`:""}
   </article>`).join(""):'<div class="empty">No hay contactos registrados.</div>';
+  $("#emergency-contacts").querySelectorAll("[data-contacto-edit]").forEach(b=>b.addEventListener("click",()=>abrirFormContacto(state.contactos.find(c=>c.id===b.dataset.contactoEdit))));
+  $("#emergency-contacts").querySelectorAll("[data-contacto-delete]").forEach(b=>b.addEventListener("click",async()=>{
+    if(!confirm("¿Eliminar este contacto de emergencia?")) return;
+    const {error}=await supabase.from("emergency_contacts").delete().eq("id",b.dataset.contactoDelete);
+    if(error){ showToast(describeError(error,"el contacto")); return; }
+    showToast("Contacto eliminado."); await loadEmergencyContacts();
+  }));
 }
 // El sitio externo envía X-Frame-Options: DENY, así que no puede ir en iframe: se abre en pestaña nueva.
 $("#emergency-open-link")?.setAttribute("href",EMERGENCY_URL);

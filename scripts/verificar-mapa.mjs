@@ -303,7 +303,7 @@ console.log("[6] Vista de mapa: espacio, controles y comportamiento de los punto
   check(/id="toast-msg"/.test(html) && /id="toast-text"/.test(html) && /id="toast-title"/.test(html),
     "cuadro de mensaje: existe y tiene título y texto", "falta #toast-msg / #toast-text / #toast-title");
   check(/function mostrarMensaje/.test(main), "cuadro de mensaje: función mostrarMensaje", "no existe mostrarMensaje");
-  check(/function selectVenue[\s\S]{0,900}mostrarMensaje/.test(main),
+  check(/function selectVenue[\s\S]{0,1600}mostrarMensaje/.test(main),
     "cuadro de mensaje: los detalles del evento se muestran ahí", "selectVenue no usa mostrarMensaje");
   check(/function renderMapList[\s\S]{0,1400}mostrarMensaje/.test(main),
     "cuadro de mensaje: los resultados de búsqueda se muestran ahí", "renderMapList no usa mostrarMensaje");
@@ -324,7 +324,7 @@ console.log("[6] Vista de mapa: espacio, controles y comportamiento de los punto
   check(/id="point-fijo"/.test(html), "formulario: opción vista fija", "falta #point-fijo");
   check(/type="checkbox"[^>]*id="point-fijo"|id="point-fijo"[^>]*type="checkbox"/.test(html),
     "formulario: la vista fija es un checkbox", "#point-fijo no es un checkbox");
-  check(/fijo\s*:\s*\$\("#point-fijo"\)\.checked/.test(main), "formulario: se guarda el valor fijo", "no se envía fijo");
+  check(/fijo\s*:\s*(bloqueado\?true:)?\$\("#point-fijo"\)\.checked/.test(main), "formulario: se guarda el valor fijo", "no se envía fijo");
 
   // --- SQL de la columna fijo -----------------------------------------------
   const sql06 = leerTexto("sql/06_map_points.sql") || "";
@@ -630,7 +630,7 @@ console.log("[9] Acceso: login por usuario, grupo automático y registro");
   check(!/groupRef/.test(fnLogin) && !/if \(!username \|\| !password \|\| !groupRef\)/.test(fnLogin),
     "login: ya no exige el grupo", "la función sigue pidiendo el grupo");
   check(/\.eq\("username", username\)/.test(fnLogin) &&
-        /\.select\("id, username, full_name, role, active, group_id, group_admin"\)/.test(fnLogin),
+        /\.select\("id, username, full_name, role, active, group_id"\)/.test(fnLogin),
     "login: busca el perfil por usuario", "no busca el perfil por usuario");
   check(/USER_NOT_FOUND/.test(fnLogin),
     "login: 404 USER_NOT_FOUND para ofrecer el registro", "no distingue usuario inexistente");
@@ -673,7 +673,7 @@ console.log("[9] Acceso: login por usuario, grupo automático y registro");
         /filtrarGrupo\(supabase\.from\("events"\)/.test(main) &&
         /filtrarGrupo\(supabase\.from\("wall_posts"\)/.test(main),
     "datos: agenda y muro filtrados por el grupo activo", "alguna consulta no filtra por grupo");
-  check(/faltan las columnas de grupo/.test(main),
+  check(/faltan las columnas de grupo|falta la columna de grupo/.test(main),
     "compatibilidad: el login no se rompe si falta sql/10", "no hay respaldo sin columnas de grupo");
   check(/\[\"#agenda-past-days\",\"#agenda-active-list\",\"#agenda-upcoming-days\"\]/.test(main),
     "agenda: al cambiar a un grupo sin evento se limpian los días anteriores",
@@ -681,8 +681,8 @@ console.log("[9] Acceso: login por usuario, grupo automático y registro");
   check(/\$\("#agenda-active-day"\)\?\.classList\.add\("hidden"\)/.test(main),
     "agenda: la tarjeta del día activo se oculta si HOY no tiene actividades",
     "el encabezado del día anterior puede quedar visible");
-  check(/app-santiago-2026-v22/.test(sw),
-    "service worker: v22 (precache renovada con la Fase 6)", "el SW no se renovó");
+  check(/app-santiago-2026-v23/.test(sw),
+    "service worker: v23 (ADMIN/MANAGER + puntos bloqueados)", "el SW no se renovó");
 }
 
 // ------------------- 10. Fase 2: categorías, colores y alcance (2026-11-26) -----
@@ -850,7 +850,7 @@ console.log("[12] Fase 4: evento general editable");
     "evento: se crea publicado y con autor", "falta el autor o el estado publicado");
   check(/fin<inicio/.test(main) && /El nombre del evento es obligatorio/.test(main),
     "evento: valida nombre y rango de fechas", "faltan validaciones del evento");
-  check(/\$\("#event-edit-btn"\)\?\.classList\.toggle\("hidden",!esAdminDeGrupo\(\)\)/.test(main),
+  check(/\$\("#event-edit-btn"\)\?\.classList\.toggle\("hidden",!esGestorDeGrupo\(\) \|\| esAdminGeneral\(\)\)/.test(main),
     "evento: solo admin global/de grupo ve el botón", "el botón no respeta el rol");
   check(/create policy "Admin o admin de grupo gestiona eventos"/.test(sql11),
     "evento: RLS de escritura por grupo (sql/11, sin SQL nuevo)",
@@ -894,8 +894,8 @@ console.log("[13] Fase 5: agenda con todos los días, FAB y SOS");
     "SOS: abre EMERGENCY_URL (flotante y botón grande)", "el SOS no abre la URL configurada");
   check(/bottom: calc\(4\.5rem \+ env\(safe-area-inset-bottom/.test(html),
     "SOS/FAB: sobre la barra de navegación (safe area)", "no respetan la barra inferior");
-  check(/app-santiago-2026-v22/.test(sw),
-    "service worker: v22", "el SW no se renovó");
+  check(/app-santiago-2026-v23/.test(sw),
+    "service worker: v23", "el SW no se renovó");
 }
 
 // ------------------- 14. Fase 6: animaciones JW (2026-11-26) -----------------
@@ -952,8 +952,88 @@ console.log("[14] Fase 6: animaciones JW (destello y latido)");
     "JW: temporizador de 60 s (sin consultas a Supabase)", "no hay temporizador");
   check(/aplicarEstadoJW\(\);\s*\}/.test(main),
     "JW: el estado se reaplica al renderizar los puntos", "no se aplica al render");
-  check(/app-santiago-2026-v22/.test(leerTexto("sw.js") || ""),
-    "service worker: v22", "el SW no se renovó");
+  check(/app-santiago-2026-v23/.test(leerTexto("sw.js") || ""),
+    "service worker: v23", "el SW no se renovó");
+}
+
+// ------------------- 15. Jerarquía ADMIN / MANAGER (sql/17) -----------------
+{
+  const sql17 = leerTexto("sql/17_admin_manager.sql") || "";
+  const html = leerTexto("index.html") || "";
+  const css = leerTexto("styles.css") || "";
+  const main = leerTexto("src/main.js") || "";
+
+  check(/role in \('admin', 'manager', 'user'\)/.test(sql17),
+    "ADMIN/MANAGER: roles admin, manager y user", "falta el CHECK de roles");
+  check(/drop column if exists group_admin/.test(sql17),
+    "ADMIN/MANAGER: group_admin migrado y eliminado", "group_admin sigue como fuente de verdad");
+  check(/function public\.can_manage_group\(g uuid\)[\s\S]{0,420}p\.role = 'manager' and p\.group_id = g/.test(sql17),
+    "ADMIN/MANAGER: can_manage_group limita al MANAGER a su grupo",
+    "el manager podría administrar otros grupos");
+  check(/function public\.admin_grupos\(\)/.test(sql17) &&
+        /if not public\.is_admin\(\) then/.test(sql17) &&
+        /has_password/.test(sql17),
+    "ADMIN/MANAGER: admin_grupos() es solo para ADMIN y no expone el hash",
+    "la RPC de grupos no está protegida");
+  check(/add column if not exists bloqueado boolean/.test(sql17) &&
+        /map_points_bloqueado_check/.test(sql17) &&
+        /function public\.proteger_punto_bloqueado\(\)/.test(sql17),
+    "ADMIN/MANAGER: puntos bloqueados con CHECK y trigger", "falta la protección de puntos");
+  check(/old\.bloqueado and not v_admin/.test(sql17) &&
+        /new\.bloqueado and not v_admin/.test(sql17),
+    "ADMIN/MANAGER: solo el ADMIN modifica puntos bloqueados",
+    "un manager podría editar un punto bloqueado");
+  check(/add column if not exists series_id uuid/.test(sql17) &&
+        /activities_series_idx/.test(sql17),
+    "ADMIN/MANAGER: actividades multi-grupo con series_id", "falta series_id");
+  check(/new\.group_id := v_grupo;/.test(sql17),
+    "ADMIN/MANAGER: el grupo de la actividad sale del evento",
+    "el cliente puede asignar un grupo incoherente");
+  check(/slug ~ '\^\[a-z0-9\]\[a-z0-9_-\]\{0,40\}\$'/.test(sql17),
+    "ADMIN/MANAGER: grupos con número de 1 carácter", "el slug sigue exigiendo 2 caracteres");
+
+  check(/function esAdminGeneral\(\)/.test(main) &&
+        /function esManager\(\)/.test(main) &&
+        /function esGestorDeGrupo\(\)/.test(main),
+    "ADMIN/MANAGER: helpers de rol en el frontend", "faltan los helpers");
+  check(!/group_admin/.test(main),
+    "ADMIN/MANAGER: el frontend ya no usa group_admin", "queda código con group_admin");
+  check(/function configurarVistaPorRol\(\)/.test(main) &&
+        /data-view=.*grupos|v==="grupos"/.test(main),
+    "ADMIN/MANAGER: navegación por rol", "no se configura la vista por rol");
+  check(/cargarGruposAdmin\(\)/.test(main) && /admin_grupos/.test(main) &&
+        /cargarActividadesAdmin\(\)/.test(main),
+    "ADMIN/MANAGER: cargadores de grupos y actividades generales",
+    "faltan los cargadores del ADMIN");
+  check(/seriesId=edit\?\.series_id/.test(main) || /payload\.series_id=seriesId/.test(main) ||
+        /series_id:seriesId/.test(main),
+    "ADMIN/MANAGER: el ADMIN guarda actividades por serie", "no se usa series_id");
+  check(/\.eq\("series_id",a\.series_id\)/.test(main),
+    "ADMIN/MANAGER: borrar una serie elimina todas sus filas",
+    "solo se borra una fila");
+  check(/payload\.bloqueado/.test(main) && /point-bloqueado/.test(main),
+    "ADMIN/MANAGER: el formulario de punto marca bloqueado", "falta el checkbox bloqueado");
+  check(/p\?\.bloqueado \|\| capasEstado\.puntos/.test(main),
+    "ADMIN/MANAGER: los puntos bloqueados no se ocultan con la capa",
+    "la capa puede ocultar un punto bloqueado");
+  check(/data-contacto-edit/.test(main) && /is_general:true,user_id:null/.test(main),
+    "ADMIN/MANAGER: contactos generales editables por el ADMIN",
+    "falta el CRUD de contactos");
+  check(/data-miembro-rol/.test(main) && /role:b\.dataset\.rol/.test(main),
+    "ADMIN/MANAGER: el ADMIN nombra/quita managers", "falta la gestión de managers");
+
+  check(/data-view="grupos"/.test(html) && /data-view="actividades"/.test(html) &&
+        /id="view-grupos"/.test(html) && /id="view-actividades"/.test(html),
+    "ADMIN/MANAGER: pestañas y vistas Grupos/Actividades", "falta la UI del ADMIN");
+  check(/id="activity-groups"/.test(html) && /multiple/.test(html),
+    "ADMIN/MANAGER: selector multi-grupo en la actividad", "falta el multi-select");
+  check(/id="point-bloqueado"/.test(html) && /id="contacto-form"/.test(html) &&
+        /id="grupo-form"/.test(html) && /id="miembros-dialog"/.test(html),
+    "ADMIN/MANAGER: diálogos de grupo, miembros, contacto y punto bloqueado",
+    "faltan diálogos");
+  check(/body\.modo-admin/.test(css) && /\.group-card/.test(css) &&
+        /\.map-point-bloqueado/.test(css),
+    "ADMIN/MANAGER: estilos de la vista simplificada", "faltan estilos");
 }
 
 // ---------------------------------------------------------------- resumen ----

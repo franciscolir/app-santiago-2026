@@ -252,8 +252,9 @@ los GRANT de la app). El grupo `principal` agrupa a los usuarios/datos existente
 
 ### Otras tablas modificadas
 
-- `profiles`: `group_id` (NOT NULL) y `group_admin`; índice único `lower(username)`; trigger
-  que impide cambiar `username`/`group_id` a los no administradores.
+- `profiles`: `group_id` (NOT NULL) y `role` (`admin`/`manager`/`user`); índice único
+  `lower(username)`; trigger que impide cambiar username/group_id/rol a los no autorizados.
+  `group_admin` se migró a `role='manager'` en `sql/17`.
 - `events`, `activities` y `wall_posts`: `group_id` (NOT NULL, FK) con políticas por grupo.
 - `activities`: `map_point_id` (FK a `map_points`, `ON DELETE SET NULL`) + trigger que exige
   categoría **JW** y mismo grupo/global.
@@ -444,7 +445,7 @@ Detalle en `PRUEBAS.md`.
   vivo: toggle (856, 12) y botones en x = 860, y = 62…430 (46 px de paso); 0 errores
   de consola.
 - **Fases 5–7 de `UPDATE.md` (2026-11-26)**, `node scripts/verificar-mapa.mjs` →
-  **352 pruebas · 0 fallos · 2 avisos**. Bloques nuevos: `[12]` agenda (todos los días,
+  **375 pruebas · 0 fallos · 2 avisos**. Bloques nuevos: `[12]` agenda (todos los días,
   sin filtro Mis/Todas, pasado/hoy/futuro, FAB y SOS), `[13]` evento editable y `[14]`
   animaciones JW (módulo puro de tiempo con zona `America/Santiago`, −30/inicio/+30,
   paso a la siguiente, canceladas, `setInterval` de 60 s sin consultas y animación en el
@@ -453,10 +454,15 @@ Detalle en `PRUEBAS.md`.
   curso, **el icono se infla en su lugar** (marcador con `animation: none`; icono interior
   escala con el mismo centro), artefactos borrados y **0 errores JS**.
 - **Fase 7 (cierre)**: `schema.sql` incorpora la sección 9 con el estado final de las
-  migraciones 10–16 (no es un `pg_dump` en vivo; la fuente de verdad son los `sql/`),
-  `AGENT.md` §36 resume la entrega y `PRUEBAS.md` suma las filas 83–89.
-- El service worker quedó en `app-santiago-2026-v22` (precache renovada con las
-  animaciones JW y el icono interior).
+  migraciones 10–17 (no es un `pg_dump` en vivo; la fuente de verdad son los `sql/`),
+  `AGENT.md` §36 resume la entrega y `PRUEBAS.md` suma las filas 83–100.
+- **Jerarquía ADMIN/MANAGER (`sql/17`)**: `role='admin'` ve la vista simplificada
+  (Grupos · Actividades · Mapa · Emergencia); `role='manager'` gestiona su grupo con la app
+  normal. `group_admin` desaparece. Se agregan grupos con número y contraseña, actividades
+  multi-grupo (`series_id`), puntos fijos bloqueados (solo ADMIN, siempre visibles) y
+  contactos generales de emergencia editables por el ADMIN. `sw` v23.
+- El service worker quedó en `app-santiago-2026-v23` (precache renovada con la jerarquía
+  ADMIN/MANAGER, los puntos bloqueados y los contactos generales).
 
 ---
 

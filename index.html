@@ -368,6 +368,42 @@ dialog::backdrop { background: rgba(44, 49, 50, .6); backdrop-filter: blur(2px);
       <div class="space-y-space-sm" id="agenda-list" aria-busy="true" aria-live="polite" aria-relevant="additions text"><div class="text-body-sm text-on-surface-variant px-1">Cargando agenda…</div></div>
     </section>
 
+    <!-- ==================== VISTA GRUPOS (ADMIN) ==================== -->
+    <section id="view-grupos" class="view view-section hidden flex-col w-full px-margin pb-28 space-y-space-md">
+      <div class="bg-surface-container-lowest rounded-lg p-space-md shadow-sm space-y-3" style="border: 1px solid rgb(206, 232, 242);">
+        <div class="flex items-start justify-between gap-3">
+          <div>
+            <h2 class="font-headline-sm text-headline-sm text-on-primary-container">Grupos</h2>
+            <p class="font-body-sm text-body-sm text-on-surface-variant mt-1">Crea grupos, define su contraseña de registro y su evento.</p>
+          </div>
+          <button id="grupo-nuevo-btn" type="button" class="h-11 px-4 rounded-full bg-primary text-on-primary font-label-md text-label-md font-bold flex items-center gap-1.5 active:scale-[0.98] transition-all flex-shrink-0">
+            <span class="material-symbols-outlined text-[20px]">add</span> Nuevo
+          </button>
+        </div>
+      </div>
+      <div id="grupos-lista" class="space-y-3"></div>
+    </section>
+
+    <!-- ==================== VISTA ACTIVIDADES (ADMIN) ==================== -->
+    <section id="view-actividades" class="view view-section hidden flex-col w-full px-margin pb-28 space-y-space-md">
+      <div class="bg-surface-container-lowest rounded-lg p-space-md shadow-sm space-y-3" style="border: 1px solid rgb(206, 232, 242);">
+        <div class="flex items-start justify-between gap-3">
+          <div>
+            <h2 class="font-headline-sm text-headline-sm text-on-primary-container">Actividades generales</h2>
+            <p class="font-body-sm text-body-sm text-on-surface-variant mt-1">Una actividad puede replicarse en varios grupos.</p>
+          </div>
+          <button id="new-activity-admin" type="button" class="h-11 px-4 rounded-full bg-primary text-on-primary font-label-md text-label-md font-bold flex items-center gap-1.5 active:scale-[0.98] transition-all flex-shrink-0">
+            <span class="material-symbols-outlined text-[20px]">add</span> Nueva
+          </button>
+        </div>
+        <label for="actividades-filtro" class="block font-label-md text-label-md text-on-surface font-semibold">Filtrar por grupo</label>
+        <select id="actividades-filtro" class="w-full h-12 px-3 bg-surface rounded-lg text-on-surface border border-outline-variant focus:outline-none focus:ring-2 focus:ring-primary/40">
+          <option value="">Todos los grupos</option>
+        </select>
+      </div>
+      <div id="actividades-lista" class="space-y-3"></div>
+    </section>
+
     <!-- ==================== VISTA MAPA ==================== -->
     <section id="view-mapa" class="view view-section hidden w-full relative select-none">
       <div class="relative w-full h-full min-h-0 bg-surface-container-low overflow-hidden mapa-frame">
@@ -531,6 +567,12 @@ dialog::backdrop { background: rgba(44, 49, 50, .6); backdrop-filter: blur(2px);
             <label class="flex items-center gap-2 pb-3">
               <input id="point-fijo" type="checkbox" class="w-5 h-5 accent-primary">
               <span class="font-body-md text-body-md text-on-surface">Vista fija (mostrar siempre el icono)</span>
+            </label>
+            <!-- Solo ADMIN: punto fijo global que ningún otro usuario puede
+                 editar, borrar ni ocultar (sql/17). -->
+            <label id="point-bloqueado-label" class="hidden items-center gap-2 pb-3">
+              <input id="point-bloqueado" type="checkbox" class="w-5 h-5 accent-primary">
+              <span class="font-body-md text-body-md text-on-surface">Punto fijo BLOQUEADO (solo ADMIN)</span>
             </label>
             <p id="point-error" class="error pb-2"></p>
             <div class="flex gap-2">
@@ -730,9 +772,14 @@ dialog::backdrop { background: rgba(44, 49, 50, .6); backdrop-filter: blur(2px);
 
       <!-- Contactos (reales: tabla emergency_contacts) -->
       <section class="px-margin mb-6">
-        <div class="flex items-center justify-between mb-2.5">
+        <div class="flex items-center justify-between mb-2.5 gap-2">
           <h3 class="font-headline-sm text-headline-sm text-on-surface">Contactos de emergencia</h3>
-          <span class="font-label-sm text-label-sm text-on-surface-variant">Red interna</span>
+          <div class="flex items-center gap-2">
+            <span class="font-label-sm text-label-sm text-on-surface-variant">Red interna</span>
+            <button id="contacto-nuevo-btn" type="button" class="hidden h-9 px-3 rounded-full bg-primary text-on-primary font-label-sm text-label-sm font-bold items-center gap-1 active:scale-[0.98] transition-all">
+              <span class="material-symbols-outlined text-[16px]">add</span> Nuevo
+            </button>
+          </div>
         </div>
         <div id="emergency-contacts" class="space-y-2.5" aria-live="polite" aria-relevant="additions text"></div>
       </section>
@@ -770,22 +817,30 @@ dialog::backdrop { background: rgba(44, 49, 50, .6); backdrop-filter: blur(2px);
   <!-- Navegación inferior -->
   <nav class="fixed bottom-0 inset-x-0 z-50 pb-[env(safe-area-inset-bottom,0px)] bg-surface-container-lowest/95 backdrop-blur-xl shadow-[0_-4px_20px_rgba(2,64,89,0.08)]" aria-label="Navegación principal">
     <div class="flex justify-around items-center h-16 px-space-sm max-w-lg mx-auto">
-      <button class="nav-item flex flex-col items-center justify-center gap-0.5 px-3 py-1.5 rounded-full transition-all min-w-[64px] min-h-[48px]" data-view="agenda" aria-current="page">
+      <button class="nav-item flex flex-col items-center justify-center gap-0.5 px-3 py-1.5 rounded-full transition-all min-w-[64px] min-h-[48px] hidden" data-view="grupos" style="order:1">
+        <span class="material-symbols-outlined text-[24px]" aria-hidden="true">groups</span>
+        <span class="font-label-sm text-label-sm">Grupos</span>
+      </button>
+      <button class="nav-item flex flex-col items-center justify-center gap-0.5 px-3 py-1.5 rounded-full transition-all min-w-[64px] min-h-[48px]" data-view="agenda" aria-current="page" style="order:2">
         <span class="material-symbols-outlined text-[24px]" aria-hidden="true">calendar_month</span>
         <span class="font-label-sm text-label-sm">Agenda</span>
       </button>
-      <button class="nav-item flex flex-col items-center justify-center gap-0.5 px-3 py-1.5 rounded-full transition-all min-w-[64px] min-h-[48px]" data-view="mapa">
+      <button class="nav-item flex flex-col items-center justify-center gap-0.5 px-3 py-1.5 rounded-full transition-all min-w-[64px] min-h-[48px]" data-view="mapa" style="order:3">
         <span class="material-symbols-outlined text-[24px]" aria-hidden="true">location_on</span>
         <span class="font-label-sm text-label-sm">Mapa</span>
       </button>
-      <button class="nav-item nav-emergencia flex flex-col items-center justify-center gap-0.5 px-3 py-1.5 rounded-full transition-all min-w-[64px] min-h-[48px] relative" data-view="emergencia">
+      <button class="nav-item nav-emergencia flex flex-col items-center justify-center gap-0.5 px-3 py-1.5 rounded-full transition-all min-w-[64px] min-h-[48px] relative" data-view="emergencia" style="order:4">
         <div class="relative flex items-center justify-center">
           <span class="material-symbols-outlined text-[24px] text-error" aria-hidden="true">emergency</span>
           <span class="absolute -top-0.5 -right-1 w-2 h-2 rounded-full bg-error ring-2 ring-surface-container-lowest" aria-hidden="true"></span>
         </div>
         <span class="font-label-sm text-label-sm text-error">Emergencia</span>
       </button>
-      <button class="nav-item flex flex-col items-center justify-center gap-0.5 px-3 py-1.5 rounded-full transition-all min-w-[64px] min-h-[48px]" data-view="muro">
+      <button class="nav-item flex flex-col items-center justify-center gap-0.5 px-3 py-1.5 rounded-full transition-all min-w-[64px] min-h-[48px] hidden" data-view="actividades" style="order:5">
+        <span class="material-symbols-outlined text-[24px]" aria-hidden="true">event_note</span>
+        <span class="font-label-sm text-label-sm">Actividades</span>
+      </button>
+      <button class="nav-item flex flex-col items-center justify-center gap-0.5 px-3 py-1.5 rounded-full transition-all min-w-[64px] min-h-[48px]" data-view="muro" style="order:6">
         <span class="material-symbols-outlined text-[24px]" aria-hidden="true">forum</span>
         <span class="font-label-sm text-label-sm">Muro</span>
       </button>
@@ -819,6 +874,12 @@ dialog::backdrop { background: rgba(44, 49, 50, .6); backdrop-filter: blur(2px);
     <div>
       <label for="activity-description" class="block font-label-md text-label-md text-on-surface font-semibold mb-1">Descripción</label>
       <textarea id="activity-description" rows="3" class="w-full p-3 bg-surface rounded-lg text-on-surface border border-outline-variant focus:outline-none focus:ring-2 focus:ring-primary/40 resize-none"></textarea>
+    </div>
+    <!-- ADMIN general: una fila por cada grupo seleccionado, unidas por series_id. -->
+    <div id="activity-groups-block" class="hidden">
+      <label for="activity-groups" class="block font-label-md text-label-md text-on-surface font-semibold mb-1">Grupos (ADMIN)</label>
+      <select id="activity-groups" multiple size="4" class="w-full px-3 py-2 bg-surface rounded-lg text-on-surface border border-outline-variant focus:outline-none focus:ring-2 focus:ring-primary/40"></select>
+      <p class="text-[11px] text-on-surface-variant mt-1">La actividad se replica en cada grupo seleccionado. Para varios grupos, el punto JW debe ser global.</p>
     </div>
     <div class="grid grid-cols-2 gap-3">
       <div>
@@ -855,7 +916,7 @@ dialog::backdrop { background: rgba(44, 49, 50, .6); backdrop-filter: blur(2px);
         </button>
       </div>
     </div>
-    <div>
+    <div id="activity-assignees-block">
       <label for="activity-assignees" class="block font-label-md text-label-md text-on-surface font-semibold mb-1">Asignar usuarios (IDs UUID separados por coma)</label>
       <input id="activity-assignees" placeholder="Opcional" class="w-full h-12 px-3.5 bg-surface rounded-lg text-on-surface border border-outline-variant focus:outline-none focus:ring-2 focus:ring-primary/40">
     </div>
@@ -894,6 +955,103 @@ dialog::backdrop { background: rgba(44, 49, 50, .6); backdrop-filter: blur(2px);
     </div>
     <p id="event-form-error" class="error"></p>
     <button type="submit" class="w-full h-12 rounded-full bg-primary text-on-primary font-label-lg text-label-lg font-bold shadow-md active:scale-[0.98] transition-all">Guardar evento</button>
+  </form>
+</dialog>
+
+<!-- ==================== GRUPO (ADMIN) ==================== -->
+<dialog id="grupo-dialog" aria-labelledby="grupo-dialog-title">
+  <form id="grupo-form" class="bg-surface-container-lowest rounded-t-xl p-space-lg space-y-space-md max-h-[88vh] overflow-y-auto shadow-2xl w-full max-w-lg mx-auto mt-auto">
+    <div class="flex items-center justify-between gap-2">
+      <h2 id="grupo-dialog-title" class="font-headline-md text-headline-md text-on-primary-container">Nuevo grupo</h2>
+      <button type="button" id="grupo-close" aria-label="Cerrar" class="w-9 h-9 rounded-full bg-surface-container-low flex items-center justify-center active:scale-95 transition-all flex-shrink-0">
+        <span class="material-symbols-outlined text-[20px]">close</span>
+      </button>
+    </div>
+    <input id="grupo-id" type="hidden">
+    <div class="grid grid-cols-2 gap-3">
+      <div>
+        <label for="grupo-slug" class="block font-label-md text-label-md text-on-surface font-semibold mb-1">Número / slug</label>
+        <input id="grupo-slug" required maxlength="41" placeholder="1" class="w-full h-12 px-3 bg-surface rounded-lg text-on-surface border border-outline-variant focus:outline-none focus:ring-2 focus:ring-primary/40">
+      </div>
+      <div>
+        <label for="grupo-name" class="block font-label-md text-label-md text-on-surface font-semibold mb-1">Nombre</label>
+        <input id="grupo-name" required maxlength="80" placeholder="Grupo 1" class="w-full h-12 px-3 bg-surface rounded-lg text-on-surface border border-outline-variant focus:outline-none focus:ring-2 focus:ring-primary/40">
+      </div>
+    </div>
+    <div>
+      <label for="grupo-description" class="block font-label-md text-label-md text-on-surface font-semibold mb-1">Descripción</label>
+      <textarea id="grupo-description" rows="2" maxlength="500" class="w-full p-3 bg-surface rounded-lg text-on-surface border border-outline-variant focus:outline-none focus:ring-2 focus:ring-primary/40 resize-none"></textarea>
+    </div>
+    <div>
+      <label for="grupo-password" class="block font-label-md text-label-md text-on-surface font-semibold mb-1">Contraseña de registro</label>
+      <input id="grupo-password" type="password" minlength="6" maxlength="100" autocomplete="new-password" placeholder="Mínimo 6 caracteres" class="w-full h-12 px-3 bg-surface rounded-lg text-on-surface border border-outline-variant focus:outline-none focus:ring-2 focus:ring-primary/40">
+      <p id="grupo-password-hint" class="text-[11px] text-on-surface-variant mt-1">Al editar, déjala vacía para conservar la contraseña actual.</p>
+    </div>
+    <label class="flex items-center gap-2">
+      <input id="grupo-active" type="checkbox" checked class="w-5 h-5 accent-primary">
+      <span class="font-body-md text-body-md text-on-surface">Grupo activo (permite registro)</span>
+    </label>
+    <div class="border-t border-outline-variant pt-3 space-y-3">
+      <p class="font-label-md text-label-md text-on-surface font-semibold">Evento del grupo</p>
+      <div>
+        <label for="grupo-event-name" class="block font-label-sm text-label-sm text-on-surface-variant mb-1">Nombre del evento</label>
+        <input id="grupo-event-name" maxlength="180" class="w-full h-12 px-3 bg-surface rounded-lg text-on-surface border border-outline-variant focus:outline-none focus:ring-2 focus:ring-primary/40">
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label for="grupo-event-start" class="block font-label-sm text-label-sm text-on-surface-variant mb-1">Inicio</label>
+          <input id="grupo-event-start" type="date" class="w-full h-12 px-3 bg-surface rounded-lg text-on-surface border border-outline-variant focus:outline-none focus:ring-2 focus:ring-primary/40">
+        </div>
+        <div>
+          <label for="grupo-event-end" class="block font-label-sm text-label-sm text-on-surface-variant mb-1">Término</label>
+          <input id="grupo-event-end" type="date" class="w-full h-12 px-3 bg-surface rounded-lg text-on-surface border border-outline-variant focus:outline-none focus:ring-2 focus:ring-primary/40">
+        </div>
+      </div>
+    </div>
+    <p id="grupo-form-error" class="error"></p>
+    <button type="submit" class="w-full h-12 rounded-full bg-primary text-on-primary font-label-lg text-label-lg font-bold shadow-md active:scale-[0.98] transition-all">Guardar grupo</button>
+  </form>
+</dialog>
+
+<!-- ==================== MIEMBROS / MANAGERS DEL GRUPO ==================== -->
+<dialog id="miembros-dialog" aria-labelledby="miembros-title">
+  <div class="bg-surface-container-lowest rounded-t-xl p-space-lg space-y-space-md max-h-[85vh] overflow-y-auto shadow-2xl w-full max-w-lg mx-auto mt-auto">
+    <div class="flex items-center justify-between gap-2">
+      <h2 id="miembros-title" class="font-headline-md text-headline-md text-on-primary-container">Miembros</h2>
+      <button type="button" id="miembros-close" aria-label="Cerrar" class="w-9 h-9 rounded-full bg-surface-container-low flex items-center justify-center active:scale-95 transition-all flex-shrink-0">
+        <span class="material-symbols-outlined text-[20px]">close</span>
+      </button>
+    </div>
+    <p class="font-body-sm text-body-sm text-on-surface-variant">El MANAGER puede crear actividades, evento y puntos de su grupo. El ADMIN puede nombrar o quitar managers.</p>
+    <div id="miembros-lista" class="space-y-2"></div>
+    <p id="miembros-error" class="error"></p>
+  </div>
+</dialog>
+
+<!-- ==================== CONTACTO DE EMERGENCIA (ADMIN) ==================== -->
+<dialog id="contacto-dialog" aria-labelledby="contacto-dialog-title">
+  <form id="contacto-form" class="bg-surface-container-lowest rounded-t-xl p-space-lg space-y-space-md max-h-[85vh] overflow-y-auto shadow-2xl w-full max-w-lg mx-auto mt-auto">
+    <div class="flex items-center justify-between gap-2">
+      <h2 id="contacto-dialog-title" class="font-headline-md text-headline-md text-on-primary-container">Nuevo contacto</h2>
+      <button type="button" id="contacto-close" aria-label="Cerrar" class="w-9 h-9 rounded-full bg-surface-container-low flex items-center justify-center active:scale-95 transition-all flex-shrink-0">
+        <span class="material-symbols-outlined text-[20px]">close</span>
+      </button>
+    </div>
+    <input id="contacto-id" type="hidden">
+    <div>
+      <label for="contacto-name" class="block font-label-md text-label-md text-on-surface font-semibold mb-1">Nombre</label>
+      <input id="contacto-name" required maxlength="120" class="w-full h-12 px-3 bg-surface rounded-lg text-on-surface border border-outline-variant focus:outline-none focus:ring-2 focus:ring-primary/40">
+    </div>
+    <div>
+      <label for="contacto-phone" class="block font-label-md text-label-md text-on-surface font-semibold mb-1">Teléfono</label>
+      <input id="contacto-phone" required maxlength="40" inputmode="tel" class="w-full h-12 px-3 bg-surface rounded-lg text-on-surface border border-outline-variant focus:outline-none focus:ring-2 focus:ring-primary/40">
+    </div>
+    <div>
+      <label for="contacto-description" class="block font-label-md text-label-md text-on-surface font-semibold mb-1">Descripción</label>
+      <textarea id="contacto-description" rows="2" maxlength="300" class="w-full p-3 bg-surface rounded-lg text-on-surface border border-outline-variant focus:outline-none focus:ring-2 focus:ring-primary/40 resize-none"></textarea>
+    </div>
+    <p id="contacto-error" class="error"></p>
+    <button type="submit" class="w-full h-12 rounded-full bg-primary text-on-primary font-label-lg text-label-lg font-bold shadow-md active:scale-[0.98] transition-all">Guardar contacto</button>
   </form>
 </dialog>
 

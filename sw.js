@@ -36,7 +36,9 @@
 // v21: Fase 6: animaciones JW (destello y latido por fecha/hora de Chile).
 // v22: el latido/destello escala un icono interior con origen centrado: el
 // marcador no se desplaza.
-const CACHE_NAME = "app-santiago-2026-v22";
+// v23: jerarquía ADMIN/MANAGER, vista de grupos/actividades, puntos bloqueados
+// y contactos generales de emergencia (sql/17).
+const CACHE_NAME = "app-santiago-2026-v23";
 const APP_SHELL = [
   "./",
   "./index.html",

@@ -3,8 +3,8 @@
 > Documento de continuidad para agentes de programación. Léelo completo antes de modificar el repositorio.
 > Última actualización: 2026-11-26.
 >
-> **Estado:** integración con Supabase **resuelta** (§13). Los dos fallos de la §8 están cerrados. Las **9 etapas de `UPDATE.md`** están completadas y documentadas en §29–§36 (Fase 7 cerrada el 2026-11-26).
-> **`schema.sql`:** snapshot de la BD real del 2026-11-23 (§1–§8) **más** la sección 9 con el estado final de las migraciones 10–16. La fuente de verdad del esquema son los archivos `sql/`.
+> **Estado:** integración con Supabase **resuelta** (§13). Los dos fallos de la §8 están cerrados. Las **9 etapas de `UPDATE.md`** están completadas y documentadas en §29–§36 (Fase 7 cerrada el 2026-11-26). La jerarquía **ADMIN/MANAGER** se documenta en §37 (SQL 17).
+> **`schema.sql`:** snapshot de la BD real del 2026-11-23 (§1–§8) **más** la sección 9 con el estado final de las migraciones 10–17. La fuente de verdad del esquema son los archivos `sql/`.
 
 ## 1. Objetivo del proyecto
 
@@ -1626,7 +1626,7 @@ MapLibre 4.7.1 + Supabase + GitHub Pages):
 |---|---|
 | `groups` | **Nueva** (`sql/10`): `id`, `slug` único, `name`, `description`, `active`. |
 | `map_categories` | **Nueva** (`sql/15`): `slug` PK, `name`, `icon`, `color` (#rrggbb), `sort`, `active`. |
-| `profiles` | `group_id` (NOT NULL, FK), `group_admin`; índice `group_id`; índice único `lower(username)`; trigger de identidad. |
+| `profiles` | `group_id` (NOT NULL, FK), `role` (`admin`/`manager`/`user`); índice `group_id`; índice único `lower(username)`; trigger de identidad. |
 | `events` | `group_id` (NOT NULL, FK), backfill; políticas por grupo. |
 | `activities` | `group_id` (NOT NULL, FK), `map_point_id` (FK `ON DELETE SET NULL`); trigger que exige categoría JW y grupo/global. |
 | `wall_posts` | `group_id` (NOT NULL, FK), políticas por grupo. |
@@ -1636,10 +1636,12 @@ MapLibre 4.7.1 + Supabase + GitHub Pages):
 
 `sql/06_map_points.sql` → `07_terminales.sql` → `08_puntos_fijos.sql` (si aplica) →
 `09_admin_gestiona_puntos.sql` → `10_grupos.sql` → `11_rls_grupos.sql` →
-`14_registro_perfiles.sql` → `15_categorias_puntos.sql` → `16_jw_actividades.sql`.
+`14_registro_perfiles.sql` → `15_categorias_puntos.sql` → `16_jw_actividades.sql` →
+`17_admin_manager.sql`.
 
 Todas son idempotentes. La Fase 7 **no agrega migraciones**: el esquema final se documenta
-en `schema.sql` (sección 9) y en los archivos anteriores.
+en `schema.sql` (sección 9) y en los archivos anteriores. `sql/17` es la migración de la
+jerarquía ADMIN/MANAGER (posterior a la Fase 7).
 
 ### Edge Functions
 
@@ -1674,7 +1676,7 @@ en `schema.sql` (sección 9) y en los archivos anteriores.
 
 ### Pruebas
 
-- `node scripts/verificar-mapa.mjs` → **352 pruebas · 0 fallos · 2 avisos** (bloques `[1]`–`[14]`).
+- `node scripts/verificar-mapa.mjs` → **375 pruebas · 0 fallos · 2 avisos** (bloques `[1]`–`[15]`).
 - Verificación en navegador por fase: login/registro, RLS de eventos/muro con `test1`,
   colores y puntos, JW (latido/destello en su lugar), evento, agenda, FAB/SOS y animaciones.
   **0 errores de consola** en los flujos normales; los 4xx/5xx esperados de las pruebas
@@ -1689,8 +1691,8 @@ en `schema.sql` (sección 9) y en los archivos anteriores.
 | `src/config.js` | `SUPABASE_URL`, clave publicable y `EMERGENCY_URL` (todas públicas). |
 | `index.html` | Vistas, diálogos (actividad, punto, evento), agenda, FAB y SOS. |
 | `styles.css` | Categorías/colores, JW, mapas, agenda, FAB/SOS y `@keyframes` de destello/latido. |
-| `sw.js` | Service worker, precache `v22`. |
-| `scripts/verificar-mapa.mjs` | Verificador (352 pruebas, bloques `[1]`–`[14]`). |
+| `sw.js` | Service worker, precache `v23`. |
+| `scripts/verificar-mapa.mjs` | Verificador (375 pruebas, bloques `[1]`–`[15]`). |
 | `sql/06`–`sql/16` | Migraciones idempotentes (mapa, terminales, admin, grupos, RLS, perfiles, categorías, JW). |
 | `supabase/functions/login-username` | Login por usuario+contraseña con grupo automático (v2). |
 | `supabase/functions/register-profile` | Registro con contraseña de grupo (`validar-grupo`, `sugerir-usuario`, `registrar`). |
@@ -1705,9 +1707,9 @@ en `schema.sql` (sección 9) y en los archivos anteriores.
 3. **Corte +30 → siguiente** en vivo: cubierto por las pruebas puras del módulo de tiempo.
 4. **Selección individual en capas externas** (parques/salud/comercio de OSM): se mantiene el
    interruptor por categoría; la gestión individual aplica a `map_points` (decisión de alcance).
-5. **`schema.sql` no es un `pg_dump` en vivo**: la sección 9 consolida las migraciones 10–16;
+5. **`schema.sql` no es un `pg_dump` en vivo**: la sección 9 consolida las migraciones 10–17;
    la fuente de verdad son los archivos `sql/`.
-6. Limpieza de caché del service worker tras cada despliegue (hoy `v22`).
+6. Limpieza de caché del service worker tras cada despliegue (hoy `v23`).
 7. `UPDATE.md` es del usuario y quedó **sin rastrear**.
 
 ### Artefactos de prueba
@@ -1715,6 +1717,79 @@ en `schema.sql` (sección 9) y en los archivos anteriores.
 Eliminados: usuario `test1`, grupo `prueba_acceso`, actividad/punto JW de prueba y grupo
 `prueba_acceso`; quedan el grupo `principal`, los perfiles `admin`/`test`, las 5 actividades
 de prueba y los 6 puntos (4 terminales + 2 generales).
+
+---
+
+## 37. Jerarquía ADMIN / MANAGER y vista general (2026-11-26)
+
+Cubre la petición posterior a la Fase 7. **SQL nuevo: `sql/17_admin_manager.sql`.**
+
+### Roles
+
+| Rol BD | Nombre | Alcance | Vista |
+|---|---|---|---|
+| `admin` | ADMIN general | Todos los grupos | Simplificada: Grupos · Actividades · Mapa · Emergencia |
+| `manager` | MANAGER de grupo | Solo su `group_id` | Normal: Agenda · Mapa · Emergencia · Muro |
+| `user` | Usuario | Su grupo | Normal |
+
+`profiles.group_admin` **deja de existir**: se migra a `role='manager'` + `group_id`.
+El MANAGER puede crear/editar actividades, evento, puntos y muro de su grupo; no puede
+crear grupos, cambiar contraseñas, tocar puntos bloqueados ni administrar contactos.
+
+### SQL (`sql/17_admin_manager.sql`)
+
+- CHECK de `profiles.role` con `admin`, `manager`, `user`; migración de `group_admin=true`
+  a `manager` y eliminación de la columna.
+- `is_manager()`; `can_manage_group()` acepta ADMIN o MANAGER de ese grupo.
+- `proteger_identidad_perfil()` impide que un MANAGER cambie roles.
+- `definir_password_grupo()` queda solo para el ADMIN.
+- `map_points.bloqueado` + CHECK (general, global, visible, activo, fijo) + trigger
+  `proteger_punto_bloqueado` (solo ADMIN crea/edita/borra).
+- `activities.series_id` para actividades multi-grupo; el grupo se deriva siempre del evento.
+- `groups.slug` acepta números de 1 carácter.
+- RPC `admin_grupos()` (solo ADMIN) con grupos, contraseña definida, miembros, managers y
+  evento; nunca expone `join_password_hash`.
+
+### Frontend
+
+- `esAdminGeneral()` (`role='admin'`), `esManager()`, `esGestorDeGrupo()`.
+- El ADMIN no carga agenda ni muro; navega Grupos/Actividades/Mapa/Emergencia.
+- Vista **Grupos**: crear/editar número, nombre, descripción, activo, contraseña y evento;
+  lista de miembros con “Hacer/Quitar manager”.
+- Vista **Actividades**: lista con filtro por grupo; el diálogo permite seleccionar **varios
+  grupos** para el ADMIN y guarda una fila por grupo con `series_id` común.
+- El MANAGER conserva la agenda normal y ahora puede crear/editar actividades de su grupo
+  (antes el FAB estaba reservado al admin global).
+- Puntos: checkbox **“Punto fijo BLOQUEADO”** solo para el ADMIN; los puntos bloqueados se
+  muestran siempre (aunque la capa de puntos esté apagada), no se pueden editar desde la
+  gestión y el trigger/RLS impide modificarlos.
+- Emergencia: CRUD de contactos **generales** (`is_general=true`, `user_id=null`) para el
+  ADMIN; todos los usuarios los ven.
+
+### Verificación
+
+- `node scripts/verificar-mapa.mjs` → **375 pruebas · 0 fallos · 2 avisos** (bloque `[15]`).
+- `sw.js` → **v23**.
+- **En vivo (2026-11-26)**, con una cuenta ADMIN promovida temporalmente y `test` como MANAGER:
+  - ADMIN: navegación Grupos/Actividades/Mapa/Emergencia, sin Agenda/Muro; grupos con
+    miembros, managers, contraseña y evento.
+  - Grupo `99` temporal: creado con número/contraseña/evento; registro de un usuario con la
+    contraseña del grupo (200) y promoción a MANAGER desde Miembros.
+  - MANAGER: Agenda/Mapa/Emergencia/Muro, sin Grupos/Actividades; creó una actividad en su
+    grupo; no pudo crear grupos, cambiar contraseñas, ascender roles ni crear contactos
+    (403/42501); solo ve las actividades de su grupo.
+  - Actividad multi-grupo: una fila en principal y otra en 99 con el mismo `series_id`;
+    editarla actualizó ambas; el MANAGER solo vio la de su grupo.
+  - Punto bloqueado: creado por el ADMIN; MANAGER no lo pudo editar/borrar (sin filas) y siguió
+    visible al apagar la capa “Puntos personalizados”; el ADMIN sí lo editó desde la UI.
+  - Contacto general: el ADMIN lo creó, el MANAGER lo vio y no tuvo botones de edición.
+  - **0 errores de consola**.
+- **Limpieza**: grupo 99, evento, actividad multi-grupo (ambas filas), actividad del MANAGER,
+  punto bloqueado, punto del MANAGER, contacto general y usuario `manager99` eliminados.
+  Quedan: 5 actividades, 6 puntos, 0 contactos, 1 grupo (`principal`), 2 perfiles
+  (`admin` = ADMIN, `test` = MANAGER).
+- `login-username` y `register-profile` se redesplegaron sin `group_admin` (el SQL 17 elimina
+  la columna; sin este cambio el login fallaba).
 
 
 

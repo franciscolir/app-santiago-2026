@@ -6,7 +6,7 @@
 //
 // Contrato:
 //   POST { "username": "...", "password": "..." }
-//   200  { session, user: { id, username, full_name, role, group_admin,
+//   200  { session, user: { id, username, full_name, role,
 //                           group: { id, slug, name } } }
 //   400  { error }  → faltan datos
 //   401  { error }  → contraseña incorrecta
@@ -84,7 +84,7 @@ Deno.serve(async (req: Request) => {
   // 1) Perfil por nombre de usuario (único global).
   const { data: profile, error: profileError } = await admin
     .from("profiles")
-    .select("id, username, full_name, role, active, group_id, group_admin")
+    .select("id, username, full_name, role, active, group_id")
     .eq("username", username)
     .maybeSingle();
 
@@ -146,7 +146,7 @@ Deno.serve(async (req: Request) => {
       username: profile.username,
       full_name: profile.full_name,
       role: profile.role,
-      group_admin: Boolean(profile.group_admin),
+      role: profile.role,
       group: { id: group.id, slug: group.slug, name: group.name },
     },
   });

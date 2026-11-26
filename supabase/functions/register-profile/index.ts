@@ -264,7 +264,7 @@ Deno.serve(async (req: Request) => {
     // El perfil lo crea handle_new_user() con el group_id de los metadatos.
     const { data: profile, error: profileError } = await admin
       .from("profiles")
-      .select("id, username, full_name, role, active, group_id, group_admin")
+      .select("id, username, full_name, role, active, group_id")
       .eq("id", id)
       .maybeSingle();
 
@@ -297,7 +297,7 @@ Deno.serve(async (req: Request) => {
         username: profile.username,
         full_name: profile.full_name,
         role: profile.role,
-        group_admin: Boolean(profile.group_admin),
+        role: profile.role,
         group: { id: group.id, slug: group.slug, name: group.name },
       },
     });

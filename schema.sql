@@ -2,10 +2,10 @@
 -- APP SANTIAGO 2026 — schema.sql
 -- Regenerado desde la BD real (Supabase) el 2026-11-23.
 --
--- ACTUALIZACIÓN 2026-11-26: el estado final incorpora las migraciones 10–16
--- (grupos, login/registro, categorías, alcance de puntos y JW). La sección 9
--- resume ese estado; la fuente de verdad son los archivos sql/10, 11, 14, 15
--- y 16 (más las anteriores 06–09).
+-- ACTUALIZACIÓN 2026-11-26: el estado final incorpora las migraciones 10–17
+-- (grupos, login/registro, categorías, alcance de puntos, JW y ADMIN/MANAGER).
+-- La sección 9 resume ese estado; la fuente de verdad son los archivos sql/10,
+-- 11, 14, 15, 16 y 17 (más las anteriores 06–09).
 --
 -- Fiel a la base de datos existente: columnas, restricciones, índices,
 -- funciones, políticas RLS y GRANTs tal como están aplicados hoy.
@@ -526,32 +526,38 @@ create table if not exists public.map_categories (
 
 -- 9.2 Columnas agregadas / ajustadas
 alter table public.profiles   add column if not exists group_id uuid;
-alter table public.profiles   add column if not exists group_admin boolean not null default false;
 alter table public.events     add column if not exists group_id uuid;
 alter table public.activities add column if not exists group_id uuid;
 alter table public.activities add column if not exists map_point_id uuid;
+alter table public.activities add column if not exists series_id uuid;
 alter table public.wall_posts add column if not exists group_id uuid;
 alter table public.map_points add column if not exists group_id uuid;
 alter table public.map_points add column if not exists scope text not null default 'group';
+alter table public.map_points add column if not exists bloqueado boolean not null default false;
 alter table public.groups     add column if not exists join_password_hash text;
--- profiles: índice único (group_id, lower(username)) + trigger de identidad.
+-- profiles.role: admin (ADMIN general) | manager (MANAGER de su grupo) | user.
+-- profiles.group_admin se migró a role='manager' y se eliminó en sql/17.
 -- map_points: category pasa a FK de map_categories; se elimina el CHECK antiguo
 -- de categoría/iconos; scope en ('global','group'); group_id NOT NULL si no es global.
+-- map_points.bloqueado: punto fijo global que solo el ADMIN puede modificar.
 
 -- 9.3 Funciones / RPC
 --   groups:        auth_group(), can_manage_group(uuid), grupos_publicos(),
---                  grupos_para_registro().
---   registro:      definir_password_grupo(text,text),
+--                  grupos_para_registro(), admin_grupos() [solo ADMIN].
+--   roles:         is_admin() [ADMIN], is_manager() [MANAGER], can_manage_group().
+--   registro:      definir_password_grupo(text,text) [solo ADMIN],
 --                  verificar_password_grupo(text,text)  [solo service_role].
 --   triggers:      handle_new_user() (actualizado), set_groups_updated_at(),
 --                  set_map_categories_updated_at(), asignar_grupo_autor(),
 --                  asignar_grupo_actividad(), asignar_grupo_punto(),
---                  proteger_identidad_perfil(), validar_punto_actividad().
+--                  proteger_identidad_perfil(), validar_punto_actividad(),
+--                  proteger_punto_bloqueado().
 
 -- 9.4 Triggers
 --   groups_updated_at, map_categories_updated_at, profiles_proteger_identidad,
 --   events_asignar_grupo, activities_asignar_grupo, wall_posts_asignar_grupo,
---   map_points_asignar_grupo, activities_validar_punto.
+--   map_points_asignar_grupo, activities_validar_punto,
+--   map_points_proteger_bloqueado.
 
 -- 9.5 Políticas RLS (nombres)
 --   groups:               Miembros consultan su grupo · Admin gestiona grupos ·
@@ -584,4 +590,13 @@ alter table public.groups     add column if not exists join_password_hash text;
 --   map_categories: select/insert/update/delete a authenticated (RLS admin).
 --   map_points:    select/insert/update/delete a authenticated (RLS por alcance).
 --   verificar_password_grupo: solo service_role.
+--   admin_grupos():          solo authenticated; valida is_admin() por dentro.
+
+-- 9.7 Jerarquía de roles (sql/17)
+--   admin   = ADMIN general: grupos, contraseñas, actividades multi-grupo,
+--             puntos fijos bloqueados y contactos generales. Vista simplificada.
+--   manager = MANAGER de su grupo: actividades, evento, puntos y muro del grupo.
+--   user    = usuario normal.
+--   profiles.group_admin ya no existe; se migró a role='manager'.
+--   Un punto bloqueado solo lo puede crear/editar/borrar el ADMIN (trigger).
 
