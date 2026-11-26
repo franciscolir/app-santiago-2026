@@ -419,7 +419,7 @@ dialog::backdrop { background: rgba(44, 49, 50, .6); backdrop-filter: blur(2px);
         </div>
 
         <!-- Buscador (arriba a la izquierda): botón lupa que despliega el input -->
-        <div class="absolute top-3 left-3 z-[1000] flex items-center gap-2">
+        <div id="map-search-bar" class="absolute top-3 left-3 z-[1000] flex items-center gap-2">
           <button type="button" aria-label="Buscar" aria-expanded="false" id="map-search-toggle"
                   class="w-11 h-11 rounded-full bg-surface-container-lowest/95 backdrop-blur-md text-on-primary-container shadow-md flex items-center justify-center flex-shrink-0 active:scale-95 hover:bg-surface transition-all">
             <span class="material-symbols-outlined text-[22px]">search</span>

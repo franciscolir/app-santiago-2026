@@ -44,7 +44,8 @@
 // v27: nombres de 3 líneas, controles reducidos, alta de punto por gesto,
 // subcategorías/capas, overrides de capas externas y ajustes ADMIN.
 // v28: comportamiento "siempre icono" también en capas externas.
-const CACHE_NAME = "app-santiago-2026-v28";
+// v29: controles del mapa bajo safe-area (notch/status bar).
+const CACHE_NAME = "app-santiago-2026-v29";
 const APP_SHELL = [
   "./",
   "./index.html",
