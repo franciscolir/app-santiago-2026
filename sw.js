@@ -5,8 +5,11 @@
 // bomberos.
 // v7: arreglo de los iconos del metro (fontstack explícito "Noto Sans Regular"
 // en `metro-nombres`: el fontstack por defecto daba 404 y tumbaba los tiles de
-// la fuente) + medidores temporales de calibración de zoom/tamaño de icono.
-const CACHE_NAME = "app-santiago-2026-v7";
+// la fuente).
+// v8: calibración final de los tamaños de icono (ICONO_MAX 0,45 → 0,375 = 24 px
+// como máximo; marcadores HTML 22→34 px = 16→24 px, el mismo techo) y ELIMINACIÓN
+// de los medidores temporales de calibración.
+const CACHE_NAME = "app-santiago-2026-v8";
 const APP_SHELL = [
   "./",
   "./index.html",

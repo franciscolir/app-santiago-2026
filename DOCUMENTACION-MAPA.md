@@ -113,7 +113,7 @@ Rampa de **tres momentos**, igual para las capas GeoJSON y para los marcadores H
 |---|---|---|
 | 1 · Muy alejado | ≤ 7 | Punto diminuto, casi imperceptible (radio 0,8 px / 2 px de diámetro). |
 | 2 · Acercándose | 7 → 11 | El punto **crece poco** (radio 0,8 → 3,15 → 7 px) y a partir del zoom 11 **se mantiene** (meseta) hasta que aparece el icono. |
-| 3 · Icono | 12,5 → 15 | Aparece el icono **pequeño** (`icon-size` 0,25), **crece un poco** hasta 0,45 (zoom 15) y ahí se mantiene: nunca es grande. |
+| 3 · Icono | 12,5 → 15 | Aparece el icono **pequeño** (`icon-size` 0,25 = 16 px), **crece un poco** hasta 0,375 = 24 px (zoom 15) y ahí se mantiene: nunca es grande (techo calibrado el 2026-11-26). |
 
 - **Al acercar** (zoom ≥ 12,5) cada punto muestra su **icono**.
 - **Al alejar** el icono se transforma en un **punto del color del pin** y ese punto se
@@ -352,16 +352,23 @@ Detalle en `PRUEBAS.md`.
   panel inferior plegable (269 px → 58 px, con `--mapa-panel-h` = 68 px) y formulario de
   punto con la casilla **“Vista fija (mostrar siempre el icono)”**.
 - Lote UX del 2026-11-25 (navegador): rampa verificada en los marcadores HTML (zoom 6 →
-  oculto · 9 → punto 5,2 px · 11 → punto 12 px (meseta) · 12,5 → icono 22 px + nombre ·
-  14 → 29,2 px · 16 → 34 px); capas `lugares-bomberos-*` y `metro-*` creadas al encender los
+  oculto · 9 → punto 5,2 px · 11 → punto 12 px (meseta) · 12,5 → icono + nombre ·
+  capas `lugares-bomberos-*` y `metro-*` creadas al encender los
   interruptores (iconos `icono-bomberos.svg`, `icono-metro.svg` y `icono-metro-combinacion.svg`
   presentes); buscador y ficha de evento en el cuadro de mensaje (5 resultados, acciones
   “Ver actividad” y “Cómo llegar”); hoja de gestión con 5 puntos generales, checkbox de
   visibilidad y botón Guardar; muro “Descárgate” con fondo `linear-gradient(#f25050,#d6a100)`
   y botón blanco con letras `#d96a00`; agenda sin scroll horizontal a 390 px de ancho
   (`scrollWidth = clientWidth = 390`).
-- El service worker quedó en `app-santiago-2026-v6` (los iconos SVG se sirven cache-first y la
-  precache se renovó con el lote de UX del 2026-11-25).
+- Calibración del tamaño de icono (2026-11-26): con medidores temporales se leyó
+  `zoom → px` y se ajustó el techo a **24 px** (`ICONO_MAX` 0,45 → 0,375); los
+  marcadores HTML bajaron de 22→34 px a **16→24 px** (el mismo techo). Después se
+  eliminaron los medidores (HTML + `pintarMedidores()` + sus listeners).
+- Fix del fontstack del metro (2026-11-26): `metro-nombres` ahora declara
+  `"text-font":["Noto Sans Regular"]` (el default daba 404 en los tiles de
+  OpenFreeMap y tumbaba todas las capas `symbol` de la fuente `transporte-estaciones`).
+- El service worker quedó en `app-santiago-2026-v8` (los iconos SVG se sirven cache-first
+  y la precache se renovó con la calibración del 2026-11-26).
 
 ---
 

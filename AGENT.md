@@ -987,7 +987,7 @@ Pedido del usuario (un solo lote) y cómo quedó resuelto:
 
 | Pedido | Solución | Dónde |
 |---|---|---|
-| Zoom de puntos en **3 momentos** | Rampa con 5 umbrales: `ZOOM_PUNTO_MIN=7`, `ZOOM_PUNTO_MEDIO=9,5`, `ZOOM_PUNTO_MAX=11`, `ZOOM_ICONO=12,5`, `ZOOM_ICONO_MAX=15`; radio 0,8→7 px (meseta entre 11 y 12,5) e `icon-size` 0,25→0,45 (nunca grande) | `src/main.js` (constantes, `cargarLugares`, `cargarTransporte`, `actualizarPuntosSegunZoom`) |
+| Zoom de puntos en **3 momentos** | Rampa con 5 umbrales: `ZOOM_PUNTO_MIN=7`, `ZOOM_PUNTO_MEDIO=9,5`, `ZOOM_PUNTO_MAX=11`, `ZOOM_ICONO=12,5`, `ZOOM_ICONO_MAX=15`; radio 0,8→7 px (meseta entre 11 y 12,5) e `icon-size` 0,25→0,375 = 16→24 px (techo calibrado el 2026-11-26, §26) | `src/main.js` (constantes, `cargarLugares`, `cargarTransporte`, `actualizarPuntosSegunZoom`) |
 | Puntos fijos **sin borde punteado** | Se eliminó la clase `.map-point-admin` y su `outline: dashed`; los fijos solo cambian que no se achican (`data-fijo`) | `src/main.js`, `styles.css` |
 | **Metro en una sola capa** + nombre bajo el icono | Un interruptor “Metro (estaciones y líneas)” (`id: metro`) agrupa líneas, estaciones, iconos y rótulos; la capa `metro-nombres` escribe `nombre` con `text-anchor: top` desde el zoom 12,5 | `src/main.js` (`CAPAS_DEF`, `cargarTransporte`) |
 | **Bomberos separados de la policía** | `data/lugares/seguridad.geojson` quedó con 167 puntos de policía y los 178 cuarteles pasaron a `data/lugares/bomberos.geojson`; dos capas, dos interruptores y dos iconos (`policia.svg`, `bomberos.svg`) | `scripts/separar-bomberos.mjs`, `scripts/importar-lugares.mjs`, `src/main.js` |
@@ -1012,7 +1012,7 @@ Extras que hicieron falta:
   El bloque `[6]` se adaptó (el panel inferior ya no debe existir) y se agregó el bloque
   `[7]` con las 11 comprobaciones del lote.
 - **Navegador** (0 errores de consola): rampa verificada en los marcadores HTML (zoom 6
-  oculto · 9 → 5,2 px · 11 → 12 px · 12,5 → icono 22 px + nombre · 16 → 34 px); capas
+  oculto · 9 → 5,2 px · 11 → 12 px · 12,5 → icono 16 px + nombre · 16 → 24 px); capas
   `lugares-bomberos-*` y `metro-*` creadas al encender los interruptores; cuadro de mensaje
   con los 5 resultados de búsqueda y la ficha del evento (acciones “Ver actividad” y “Cómo
   llegar”); hoja de gestión con los 5 puntos generales; muro naranja con botón blanco;
@@ -1024,7 +1024,7 @@ Extras que hicieron falta:
 
 ---
 
-## 26. Fix de los iconos del metro + medidores temporales de calibración (2026-11-26)
+## 26. Fix de los iconos del metro + calibración del tamaño de icono (2026-11-26)
 
 ### Síntoma
 
@@ -1063,30 +1063,34 @@ tiles `4 loaded / 0 errored`, `metro-estaciones-icono` + `metro-combo-icono` +
 `metro-nombres` pintando (Parque Almagro, Toesca con combinación L5), **0 errores de
 consola** (el 404 de glifos desapareció).
 
-### Medidores TEMPORALES de calibración (ELIMINAR cuando termine la calibración)
+### Calibración del tamaño de icono (2026-11-26) — RESUELTA
 
-Marcados con `MEDIDORES TEMPORALES` en `index.html` (`#medidores-calibracion`, abajo a la
-izquierda, con botón ✕) y en `src/main.js` (`pintarMedidores()`, enganchada a `zoom`/`move`):
+Se usaron los medidores temporales de calibración (zoom 0–100 + tamaño de icono
+0–20 px, mismas constantes que las capas) para leer `zoom real → px`:
 
-| Medidor | Escala | Qué muestra |
+| Zoom | Antes | Después |
 |---|---|---|
-| Zoom | **0–100** | proporción del zoom dentro del rango real del mapa + `zoom real` (p. ej. 69 ↔ 14,5) |
-| Icono | **0–20 px** | px que medirá el icono del metro con la fórmula actual de `icon-size` + `factor` (p. ej. 26,2 px · 0,410). Muestra `⚠` y barra al tope si supera 20 px |
+| 12,5 (aparece) | 16 px | 16 px (`ICONO_MIN=0,25`) |
+| 13,6 | 21,7 px | 19,5 px |
+| 14,5 | 26,2 px | 22,8 px |
+| 15 (meseta) | 28,8 px | **24 px** (`ICONO_MAX=0,375`) |
 
-- Calcula el tamaño con **las mismas constantes** que las capas
-  (`interpolarRampa` sobre `ZOOM_ICONO/ICONO_MIN/ZOOM_ICONO_MAX/ICONO_MAX`) y el lado
-  lógico del SVG (128 px rasterizados a `pixelRatio: 2` → **64 px**; `icon-size` 1 ≈ 64 px).
-- **Calibración**: el usuario anota pares `zoom real → px deseados` y se ajustan
-  `ICONO_MIN`/`ICONO_MAX` (§5 de constantes); el panel se actualiza solo porque lee
-  esas mismas constantes.
-- **Lectura actual (2026-11-26)**: zoom 12,5 → 16 px · zoom 13,6 → 21,7 px ·
-  zoom 14,5 → 26,2 px · zoom 15 → 28,8 px — o sea, **supera la escala 0–20 px pedida**
-  por encima de ~13,75 (ahí está el `⚠`).
-- Para eliminar: borrar el bloque HTML `#medidores-calibracion`, el bloque
-  `pintarMedidores()` + su listener de `#medidores-ocultar`, y los 3 `state.map.on(…)` /
-  `pintarMedidores()` marcados en la creación del mapa.
+- El usuario eligió **techo de 24 px** para los iconos de las capas GeoJSON
+  (metro y lugares): `ICONO_MAX` pasó de `0,45` a `0,375` (24/64 px; `icon-size`
+  1 ≈ 64 px porque los SVG se rasterizan a 128 px con `pixelRatio: 2`).
+- Los **marcadores HTML** (puntos propios y terminales) se bajaron al mismo
+  techo: su rampa era 22 → 34 px y quedó en **16 → 24 px**
+  (`interpolarRampa(z,[[ZOOM_ICONO,16],[ZOOM_ICONO_MAX,24]])`).
+- **Medidores ELIMINADOS** tras calibrar: se borró el bloque HTML
+  `#medidores-calibracion` (`index.html`), la función `pintarMedidores()` con su
+  listener (`src/main.js`) y los 2 listeners `zoom`/`move` + la llamada inicial
+  en la creación del mapa. `grep -i medidores` solo debe encontrar este párrafo
+  y la nota de `sw.js`.
+- **`sw.js` → `CACHE_NAME` v8** (precache renovada: `index.html` y `main.js`
+  cambiaron).
 
 ### Service worker
 
-- `CACHE_NAME` → **v7** (el precache v6 guardaba `index.html`/`main.js` viejos; la
-  estrategia de red es network-first, pero el precache se renueva para uso offline).
+- `CACHE_NAME` → **v8** (el precache v7 guardaba `index.html`/`main.js` con los
+  medidores; la estrategia de red es network-first, pero el precache se renueva
+  para uso offline).

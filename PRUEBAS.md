@@ -60,7 +60,7 @@ Sin dependencias: solo Node.js ≥ 18. Comprueba:
 | 30 | Vista fija | El formulario de punto tiene la casilla **“Vista fija (mostrar siempre el icono)”**; ese punto conserva su icono a cualquier zoom | ✅ (frontend) |
 | 31 | Atribución sobre el panel | El control de atribución de MapLibre se reposa sobre el panel (`--mapa-panel-h`: 279 px con el panel abierto, 68 px plegado) | ✅ |
 | 32 | Estilo sin `ne2_shaded` | La fuente inútil se elimina en `style.load` y **las capas propias siguen vivas** (`comunas-*`, `lugares-*`, `satelite-layer`) | ✅ |
-| 33 | Rampa de zoom en 3 momentos | Muy alejado: punto diminuto (zoom 6 → oculto, 9 → 5,2 px) · acercándose: crece poco y mantiene su meseta (zoom 11 → 12 px) · icono: aparece pequeño (zoom 12,5 → 22 px) y crece apenas (14 → 29,2 px · 16 → 34 px) | ✅ (marcadores HTML verificados; capas GeoJSON con `minzoom`/`icon-size` interpolados) |
+| 33 | Rampa de zoom en 3 momentos | Muy alejado: punto diminuto (zoom 6 → oculto, 9 → 5,2 px) · acercándose: crece poco y mantiene su meseta (zoom 11 → 12 px) · icono: aparece pequeño (zoom 12,5 → 16 px) y crece apenas hasta el techo de **24 px** (zoom 15, meseta) | ✅ (marcadores HTML y capas GeoJSON con `minzoom`/`icon-size` interpolados; calibrado el 2026-11-26) |
 | 34 | Puntos de vista fija | Se ven **exactamente igual** que los demás: sin contorno punteado ni ningún distintivo; solo cambian al no achicarse al alejar | ✅ |
 | 35 | Metro unificado | Un solo interruptor **“Metro (estaciones y líneas)”**: al encenderlo aparecen líneas, estaciones, iconos y rótulos | ✅ (`metro-lineas`, `metro-estaciones`, `metro-combo`, `metro-estaciones-icono`, `metro-combo-icono`, `metro-nombres`) |
 | 36 | Nombre de la estación | Aparece **debajo del icono** al acercarse (zoom ≥ 12,5), sin presionarla | ✅ (`metro-nombres`, `text-anchor: top`) |
@@ -96,8 +96,8 @@ Sin dependencias: solo Node.js ≥ 18. Comprueba:
 - Avisos no bloqueantes del navegador: Tailwind CDN (aviso conocido de producción) y 3 avisos
   de MapLibre (`Expected value to be of type number, but found null instead`) que provienen del
   estilo OpenFreeMap, no del código de la app.
-- El service worker quedó en `app-santiago-2026-v6` (precache renovada tras el lote de UX;
-  los iconos SVG siguen en cache-first).
+- El service worker quedó en `app-santiago-2026-v8` (precache renovada tras la calibración
+  de tamaños de icono del 2026-11-26; los iconos SVG siguen en cache-first).
 - **Limitación del navegador embebido de pruebas**: no dispara `requestAnimationFrame`, por lo
   que MapLibre no repinta (`map.loaded()` queda en `false` y `queryRenderedFeatures()` devuelve
   0). Se verificó por otra vía que el estilo se aplica, que `ne2_shaded` se elimina y que las

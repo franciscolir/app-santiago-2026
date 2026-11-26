@@ -483,10 +483,6 @@ function renderMap(){
     });
     // Al cambiar el zoom, los iconos se convierten en puntos de color (§5).
     state.map.on("zoom",actualizarPuntosSegunZoom);
-    // MEDIDORES TEMPORALES (calibración de iconos — ELIMINAR):
-    state.map.on("zoom",pintarMedidores);
-    state.map.on("move",pintarMedidores);
-    pintarMedidores();
     // El arranque se hace con `style.load` (el estilo ya está aplicado y se
     // pueden añadir sources/layers). Si alguna fuente del estilo se demora,
     // el vigilante reintenta: `addSource` lanza si el estilo no está listo.
@@ -854,8 +850,12 @@ const RADIO_PUNTO_MIN=0.8;     // radio (px) del punto casi imperceptible
 const RADIO_PUNTO_MAX=7;       // radio (px) del punto en su meseta
 const TAM_PUNTO_MIN=2;         // diámetro (px) del punto propio casi imperceptible
 const TAM_PUNTO_MAX=12;        // diámetro (px) del punto propio en su meseta
-const ICONO_MIN=0.25;          // icon-size al aparecer el icono
-const ICONO_MAX=0.45;          // icon-size máximo (crece "un poco")
+// Calibrado el 2026-11-26 con los medidores temporales (§26 de AGENT.md):
+// `icon-size` 1 ≈ 64 px en pantalla (128 px rasterizados con pixelRatio 2),
+// así que 0,25 → 16 px al aparecer y 0,375 → 24 px como máximo (techo que
+// pidió el usuario; antes 0,45 llegaba a 28,8 px).
+const ICONO_MIN=0.25;          // icon-size al aparecer el icono (16 px)
+const ICONO_MAX=0.375;         // icon-size máximo (24 px: crece "un poco")
 
 // =============================================================================
 // ICONOS DEL MAPA (SVG) — §5
@@ -1430,49 +1430,6 @@ function interpolarRampa(z, puntos){
   return puntos[puntos.length-1][1];
 }
 
-// ══ MEDIDORES TEMPORALES DE CALIBRACIÓN (ELIMINAR tras calibrar) ══
-// Pintan las dos barras del panel `#medidores-calibracion` (index.html):
-//   · Zoom   → escala 0–100 = rango real del mapa (mín..máx) + zoom real.
-//   · Icono  → px que medirá el icono del metro con la fórmula ACTUAL de
-//              `icon-size` (misma rampa que usan las capas del metro), en
-//              escala 0–20 px. Si supera 20 px muestra "⚠" y la barra al tope.
-// Calibración: leer "zoom real → px" en cada zoom y ajustar ICONO_MIN/
-// ICONO_MAX (y sus zooms) en las constantes del §5; este panel los lee de
-// ahí mismo, así que se actualiza solo.
-const MEDIDORES_ESCALA_ICONO=20;   // px — tope de la barra de iconos
-function pintarMedidores(){
-  const cont=document.getElementById("medidores-calibracion");
-  if(!cont) return;
-  const set=(id,v)=>{const el=document.getElementById(id); if(el) el.textContent=v;};
-  const barra=(id,pct)=>{const el=document.getElementById(id); if(el) el.style.width=`${Math.max(0,Math.min(100,pct))}%`;};
-  const mapa=state.map;
-  if(!mapa){ set("med-zoom-valor","—"); set("med-zoom-real","sin mapa"); return; }
-  // Medidor de zoom (0–100): proporción del zoom dentro del rango del mapa.
-  const zoom=mapa.getZoom();
-  const zMin=mapa.getMinZoom(), zMax=mapa.getMaxZoom();
-  const escala=zMax>zMin?((zoom-zMin)/(zMax-zMin))*100:0;
-  set("med-zoom-valor",String(Math.round(escala)));
-  barra("med-zoom-barra",escala);
-  set("med-zoom-real",zoom.toFixed(1));
-  // Medidor de icono (0–20 px): factor de `icon-size` × lado lógico del SVG.
-  // Los iconos se rasterizan a 128 px y se añaden con pixelRatio 2 (ver
-  // LADO_ICONO_MAX), así que `icon-size` 1 ≈ 64 px en pantalla.
-  let ladoPx=64;
-  try{
-    const img=mapa.style?.imageManager?.getImage?.("icono-metro.svg");
-    if(img&&img.width) ladoPx=img.width/(img.pixelRatio||1);
-  }catch(_){/* sin la imagen se usa el lado por defecto */}
-  const factor=interpolarRampa(zoom,[[ZOOM_ICONO,ICONO_MIN],[ZOOM_ICONO_MAX,ICONO_MAX]]);
-  const px=factor*ladoPx;
-  set("med-icono-valor",`${px.toFixed(1)} px${px>MEDIDORES_ESCALA_ICONO?" ⚠":""}`);
-  barra("med-icono-barra",(px/MEDIDORES_ESCALA_ICONO)*100);
-  set("med-icono-factor",factor.toFixed(3));
-}
-document.getElementById("medidores-ocultar")?.addEventListener("click",()=>{
-  document.getElementById("medidores-calibracion")?.remove();
-});
-// ══ FIN MEDIDORES TEMPORALES ══
-
 function actualizarPuntosSegunZoom(){
   const map=state.map; if(!map) return;
   const z=map.getZoom();
@@ -1483,8 +1440,9 @@ function actualizarPuntosSegunZoom(){
     [ZOOM_PUNTO_MAX,TAM_PUNTO_MAX],
     [ZOOM_ICONO,TAM_PUNTO_MAX],
   ]);
-  // Tamaño del icono (px): pequeño al aparecer → máximo discreto.
-  const tamIcono=interpolarRampa(z,[[ZOOM_ICONO,22],[ZOOM_ICONO_MAX,34]]);
+  // Tamaño del icono (px): pequeño al aparecer → mismo techo que las capas
+  // GeoJSON (calibrado 2026-11-26: 16 px al zoom 12,5 → 24 px al zoom 15).
+  const tamIcono=interpolarRampa(z,[[ZOOM_ICONO,16],[ZOOM_ICONO_MAX,24]]);
   state.pointMarkers.forEach(m=>{
     const el=m.getElement&&m.getElement(); if(!el) return;
     const fijo=el.dataset.fijo==="1";
