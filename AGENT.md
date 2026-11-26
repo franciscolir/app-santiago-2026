@@ -1461,5 +1461,41 @@ Cubre la Etapa 4: categoría JW, su tamaño especial, el vínculo con actividade
 1. RLS con un usuario normal y un admin de grupo (solo existen admins globales).
 2. `schema.sql` desactualizado (se regenerará en la Fase 7 del plan).
 
+---
+
+## 33. Fase 4 de `UPDATE.md`: evento general editable (2026-11-26)
+
+Cubre la Etapa 5. **No requiere SQL nuevo**: `events.group_id` (sql/10) y la política
+`"Admin o admin de grupo gestiona eventos"` (sql/11) ya existían.
+
+### Frontend
+
+- Botón **`#event-edit-btn`** (lápiz) en la banda del evento, visible para admin global y
+  admin de grupo (`esAdminDeGrupo()`).
+- Diálogo **`#event-dialog`**: nombre, descripción, fecha de inicio y de término. Si no hay
+  evento, el mismo diálogo permite **crear** uno (por defecto hoy → +7 días).
+- Al guardar: `update` si existe o `insert` publicado con `group_id` y `created_by`;
+  validaciones de nombre, fechas y `término ≥ inicio`; recarga la agenda (`loadEventAndActivities`).
+- La banda, el rango (“23 nov – 30 nov, 2026”), el badge “Día X de Y” y la descripción se
+  actualizan al guardar y persisten tras recargar.
+- Las actividades siguen ligadas por `event_id`; no se modifican al editar el evento.
+
+### Verificación
+
+- `node scripts/verificar-mapa.mjs` → **319 pruebas · 0 fallos · 2 avisos** (bloque `[12]`
+  con 9 comprobaciones).
+- En vivo: se editó el nombre/descripción y el término (30 nov → 1 dic); la banda pasó a
+  **“23 nov – 1 dic, 2026”** y **“Día 4 de 9”**, persistió tras recargar; la validación
+  `término < inicio` mostró el error y **no guardó**; se restauró el evento original
+  (“Evento de prueba APP SANTIAGO 2026”, 23–30 nov, “Día 4 de 8”). **0 errores JS**.
+- `sw.js` → **v19**.
+
+### Pendiente
+
+1. Probar el alta de un evento cuando no hay ninguno (la ruta `insert` está cubierta por el
+   verificador; en vivo hay un evento).
+2. RLS con admin de grupo / usuario normal (solo hay admins globales).
+3. `schema.sql` desactualizado (Fase 7).
+
 
 

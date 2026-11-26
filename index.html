@@ -283,9 +283,15 @@ dialog::backdrop { background: rgba(44, 49, 50, .6); backdrop-filter: blur(2px);
             <span class="material-symbols-outlined text-primary text-[20px] flex-shrink-0">calendar_month</span>
             <span id="event-range" class="font-label-md text-label-md text-on-primary-container font-bold truncate"></span>
           </div>
-          <span id="event-day-badge" class="hidden inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-secondary-container text-on-secondary-container font-label-sm text-label-sm font-bold flex-shrink-0">
-            <span class="w-2 h-2 rounded-full bg-primary animate-pulse"></span><span id="event-day-badge-text"></span>
-          </span>
+          <div class="flex items-center gap-2 flex-shrink-0">
+            <span id="event-day-badge" class="hidden inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-secondary-container text-on-secondary-container font-label-sm text-label-sm font-bold flex-shrink-0">
+              <span class="w-2 h-2 rounded-full bg-primary animate-pulse"></span><span id="event-day-badge-text"></span>
+            </span>
+            <button type="button" id="event-edit-btn" aria-label="Editar evento" title="Editar evento"
+                    class="hidden w-9 h-9 rounded-full bg-surface-container-low text-primary flex items-center justify-center active:scale-95 transition-all flex-shrink-0">
+              <span class="material-symbols-outlined text-[18px]">edit</span>
+            </button>
+          </div>
         </div>
         <div id="event-info"></div>
       </section>
@@ -859,6 +865,39 @@ dialog::backdrop { background: rgba(44, 49, 50, .6); backdrop-filter: blur(2px);
     </div>
     <button class="w-full h-12 rounded-full bg-primary text-on-primary font-label-lg text-label-lg font-bold shadow-md active:scale-[0.98] transition-all" type="submit">Guardar actividad</button>
     <p id="activity-error" class="error"></p>
+  </form>
+</dialog>
+
+<!-- ==================== EVENTO GENERAL (EDITABLE) ==================== -->
+<dialog id="event-dialog" aria-labelledby="event-dialog-title">
+  <form id="event-form" class="bg-surface-container-lowest rounded-t-xl p-space-lg space-y-space-md max-h-[85vh] overflow-y-auto shadow-2xl w-full max-w-lg mx-auto mt-auto animate-in slide-in-from-bottom">
+    <div class="flex items-center justify-between gap-2">
+      <h2 id="event-dialog-title" class="font-headline-md text-headline-md text-on-primary-container">Editar evento</h2>
+      <button type="button" id="event-close" aria-label="Cerrar" class="w-9 h-9 rounded-full bg-surface-container-low flex items-center justify-center active:scale-95 transition-all flex-shrink-0">
+        <span class="material-symbols-outlined text-[20px]">close</span>
+      </button>
+    </div>
+    <input id="event-id" type="hidden">
+    <div>
+      <label for="event-name" class="block font-label-md text-label-md text-on-surface font-semibold mb-1">Nombre del evento</label>
+      <input id="event-name" required maxlength="180" class="w-full h-12 px-3.5 bg-surface rounded-lg text-on-surface border border-outline-variant focus:outline-none focus:ring-2 focus:ring-primary/40">
+    </div>
+    <div>
+      <label for="event-description" class="block font-label-md text-label-md text-on-surface font-semibold mb-1">Descripción</label>
+      <textarea id="event-description" rows="2" maxlength="500" class="w-full p-3 bg-surface rounded-lg text-on-surface border border-outline-variant focus:outline-none focus:ring-2 focus:ring-primary/40 resize-none"></textarea>
+    </div>
+    <div class="grid grid-cols-2 gap-3">
+      <div>
+        <label for="event-start" class="block font-label-md text-label-md text-on-surface font-semibold mb-1">Inicio</label>
+        <input id="event-start" type="date" required class="w-full h-12 px-3 bg-surface rounded-lg text-on-surface border border-outline-variant focus:outline-none focus:ring-2 focus:ring-primary/40">
+      </div>
+      <div>
+        <label for="event-end" class="block font-label-md text-label-md text-on-surface font-semibold mb-1">Término</label>
+        <input id="event-end" type="date" required class="w-full h-12 px-3 bg-surface rounded-lg text-on-surface border border-outline-variant focus:outline-none focus:ring-2 focus:ring-primary/40">
+      </div>
+    </div>
+    <p id="event-form-error" class="error"></p>
+    <button type="submit" class="w-full h-12 rounded-full bg-primary text-on-primary font-label-lg text-label-lg font-bold shadow-md active:scale-[0.98] transition-all">Guardar evento</button>
   </form>
 </dialog>
 

@@ -133,6 +133,8 @@ async function loadProfile(){
   $("#map-add-point")?.classList.remove("hidden");
   // Gestión por categoría (colores, visibilidad, borrar): admin global o de grupo.
   $("#map-puntos-btn")?.classList.toggle("hidden",!esAdminDeGrupo());
+  // Editar/crear el evento general: admin global o de grupo.
+  $("#event-edit-btn")?.classList.toggle("hidden",!esAdminDeGrupo());
   if(state.mapListo) renderPuntosMapa();
 }
 // Muestra el chip del grupo en el header. Si la lista de grupos aún no llegó,
@@ -477,6 +479,58 @@ function renderEventBadge(){
     el.classList.remove("hidden");
   } else el.classList.add("hidden");
 }
+
+// ==================== EVENTO GENERAL EDITABLE (Fase 4) ====================
+function sumarDias(fecha,n){
+  const d=new Date(fecha+"T12:00:00");
+  d.setDate(d.getDate()+n);
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+}
+function openEventForm(){
+  if(!esAdminDeGrupo()) return;
+  const e=state.event;
+  $("#event-dialog-title").textContent=e?"Editar evento":"Crear evento";
+  $("#event-id").value=e?.id||"";
+  $("#event-name").value=e?.name||"";
+  $("#event-description").value=e?.description||"";
+  $("#event-start").value=e?.start_date||todayStr();
+  $("#event-end").value=e?.end_date||sumarDias(todayStr(),7);
+  notifyError($("#event-form-error"),"");
+  $("#event-dialog").showModal();
+}
+$("#event-edit-btn")?.addEventListener("click",openEventForm);
+$("#event-close")?.addEventListener("click",()=>$("#event-dialog").close());
+$("#event-form")?.addEventListener("submit",async e=>{
+  e.preventDefault();
+  if(!esAdminDeGrupo()) return;
+  const id=$("#event-id").value;
+  const nombre=$("#event-name").value.trim();
+  const descripcion=$("#event-description").value.trim()||null;
+  const inicio=$("#event-start").value, fin=$("#event-end").value;
+  if(!nombre){ notifyError($("#event-form-error"),"El nombre del evento es obligatorio."); return; }
+  if(!inicio||!fin){ notifyError($("#event-form-error"),"Indica la fecha de inicio y de término."); return; }
+  if(fin<inicio){ notifyError($("#event-form-error"),"La fecha de término no puede ser anterior a la de inicio."); return; }
+  const payload={name:nombre,description:descripcion,start_date:inicio,end_date:fin,status:"published"};
+  if(state.groupId) payload.group_id=state.groupId;
+  const guardar=async p=>id
+    ? await supabase.from("events").update(p).eq("id",id).select("id")
+    : await supabase.from("events").insert({...p,created_by:state.user.id}).select("id");
+  let res=await guardar(payload);
+  // Compatibilidad: si la BD aún no tiene events.group_id (pre-sql/10).
+  if(res.error && /group_id/i.test(res.error.message||"")){
+    const {group_id,...resto}=payload;
+    res=await guardar(resto);
+  }
+  if(res.error){
+    console.error("event-form: guardar",res.error);
+    notifyError($("#event-form-error"),describeError(res.error,"el evento"));
+    return;
+  }
+  $("#event-dialog").close();
+  showToast(id?"Evento actualizado.":"Evento creado.");
+  await loadEventAndActivities();
+});
+
 const hasMine = (a)=>(a.activity_assignments||[]).some(x=>x.user_id===state.user?.id);
 function syncFilterControls(){
   $$(".filter-tab").forEach(x=>{

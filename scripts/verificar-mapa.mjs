@@ -681,8 +681,8 @@ console.log("[9] Acceso: login por usuario, grupo automático y registro");
   check(/\$\("#agenda-active-day"\)\?\.classList\.add\("hidden"\)/.test(main),
     "agenda: la tarjeta del día activo se oculta si HOY no tiene actividades",
     "el encabezado del día anterior puede quedar visible");
-  check(/app-santiago-2026-v18/.test(sw),
-    "service worker: v18 (precache renovada con la Fase 3 corregida)", "el SW no se renovó");
+  check(/app-santiago-2026-v19/.test(sw),
+    "service worker: v19 (precache renovada con la Fase 4)", "el SW no se renovó");
 }
 
 // ------------------- 10. Fase 2: categorías, colores y alcance (2026-11-26) -----
@@ -827,6 +827,36 @@ console.log("[11] Fase 3: categoría JW y actividades vinculadas");
   check(/sql\/16_jw_actividades\.sql/.test(main),
     "compatibilidad: avisa si falta sql/16 al guardar la actividad",
     "no hay respaldo sin la columna map_point_id");
+}
+
+// ------------------- 12. Fase 4: evento general editable (2026-11-26) --------
+console.log("[12] Fase 4: evento general editable");
+{
+  const main = leerTexto("src/main.js") || "";
+  const html = leerTexto("index.html") || "";
+  const sql11 = leerTexto("sql/11_rls_grupos.sql") || "";
+
+  check(/id="event-edit-btn"/.test(html),
+    "evento: botón para editarlo en la agenda", "falta #event-edit-btn");
+  check(/id="event-dialog"/.test(html) && /id="event-name"/.test(html) &&
+        /id="event-start"/.test(html) && /id="event-end"/.test(html) &&
+        /id="event-form"/.test(html),
+    "evento: diálogo con nombre, fechas y formulario", "faltan campos del evento");
+  check(/function openEventForm/.test(main) && /event-edit-btn"\)\?\.addEventListener/.test(main),
+    "evento: el botón abre el formulario", "no se abre el formulario del evento");
+  check(/from\("events"\)\.update\(p\)/.test(main) && /from\("events"\)\.insert/.test(main),
+    "evento: actualiza o crea el evento", "no se guarda el evento");
+  check(/created_by:state\.user\.id/.test(main) && /status:"published"/.test(main),
+    "evento: se crea publicado y con autor", "falta el autor o el estado publicado");
+  check(/fin<inicio/.test(main) && /El nombre del evento es obligatorio/.test(main),
+    "evento: valida nombre y rango de fechas", "faltan validaciones del evento");
+  check(/\$\("#event-edit-btn"\)\?\.classList\.toggle\("hidden",!esAdminDeGrupo\(\)\)/.test(main),
+    "evento: solo admin global/de grupo ve el botón", "el botón no respeta el rol");
+  check(/create policy "Admin o admin de grupo gestiona eventos"/.test(sql11),
+    "evento: RLS de escritura por grupo (sql/11, sin SQL nuevo)",
+    "falta la política de escritura del evento");
+  check(/id="event-dialog-title"/.test(html) && /Editar evento"|Crear evento/.test(main),
+    "evento: título dinámico Editar/Crear", "el diálogo no distingue editar/crear");
 }
 
 // ---------------------------------------------------------------- resumen ----

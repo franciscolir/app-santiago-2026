@@ -98,11 +98,21 @@ Sin dependencias: solo Node.js ≥ 18. Comprueba:
 | 68 | Ver en mapa | El botón de la tarjeta lleva al mapa y vuela al punto JW/coordenadas de la actividad | ✅ (mapa y zoom 15; abre el popup JW) |
 | 69 | Popup JW con actividades | El popup del punto JW lista sus actividades vinculadas | ✅ (“Actividades: Actividad prueba JW”) |
 | 70 | Trigger JW | Un punto no JW o de otro grupo se rechaza al vincularlo | ✅ (400/23514 con un terminal; el vínculo JW se mantiene) |
+| 71 | Evento editable | El botón de la agenda abre un diálogo con nombre, descripción, inicio y término; se guarda por grupo | ✅ (nombre/descripción/término editados y persistentes) |
+| 72 | Validación del evento | Nombre obligatorio y término ≥ inicio; el error no guarda | ✅ (“La fecha de término no puede ser anterior…” y no guardó) |
+| 73 | Crear evento si no hay | El mismo diálogo crea uno publicado con `group_id`/`created_by` | ⏳ (ruta cubierta por el verificador; en vivo ya existe un evento) |
+| 74 | Rango y badge | La banda y “Día X de Y” se recalculan al cambiar las fechas | ✅ (23 nov – 1 dic · Día 4 de 9; luego restaurado a 30 nov · Día 4 de 8) |
 
 ---
 
 ## 3. Resultados de la corrida automática
 
+- **2026-11-26 (Fase 4: evento general editable)**: **319 pruebas · 0 fallos · 2 avisos**.
+  - Bloque `[12]` (9 comprobaciones): botón y diálogo del evento, `update`/`insert` publicado
+    con `group_id`/`created_by`, validaciones y visibilidad por rol, sobre la RLS de `sql/11`.
+  - En vivo: nombre/descripción/término editados (23 nov – 1 dic · “Día 4 de 9”) y
+    persistentes; `término < inicio` muestra error y no guarda; evento restaurado (30 nov ·
+    “Día 4 de 8”); **0 errores JS**.
 - **2026-11-26 (Fase 3: categoría JW y actividades, verificado en vivo)**: **310 pruebas · 0 fallos · 2 avisos**.
   - Bloque `[11]` (18 comprobaciones): `activities.map_point_id` y su FK, trigger de
     categoría/grupo, selector JW sin lat/lng, flujo “Marcar actividad en el mapa”, JW +20 %,
