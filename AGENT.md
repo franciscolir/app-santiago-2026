@@ -1436,21 +1436,32 @@ Cubre la Etapa 4: categoría JW, su tamaño especial, el vínculo con actividade
 ### Verificación
 
 - `node scripts/verificar-mapa.mjs` → **310 pruebas · 0 fallos · 2 avisos** (bloque `[11]`
-  nuevo con 18 comprobaciones).
+  con 18 comprobaciones).
 - Navegador **antes** de aplicar `sql/16`: el formulario de actividad muestra el selector JW
   y el estado “sin puntos JW”, sin lat/lng; “Editar” funciona en el diseño nuevo; “Ver en
   mapa” abre la vista de mapa; el flujo “Marcar actividad en el mapa” abre el formulario de
   punto con categoría **JW**, icono `salon` y alcance grupo. **0 errores JS**.
-- **Hallazgo**: el insert del punto JW fallaba con `map_points_icon_check` (el CHECK antiguo
-  no permitía `salon`). Se corrigió en `sql/16` (y en `sql/15`).
+- **En vivo con `sql/16` aplicado**:
+  - Punto JW creado y actividad “Actividad prueba JW” vinculada: `map_point_id` guardado y
+    lat/lng copiadas del punto.
+  - Trigger: intentar vincular un terminal (`transporte`) devuelve `400 / 23514` “La actividad
+    debe usar un punto de categoría JW”; el vínculo JW no cambia.
+  - JW **+20 %**: 19,2 px en el zoom 12,5, 28,8 px en 15 y 19,2 px en 6; a zoom 6 el JW sigue
+    visible (`display:flex`) mientras los demás puntos están ocultos.
+  - **Popup JW**: lista “Actividades: Actividad prueba JW”; “Ver en mapa” lleva al mapa,
+    cierra popups previos y abre el del JW (zoom 15 cuando el navegador anima).
+  - **Flujo completo** “Marcar actividad en el mapa”: crear punto → reabrir la actividad con
+    el punto seleccionado → guardar la actividad.
+  - Artefactos de prueba borrados: vuelven las **5 actividades** y los **6 puntos**; JW 0/0.
+- **Hallazgos corregidos**: `map_points_icon_check` no permitía `salon` (se elimina en
+  `sql/16` y `sql/15`); `verActividadEnMapa` cerraba el popup si ya estaba abierto (ahora solo
+  lo abre si está cerrado); los botones de las tarjetas del diseño nuevo ya se enlazan.
+- `sw.js` → **v18**.
 
 ### Pendiente
 
-1. Ejecutar `sql/16_jw_actividades.sql` y recargar.
-2. Completar la prueba en vivo: crear un punto JW, vincular una actividad, verificar el
-   trigger de categoría/grupo, el popup con la actividad, el +20 %, el icono permanente a
-   zoom bajo y el flujo completo “Marcar → crear punto → actividad”.
-3. La RLS con usuarios normales / admin de grupo sigue pendiente (solo hay admins globales).
+1. RLS con un usuario normal y un admin de grupo (solo existen admins globales).
+2. `schema.sql` desactualizado (se regenerará en la Fase 7 del plan).
 
 
 

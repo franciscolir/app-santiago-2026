@@ -681,8 +681,8 @@ console.log("[9] Acceso: login por usuario, grupo automático y registro");
   check(/\$\("#agenda-active-day"\)\?\.classList\.add\("hidden"\)/.test(main),
     "agenda: la tarjeta del día activo se oculta si HOY no tiene actividades",
     "el encabezado del día anterior puede quedar visible");
-  check(/app-santiago-2026-v17/.test(sw),
-    "service worker: v17 (precache renovada con la Fase 3)", "el SW no se renovó");
+  check(/app-santiago-2026-v18/.test(sw),
+    "service worker: v18 (precache renovada con la Fase 3 corregida)", "el SW no se renovó");
 }
 
 // ------------------- 10. Fase 2: categorías, colores y alcance (2026-11-26) -----

@@ -677,11 +677,19 @@ function verActividadEnMapa(a){
     showToast("La actividad no tiene ubicación en el mapa."); return;
   }
   gotoView("mapa");
+  // Cierra popups previos (p. ej. el de la comuna) para que se vea el del JW.
+  document.querySelectorAll(".maplibregl-popup-close-button").forEach(b=>b.click());
   const volar=(intentos=0)=>{
     if(!state.map){ if(intentos<15) setTimeout(()=>volar(intentos+1),200); return; }
     state.map.flyTo({center:[lng,lat],zoom:Math.max(state.map.getZoom(),15),duration:700});
     if(a.map_point_id){
-      setTimeout(()=>state.pointMarkers.get(a.map_point_id)?.togglePopup(),500);
+      setTimeout(()=>{
+        const marker=state.pointMarkers.get(a.map_point_id);
+        if(!marker) return;
+        const popup=marker.getPopup?.();
+        // Abrir solo si está cerrado (togglePopup lo cerraría si ya estaba abierto).
+        if(!popup || !popup.isOpen()) marker.togglePopup();
+      },600);
     }
   };
   setTimeout(()=>volar(),250);

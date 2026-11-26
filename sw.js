@@ -29,7 +29,8 @@
 // v16: corrección del grupo de los puntos globales y refuerzo de la gestión.
 // v17: Fase 3: JW +20 % (siempre icono), actividades vinculadas a un punto JW
 // y flujo "Marcar actividad en el mapa".
-const CACHE_NAME = "app-santiago-2026-v17";
+// v18: "Ver en mapa" abre el popup del JW sin cerrarlo si ya estaba abierto.
+const CACHE_NAME = "app-santiago-2026-v18";
 const APP_SHELL = [
   "./",
   "./index.html",
