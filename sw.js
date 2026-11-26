@@ -3,7 +3,10 @@
 // mensaje en vez de panel inferior, gestión de puntos del admin, muro naranja
 // y agenda sin scroll lateral). También se precachea el nuevo icono de
 // bomberos.
-const CACHE_NAME = "app-santiago-2026-v6";
+// v7: arreglo de los iconos del metro (fontstack explícito "Noto Sans Regular"
+// en `metro-nombres`: el fontstack por defecto daba 404 y tumbaba los tiles de
+// la fuente) + medidores temporales de calibración de zoom/tamaño de icono.
+const CACHE_NAME = "app-santiago-2026-v7";
 const APP_SHELL = [
   "./",
   "./index.html",

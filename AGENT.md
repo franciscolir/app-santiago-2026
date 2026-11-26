@@ -1,7 +1,7 @@
 # AGENT.md — APP SANTIAGO 2026
 
 > Documento de continuidad para agentes de programación. Léelo completo antes de modificar el repositorio.
-> Última actualización: 2026-11-23.
+> Última actualización: 2026-11-26.
 >
 > **Estado:** integración con Supabase **resuelta** (§13). Los dos fallos de la §8 están cerrados.
 > **`schema.sql`:** regenerado desde la BD real el 2026-11-23 con **todas** las queries de §15 (§13.3). Único hueco sin contraparte real: Storage (H = 0 filas → no existen políticas de adjuntos).
@@ -1021,3 +1021,72 @@ Extras que hicieron falta:
 - **Extra**: al abrir la app, las capas encendidas en las preferencias guardadas se recuperan
   también las que necesitan fuente propia (transporte). Antes, el interruptor de Metro podía
   quedar “encendido” sin datos en el mapa: había que apagarlo y volverlo a encender.
+
+---
+
+## 26. Fix de los iconos del metro + medidores temporales de calibración (2026-11-26)
+
+### Síntoma
+
+Los iconos y rótulos del metro (`metro-estaciones-icono`, `metro-combo-icono`,
+`metro-nombres`) existían en el estilo pero **no se renderizaban** en los zooms medios
+(≥ 12,5), aunque `getZoom()` fuera 13–15.
+
+### Causa raíz (dos capas del mismo fallo)
+
+1. **404 de glifos → el worker rechaza el tile entero.** `metro-nombres` no declaraba
+   `text-font`, así que MapLibre usaba el fontstack **por defecto**
+   (`Open Sans Regular, Arial Unicode MS Regular`), que `tiles.openfreemap.org` **no sirve**
+   (404). El error ocurría al construir el tile de la fuente `transporte-estaciones` → los
+   tiles hijos (z12–z15) quedaban en estado `errored` (0 bytes) y **solo sobrevivía el tile
+   padre z11**, que queda fuera del rango de las capas con `minzoom ≥ 12` → 0 features.
+   Se comprobó en vivo: al añadir una capa de texto de prueba con el fontstack por defecto a
+   una fuente sana, esa fuente pasó a 8 tiles `errored`; al quitarla, volvía a cargar.
+2. **Umbrales de zoom.** Aunque los tiles cargaran, una capa `symbol` con `minzoom: 12.5`
+   queda excluida de cualquier tile con zoom < 12,5 (umbral verificado exacto: 11,999 pinta,
+   12,000 no).
+
+**Fix aplicado** (`src/main.js`, `cargarTransporte`): `metro-nombres` ahora declara
+`"text-font":["Noto Sans Regular"]` — el mismo fontstack que ya usa el estilo base
+(OpenFreeMap `positron`) y el contador de clusters. No hace falta tocar el `minzoom`.
+
+- **Regla para capas nuevas**: toda capa `symbol` con texto **debe** declarar `text-font`
+  con un fontstack que el proveedor de tiles sirva (aquí: `Noto Sans Regular` /
+  `Noto Sans Bold` / `Noto Sans Italic`). Sin `text-font` se cae al default → 404 →
+  desaparecen TODAS las capas symbol de esa fuente, no solo la de texto.
+- **Diagnóstico útil**: estados de tiles con
+  `Object.values(map.style.sourceCaches[id]._tiles).forEach(t=>…t.state…)`
+  (`loaded` / `errored`) y `t.latestRawTileData.byteLength` para ver si traen datos.
+
+**Verificado en navegador** (`http://localhost:8080`, capa Metro encendida, zoom 14,5):
+tiles `4 loaded / 0 errored`, `metro-estaciones-icono` + `metro-combo-icono` +
+`metro-nombres` pintando (Parque Almagro, Toesca con combinación L5), **0 errores de
+consola** (el 404 de glifos desapareció).
+
+### Medidores TEMPORALES de calibración (ELIMINAR cuando termine la calibración)
+
+Marcados con `MEDIDORES TEMPORALES` en `index.html` (`#medidores-calibracion`, abajo a la
+izquierda, con botón ✕) y en `src/main.js` (`pintarMedidores()`, enganchada a `zoom`/`move`):
+
+| Medidor | Escala | Qué muestra |
+|---|---|---|
+| Zoom | **0–100** | proporción del zoom dentro del rango real del mapa + `zoom real` (p. ej. 69 ↔ 14,5) |
+| Icono | **0–20 px** | px que medirá el icono del metro con la fórmula actual de `icon-size` + `factor` (p. ej. 26,2 px · 0,410). Muestra `⚠` y barra al tope si supera 20 px |
+
+- Calcula el tamaño con **las mismas constantes** que las capas
+  (`interpolarRampa` sobre `ZOOM_ICONO/ICONO_MIN/ZOOM_ICONO_MAX/ICONO_MAX`) y el lado
+  lógico del SVG (128 px rasterizados a `pixelRatio: 2` → **64 px**; `icon-size` 1 ≈ 64 px).
+- **Calibración**: el usuario anota pares `zoom real → px deseados` y se ajustan
+  `ICONO_MIN`/`ICONO_MAX` (§5 de constantes); el panel se actualiza solo porque lee
+  esas mismas constantes.
+- **Lectura actual (2026-11-26)**: zoom 12,5 → 16 px · zoom 13,6 → 21,7 px ·
+  zoom 14,5 → 26,2 px · zoom 15 → 28,8 px — o sea, **supera la escala 0–20 px pedida**
+  por encima de ~13,75 (ahí está el `⚠`).
+- Para eliminar: borrar el bloque HTML `#medidores-calibracion`, el bloque
+  `pintarMedidores()` + su listener de `#medidores-ocultar`, y los 3 `state.map.on(…)` /
+  `pintarMedidores()` marcados en la creación del mapa.
+
+### Service worker
+
+- `CACHE_NAME` → **v7** (el precache v6 guardaba `index.html`/`main.js` viejos; la
+  estrategia de red es network-first, pero el precache se renueva para uso offline).
