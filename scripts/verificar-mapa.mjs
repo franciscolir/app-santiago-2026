@@ -674,6 +674,12 @@ console.log("[9] Acceso: login por usuario, grupo automático y registro");
     "datos: agenda y muro filtrados por el grupo activo", "alguna consulta no filtra por grupo");
   check(/faltan las columnas de grupo/.test(main),
     "compatibilidad: el login no se rompe si falta sql/10", "no hay respaldo sin columnas de grupo");
+  check(/\[\"#agenda-past-days\",\"#agenda-active-list\",\"#agenda-upcoming-days\"\]/.test(main),
+    "agenda: al cambiar a un grupo sin evento se limpian los días anteriores",
+    "quedan tarjetas del grupo anterior en el DOM");
+  check(/\$\("#agenda-active-day"\)\?\.classList\.add\("hidden"\)/.test(main),
+    "agenda: la tarjeta del día activo se oculta si HOY no tiene actividades",
+    "el encabezado del día anterior puede quedar visible");
   check(/app-santiago-2026-v14/.test(sw),
     "service worker: v14 (precache renovada con el nuevo acceso)", "el SW no se renovó");
 }

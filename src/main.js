@@ -425,6 +425,12 @@ async function loadEventAndActivities(){
   if(!state.event){
     $("#event-info").innerHTML='<div class="empty">Todavía no hay un evento publicado.</div>';
     $("#agenda-list").innerHTML="";
+    // Limpiar también la estructura de días: al cambiar de grupo el DOM
+    // anterior no debe quedar visible (evita mostrar actividades de otro grupo).
+    ["#agenda-past-days","#agenda-active-list","#agenda-upcoming-days"].forEach(s=>{
+      const el=$(s); if(el) el.innerHTML="";
+    });
+    $("#agenda-active-day")?.classList.add("hidden");
     $("#agenda-list").setAttribute("aria-busy","false");
     state.activities=[];
     renderMap();
@@ -507,6 +513,9 @@ function renderAgenda(){
 
   if(useNewLayout){
     past.innerHTML=""; activeList.innerHTML=""; upcoming.innerHTML="";
+    // La tarjeta del día activo se oculta y solo reaparece si HOY tiene
+    // actividades (evita encabezados/fechas viejas al cambiar de grupo).
+    $("#agenda-active-day")?.classList.add("hidden");
     for(const date of fechas){
       const items=byDate.get(date);
       const dt=new Date(date+"T12:00:00");

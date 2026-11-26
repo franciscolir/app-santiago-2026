@@ -1294,20 +1294,32 @@ mantiene intacta.
 
 ### Verificación
 
-- `node scripts/verificar-mapa.mjs` → **264 pruebas · 0 fallos · 2 avisos** (bloque `[9]`
-  reescrito con **50 comprobaciones**).
-- Navegador (antes de aplicar `sql/14` y desplegar las funciones): login con usuario +
-  contraseña, panel de registro abre/cierra, paso 1 visible con el grupo; **0 errores JS**
-  (el 404 es la RPC del registro todavía no aplicada).
-- Pendiente: ejecutar `sql/14`, definir la contraseña de grupo y desplegar las dos funciones;
-  después probar el flujo completo (incluido el perfil de prueba) y publicar el frontend.
+- `node scripts/verificar-mapa.mjs` → **267 pruebas · 0 fallos · 2 avisos** (bloque `[9]`
+  con **53 comprobaciones**, incluida la limpieza de la agenda al cambiar de grupo).
+- **En vivo (2026-11-26)**:
+  - `test` entró sin grupo → grupo `principal`; `test1` (perfil de prueba) se registró en el
+    grupo temporal `prueba_acceso` y reingresó sin grupo → grupo detectado.
+  - Contraseña mala → 401, sin ofrecer registro; usuario inexistente → 404 + panel de registro
+    con el usuario precargado.
+  - Contraseña de grupo mala → 403; correcta → paso 2; nombre `test` tomado → 409 con
+    `test1…test5` (el chip solo rellena el campo; no crea solo).
+  - RLS con el token de `test1` (usuario normal del grupo B): `events`, `activities` y
+    `wall_posts` → **0 filas**; el evento del principal consultado por ID → **0 filas**;
+    `profiles` → solo su perfil.
+  - Fix: al cambiar a un grupo sin evento se limpian los días y se oculta la tarjeta del día
+    activo (antes quedaba el DOM del grupo anterior).
+- **Pendiente de limpieza**: borrar el perfil de prueba `test1` (Dashboard → Authentication →
+  Users) y después el grupo temporal:
+  `delete from public.groups where slug = 'prueba_acceso';`.
+- **Pendiente**: publicar el frontend (los dos Edge Functions ya están desplegados y el login
+  v2 funciona).
 
-### Orden de despliegue (importante)
+### Orden de despliegue (estado 2026-11-26)
 
-1. `sql/14_registro_perfiles.sql`.
-2. `select public.definir_password_grupo('principal', '…');` (contraseña real, no compartirla).
-3. Desplegar `login-username` (v2) y `register-profile` con **Verify JWT desactivado**.
-4. Publicar el frontend nuevo. El login viejo exige grupo; el nuevo no lo envía, así que el
-   frontend va al final.
+1. ✅ `sql/14_registro_perfiles.sql` aplicado (se corrigió el `search_path` de `crypt` y se fijó
+   la contraseña de grupo).
+2. ✅ `login-username` (v2) y `register-profile` desplegadas con **Verify JWT desactivado**.
+3. ⏳ Publicar el frontend nuevo (push a `main`): el login viejo exige grupo; el nuevo no lo
+   envía, así que el frontend va al final.
 
 

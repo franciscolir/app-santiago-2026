@@ -75,27 +75,35 @@ Sin dependencias: solo Node.js ≥ 18. Comprueba:
 | 45 | Líneas del metro | Se siguen viendo **alejadas** (sobreviven a los puntos, que mueren en 10,5) y **desaparecen por debajo del zoom 9,3** | ✅ (`minzoom: 9.3` en `metro-lineas` y `metrotren-lineas`) |
 | 46 | Textos con corte nítido | En **12,4** desaparecen todos los textos de los iconos y en **12,5** vuelven; el nombre nace en **9 px** y sube en 2 saltos a 10 px (13,5) y 11 px (14,5) | ✅ (`metro-nombres` con `minzoom: 12.5` + `text-size` escalonado; `.map-point-con-nombre` con `--nombre-tam`) |
 | 47 | Puntos −15 % | Los puntos que reemplazan a los iconos bajan un 15 % **proporcional en los 3 saltos**: radio 2,975 / 4,25 / 5,95 px y diámetro 5,95 / 8,5 / 11,9 px (iconos y texto no cambian) | ✅ (`ESCALA_PUNTO=0.85`; leído en vivo con `getPaintProperty`) |
-| 48 | Grupos y login | Selector de grupo en el login; la Edge Function valida la pertenencia **antes** de autenticar y el cliente la revalida; el header muestra el grupo activo | ✅ (242 pruebas; verificado el modo compatibilidad en navegador) |
-| 49 | Aislamiento por grupo | Eventos, actividades, asignaciones, perfiles y muro filtrados por `group_id = auth_group()`; escritura según `can_manage_group()` | ⏳ (SQL listo; falta ejecutarlo y probar con dos grupos) |
+| 48 | Grupos y RLS | Grupos y `group_id` en agenda, actividades y muro; el login ya no pide grupo (ver 51) | ✅ (verificado en vivo; el login por grupo del lote anterior quedó reemplazado) |
+| 49 | Aislamiento por grupo | Eventos, actividades, asignaciones, perfiles y muro filtrados por `group_id = auth_group()`; escritura según `can_manage_group()` | ✅ (con `test1`: events/activities/wall 0 y el evento del principal por ID **0 filas**) |
 | 50 | Compatibilidad de despliegue | Sin `sql/10`, la app entra en modo compatibilidad (grupo `principal`) y el login/agenda/muro siguen funcionando | ✅ (probado en navegador antes de aplicar el SQL) |
-| 51 | Login por usuario | El login pide solo **usuario + contraseña**; el grupo se detecta del perfil y no se vuelve a pedir | ✅ (264 pruebas; pendiente desplegar `login-username` v2) |
-| 52 | Registro con contraseña de grupo | Paso 1: grupo + contraseña del grupo (bcrypt). Paso 2: usuario + contraseña personal + confirmación | ⏳ (`sql/14` y `register-profile` listos; falta ejecutarlos/desplegarlos) |
-| 53 | Usuario único global | El nombre se rechaza si existe en **cualquier** grupo (decisión del proyecto; la prueba 8 del documento no aplica) | ✅ (`profiles_username_key` + índice `lower(username)`) |
-| 54 | Alternativas de nombre | Si el nombre está tomado, se ofrecen alternativas comprobadas como botones; el usuario debe confirmar | ✅ (servidor + chips en el registro) |
-| 55 | Grupo automático en reingresos | El perfil guarda el grupo; el login lo recupera de la BD y no lo pide | ✅ (`login-username` v2) |
-| 56 | Contraseña de grupo protegida | Hash bcrypt; la app no puede leerlo ni escribirlo; solo `service_role` verifica | ✅ (GRANT por columna + RPC) |
+| 51 | Login por usuario | El login pide solo **usuario + contraseña**; el grupo se detecta del perfil y no se vuelve a pedir | ✅ (en vivo: `test` → 200/principal; `test1` → 200/prueba_acceso; contraseña mala → 401; usuario inexistente → 404 + registro) |
+| 52 | Registro con contraseña de grupo | Paso 1: grupo + contraseña del grupo (bcrypt). Paso 2: usuario + contraseña personal + confirmación | ✅ (en vivo: contraseña mala → 403; correcta → paso 2; `test1` creado y con sesión) |
+| 53 | Usuario único global | El nombre se rechaza si existe en **cualquier** grupo (decisión del proyecto; la prueba 8 del documento no aplica) | ✅ (`test` en otro grupo → 409; `profiles_username_key` + índice `lower(username)`) |
+| 54 | Alternativas de nombre | Si el nombre está tomado, se ofrecen alternativas comprobadas como botones; el usuario debe confirmar | ✅ (chips `test1…test5`; al elegir uno solo se rellena el campo, no se crea solo) |
+| 55 | Grupo automático en reingresos | El perfil guarda el grupo; el login lo recupera de la BD y no lo pide | ✅ (en vivo: `test1` reingresó sin grupo → “Grupo de prueba de acceso”) |
+| 56 | Contraseña de grupo protegida | Hash bcrypt; la app no puede leerlo ni escribirlo; solo `service_role` verifica | ✅ (GRANT por columna; `verificar_password_grupo` da 42501 a `authenticated`) |
 
 ---
 
 ## 3. Resultados de la corrida automática
 
-- **2026-11-26 (nuevo acceso y registro de perfiles)**: **264 pruebas · 0 fallos · 2 avisos**.
-  - Bloque `[9]` reescrito con **50 comprobaciones**: login por usuario con grupo automático,
-    `sql/14` (hash bcrypt, RPC de verificación solo para `service_role`, `grupos_para_registro`,
-    GRANT por columna, índice `lower(username)` y protección de identidad), Edge Functions
-    (`login-username` v2 + `register-profile`), UI progresiva y ausencia del hash en el cliente.
+- **2026-11-26 (nuevo acceso y registro de perfiles, verificado en vivo)**: **267 pruebas · 0 fallos · 2 avisos**.
+  - Bloque `[9]` con **53 comprobaciones**: login por usuario con grupo automático, `sql/14`
+    (hash bcrypt, RPC de verificación solo para `service_role`, `grupos_para_registro`, GRANT
+    por columna, índice `lower(username)`, protección de identidad y `search_path` correcto),
+    Edge Functions (`login-username` v2 + `register-profile`), UI progresiva, ausencia del hash
+    en el cliente y limpieza de la agenda al cambiar de grupo.
+  - **En vivo**: `test` entró sin grupo → principal; `test1` (perfil de prueba) se registró en
+    un grupo temporal con contraseña de grupo y reingresó sin grupo; contraseña mala → 401;
+    usuario inexistente → 404 + panel de registro; contraseña de grupo mala → 403; nombre
+    tomado → 409 con `test1…test5` (sin autoasignar); `test1` no ve events/activities/wall del
+    principal (0 filas, incluso el evento por ID).
+  - **Ajuste extra**: al cambiar a un grupo sin evento, se limpian los días y se oculta la
+    tarjeta del día activo (antes quedaba el DOM del grupo anterior).
   - Decisión del proyecto: **usuario único global**; la prueba 8 del documento de acceso
-    (mismo nombre en dos grupos) no aplica y se deja documentada.
+    (mismo nombre en dos grupos) no aplica y queda documentada.
 - **2026-11-26 (Fase 1 de `UPDATE.md`: grupos, login y RLS)**: **242 pruebas · 0 fallos · 2 avisos**.
   - Nuevo bloque `[9]` (28 comprobaciones): tabla/columnas/backfill/triggers de grupo,
     helpers `auth_group()`/`can_manage_group()`, RPC `grupos_publicos()` para anon, políticas
