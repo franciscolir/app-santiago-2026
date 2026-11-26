@@ -445,7 +445,7 @@ Detalle en `PRUEBAS.md`.
   vivo: toggle (856, 12) y botones en x = 860, y = 62…430 (46 px de paso); 0 errores
   de consola.
 - **Fases 5–7 de `UPDATE.md` (2026-11-26)**, `node scripts/verificar-mapa.mjs` →
-  **382 pruebas · 0 fallos · 2 avisos**. Bloques nuevos: `[12]` agenda (todos los días,
+  **384 pruebas · 0 fallos · 2 avisos**. Bloques nuevos: `[12]` agenda (todos los días,
   sin filtro Mis/Todas, pasado/hoy/futuro, FAB y SOS), `[13]` evento editable y `[14]`
   animaciones JW (módulo puro de tiempo con zona `America/Santiago`, −30/inicio/+30,
   paso a la siguiente, canceladas, `setInterval` de 60 s sin consultas y animación en el
@@ -461,11 +461,11 @@ Detalle en `PRUEBAS.md`.
   normal. `group_admin` desaparece. Se agregan grupos con número y contraseña, actividades
   multi-grupo (`series_id`), puntos fijos bloqueados (solo ADMIN, siempre visibles) y
   contactos generales de emergencia editables por el ADMIN. `sql/18` cierra la edición de la
-  fila de `groups` al MANAGER. `sw` v24.
+  fila de `groups` al MANAGER. `sw` v25.
 - **Emergencia simplificada**: la vista conserva solo la lista de contactos y el botón
   “Abrir sistema de emergencia”; se eliminó el hero/SOS grande y el estado de red, y el SOS
   flotante se oculta dentro de esa vista.
-- El service worker quedó en `app-santiago-2026-v24` (precache renovada con la jerarquía
+- El service worker quedó en `app-santiago-2026-v25` (precache renovada con la jerarquía
   ADMIN/MANAGER, los puntos bloqueados y los contactos generales).
 
 ---

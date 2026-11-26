@@ -39,7 +39,8 @@
 // v23: jerarquía ADMIN/MANAGER, vista de grupos/actividades, puntos bloqueados
 // y contactos generales de emergencia (sql/17).
 // v24: vista Emergencia simplificada: contactos + botón inferior, sin hero SOS.
-const CACHE_NAME = "app-santiago-2026-v24";
+// v25: título de la app STGO 2026 | Región 8 (encabezado, login, PWA).
+const CACHE_NAME = "app-santiago-2026-v25";
 const APP_SHELL = [
   "./",
   "./index.html",
