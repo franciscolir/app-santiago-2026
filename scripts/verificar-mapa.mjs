@@ -470,6 +470,13 @@ console.log("[8] Calibración 2026-11-26: 3 saltos del punto, corte de textos, g
     "punto: desaparece en el zoom 10,5", "ZOOM_PUNTO_MIN ya no es 10,5");
   check(/const ZOOM_PUNTO_MEDIO\s*=\s*11/.test(main) && /const ZOOM_PUNTO_MAX\s*=\s*11\.8/.test(main),
     "punto: saltos en los zooms 11 y 11,8", "faltan los umbrales 11 / 11,8");
+  check(/const ESCALA_PUNTO\s*=\s*0\.85/.test(main),
+    "punto: −15 % sobre la rampa (ESCALA_PUNTO = 0,85)", "falta ESCALA_PUNTO");
+  check(/RADIO_PUNTO_MIN=3\.5\*ESCALA_PUNTO/.test(main) && /RADIO_PUNTO_MAX=7\*ESCALA_PUNTO/.test(main) &&
+        /TAM_PUNTO_MIN=7\*ESCALA_PUNTO/.test(main) && /TAM_PUNTO_MAX=14\*ESCALA_PUNTO/.test(main),
+    "punto: los 3 saltos bajan proporcionalmente (radios y diámetros)", "los tamaños no usan ESCALA_PUNTO");
+  check(/RADIO_PUNTO_MAX-ESCALA_PUNTO/.test(main) && /RADIO_PUNTO_MAX\+ESCALA_PUNTO/.test(main),
+    "punto: los ajustes ± entre capas también se escalan", "quedaron offsets fijos de ±1 px");
   check(/saltoRampa/.test(main), "punto: escalón en los marcadores HTML (saltoRampa)", "falta saltoRampa");
   check(/-puntos-mini[\s\S]{0,300}RADIO_PUNTO_MIN,ZOOM_PUNTO_MEDIO,RADIO_PUNTO_MEDIO,ZOOM_PUNTO_MAX,RADIO_PUNTO_MAX/.test(main),
     "punto: los círculos GeoJSON bajan en 3 saltos", "la rampa de -puntos-mini no escalona");

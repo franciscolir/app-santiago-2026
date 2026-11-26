@@ -987,7 +987,7 @@ Pedido del usuario (un solo lote) y cómo quedó resuelto:
 
 | Pedido | Solución | Dónde |
 |---|---|---|
-| Zoom de puntos en **3 momentos** | Rampa escalonada (§27): `ZOOM_PUNTO_MIN=10,5` (desaparece), `ZOOM_PUNTO_MEDIO=11`, `ZOOM_PUNTO_MAX=11,8`, `ZOOM_ICONO=12,5`, `ZOOM_ICONO_MAX=15`; radio 3,5→5→7 px en 3 saltos, `icon-size` 0,25→0,375 = 16→24 px y texto 9→10→11 px en 2 saltos | `src/main.js` (constantes, `cargarLugares`, `cargarTransporte`, `actualizarPuntosSegunZoom`) |
+| Zoom de puntos en **3 momentos** | Rampa escalonada (§27): `ZOOM_PUNTO_MIN=10,5` (desaparece), `ZOOM_PUNTO_MEDIO=11`, `ZOOM_PUNTO_MAX=11,8`, `ZOOM_ICONO=12,5`, `ZOOM_ICONO_MAX=15`; radio 2,975→4,25→5,95 px en 3 saltos (−15 % con `ESCALA_PUNTO`), `icon-size` 0,25→0,375 = 16→24 px y texto 9→10→11 px en 2 saltos | `src/main.js` (constantes, `cargarLugares`, `cargarTransporte`, `actualizarPuntosSegunZoom`) |
 | Puntos fijos **sin borde punteado** | Se eliminó la clase `.map-point-admin` y su `outline: dashed`; los fijos solo cambian que no se achican (`data-fijo`) | `src/main.js`, `styles.css` |
 | **Metro en una sola capa** + nombre bajo el icono | Un interruptor “Metro (estaciones y líneas)” (`id: metro`) agrupa líneas, estaciones, iconos y rótulos; la capa `metro-nombres` escribe `nombre` con `text-anchor: top` desde el zoom 12,5 | `src/main.js` (`CAPAS_DEF`, `cargarTransporte`) |
 | **Bomberos separados de la policía** | `data/lugares/seguridad.geojson` quedó con 167 puntos de policía y los 178 cuarteles pasaron a `data/lugares/bomberos.geojson`; dos capas, dos interruptores y dos iconos (`policia.svg`, `bomberos.svg`) | `scripts/separar-bomberos.mjs`, `scripts/importar-lugares.mjs`, `src/main.js` |
@@ -1109,7 +1109,8 @@ cinco ajustes en un solo lote:
 | Pedido | Solución | Dónde |
 |---|---|---|
 | **1 · Texto bajo el icono**: nace en el corte círculo↔icono (12,5), más pequeño, y crece hasta el máximo actual (11 px) **en 2 saltos** | `TEXTO_MIN=9` → `TEXTO_MEDIO=10` (zoom 13,5) → `TEXTO_MAX=11` (zoom 14,5). En `metro-nombres`: `"text-size":["step",["zoom"],9,13.5,10,14.5,11]`; en los marcadores HTML: la variable `--nombre-tam` que fija `actualizarPuntosSegunZoom()` (CSS `font-size: var(--nombre-tam, 11px)`) | `src/main.js`, `styles.css` |
-| **2 · Círculos en 3 saltos** al alejar (12,5 → 11,8 → 11) y **desaparecen en 10,5** | `ZOOM_PUNTO_MIN` 7 → **10,5**, `ZOOM_PUNTO_MEDIO` 9,5 → **11**, `ZOOM_PUNTO_MAX` 11 → **11,8**; radio 3,5 → 5 → 7 px con `["step",["zoom"],…]` y `minzoom:10.5` en las capas circle; en HTML la nueva `saltoRampa()` (equivalente JS de `step`) con `TAM_PUNTO_MIN/MEDIO/MAX` = 7/10/14 px. Vale para `-puntos-mini`, `-cluster`, estaciones y combinaciones del metro y MetroTren | `src/main.js` (constantes, `cargarLugares`, `cargarTransporte`, `actualizarPuntosSegunZoom`, `saltoRampa`) |
+| **2 · Círculos en 3 saltos** al alejar (12,5 → 11,8 → 11) y **desaparecen en 10,5** | `ZOOM_PUNTO_MIN` 7 → **10,5**, `ZOOM_PUNTO_MEDIO` 9,5 → **11**, `ZOOM_PUNTO_MAX` 11 → **11,8**; radio con `["step",["zoom"],…]` y `minzoom:10.5` en las capas circle; en HTML la nueva `saltoRampa()` (equivalente JS de `step`). Vale para `-puntos-mini`, `-cluster`, estaciones y combinaciones del metro y MetroTren. Tamaños con el **−15 %** de la fila siguiente: radio 2,975 → 4,25 → 5,95 px y diámetro 5,95 → 8,5 → 11,9 px | `src/main.js` (constantes, `cargarLugares`, `cargarTransporte`, `actualizarPuntosSegunZoom`, `saltoRampa`) |
+| **−15 % en los puntos** que reemplazan a los iconos (tarea del 2026-11-26) | Un solo factor **`ESCALA_PUNTO=0.85`** multiplica toda la rampa, así los 3 saltos bajan **proporcionalmente** y la forma no cambia: `RADIO_PUNTO_MIN/MEDIO/MAX` = 3,5/5/7 → **2,975/4,25/5,95 px** y `TAM_PUNTO_MIN/MEDIO/MAX` = 7/10/14 → **5,95/8,5/11,9 px**. También los ajustes ± entre capas del metro (±1 → ±0,85 px) y los pines de actividad (`TAM_PIN_MIN/MAX` = 12/24 → **10,2/20,4 px**, para no despegar la proporción). **No** se tocan los iconos (siguen 16→24 px) ni el texto (9→11 px) | `src/main.js` (constantes, `cargarTransporte`, `actualizarPuntosSegunZoom`) |
 | **3 · Sin grupo con número**: si hay muchos cerca, **1 punto pequeño**; al acercar se deshace | Se borró la capa `${fuente}-cluster-count` (el número) y la burbuja `${fuente}-cluster` pasó a ser **un círculo más** con la misma rampa (`minzoom:10.5`, `maxzoom:12.5`, radio 3,5→5→7, color de la capa). El clic en el grupo sigue haciendo zoom a su contenido; el clustering sigue activo (`clusterRadius:52`, `clusterMaxZoom:12`) | `src/main.js` (`cargarLugares`, `aplicarCapas`) |
 | **4 · Líneas del metro visibles alejadas y corte en 9,3** | `const ZOOM_LINEAS_METRO=9.3` y `minzoom:ZOOM_LINEAS_METRO` en `metro-lineas` y `metrotren-lineas`: se ven desde 9,3 hacia arriba (sobreviven a los puntos, que mueren en 10,5) y desaparecen por debajo | `src/main.js` (`cargarTransporte`) |
 | **5 · Corte nítido de textos: 12,4 fuera, 12,5 dentro** | Todos los textos de icono usan el mismo corte `ZOOM_ICONO=12.5`: `metro-nombres` con `minzoom:12.5` y los marcadores HTML con `classList.toggle("map-point-con-nombre", z>=ZOOM_ICONO)` (también los puntos de "vista fija": conservan el icono, pero el nombre obedece al corte) | `src/main.js`, `styles.css` |
@@ -1128,25 +1129,27 @@ cinco ajustes en un solo lote:
 
 ### Verificación
 
-- `node scripts/verificar-mapa.mjs` → **207 pruebas · 0 fallos · 2 avisos**
-  (bloque nuevo `[8]` con 16 comprobaciones; el test de la rampa del bloque `[7]`
-  se adaptó al escalón en vez de la meseta lineal).
+- `node scripts/verificar-mapa.mjs` → **210 pruebas · 0 fallos · 2 avisos**
+  (bloque nuevo `[8]` con 19 comprobaciones —entre ellas `ESCALA_PUNTO=0.85` y el
+  escalón de la rampa—; el test de la rampa del bloque `[7]` se adaptó al escalón en
+  vez de la meseta lineal).
 - **Navegador** (0 errores de consola, con las capas Metro/Parques/Salud/Seguridad
   encendidas y barrido de zoom por todos los cortes):
   | Zoom | Marcador HTML |
   |---|---|
   | 6 y 10,4 | oculto (desaparece por debajo de 10,5) |
-  | 10,6 | punto **7 px** |
-  | 11,5 | punto **10 px** |
-  | 12,4 | punto **14 px**, **sin texto** |
+  | 10,6 | punto **5,95 px** |
+  | 11,5 | punto **8,5 px** |
+  | 12,4 | punto **11,9 px**, **sin texto** |
   | 12,5 | icono 16 px + nombre **9 px** |
   | 13,5 | nombre **10 px** |
   | 14,5 y 16 | nombre **11 px** (meseta), icono 24 px |
   Capas leídas con `getLayer`/`getPaintProperty`: `-cluster` y `-puntos-mini`
-  `min 10.5 / max 12.5` con `["step",["zoom"],3.5,11,5,11.8,7]`,
+  `min 10.5 / max 12.5` con `["step",["zoom"],2.975,11,4.25,11.8,5.95]`,
   `-cluster-count` **no existe**, `metro-lineas` `min 9.3`, `metro-nombres`
   `min 12.5` con `text-size ["step",["zoom"],9,13.5,10,14.5,11]`.
 - **Medidor de zoom ELIMINADO** (ya no hace falta: los tres momentos están
   calibrados): bloque `#medidores-calibracion` de `index.html`,
   `pintarMedidores()` y sus listeners `zoom`/`move`.
-- `sw.js` → **`CACHE_NAME` v10**.
+- `sw.js` → **`CACHE_NAME` v11** (v10 fue el lote de calibración; v11 renueva la
+  precache con el −15 % de los puntos).

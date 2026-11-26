@@ -15,7 +15,9 @@
 // color en 3 saltos (12,5 → 11,8 → 11) que desaparece en el zoom 10,5; textos
 // con corte nítido en 12,5 y tamaño en 2 saltos (9 → 10 → 11 px); grupos sin
 // número (1 punto); líneas del metro con corte en 9,3. Se elimina el medidor.
-const CACHE_NAME = "app-santiago-2026-v10";
+// v11: −15 % proporcional en los puntos que reemplazan a los iconos
+// (ESCALA_PUNTO=0.85 sobre los 3 saltos: radio 2,975 / 4,25 / 5,95 px).
+const CACHE_NAME = "app-santiago-2026-v11";
 const APP_SHELL = [
   "./",
   "./index.html",

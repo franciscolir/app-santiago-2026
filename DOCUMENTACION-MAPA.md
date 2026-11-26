@@ -113,14 +113,21 @@ marcadores HTML:
 | Momento | Zoom | Qué se ve |
 |---|---|---|
 | 1 · Muy alejado | < 10,5 | **Nada**: el punto de color desaparece (`ZOOM_PUNTO_MIN=10,5`). |
-| 2 · Punto de color | 10,5 → 11 | Punto pequeño: **7 px** de diámetro (radio 3,5 px). |
-| 3 · Punto de color | 11 → 11,8 | 2.º salto: **10 px** (radio 5 px). |
-| 4 · Punto de color | 11,8 → 12,5 | 3.er salto: **14 px** (radio 7 px), el más grande. |
+| 2 · Punto de color | 10,5 → 11 | Punto pequeño: **5,95 px** de diámetro (radio 2,975 px). |
+| 3 · Punto de color | 11 → 11,8 | 2.º salto: **8,5 px** (radio 4,25 px). |
+| 4 · Punto de color | 11,8 → 12,5 | 3.er salto: **11,9 px** (radio 5,95 px), el más grande. |
 | 5 · Icono + texto | 12,5 → 15 | Corte **nítido** (en 12,4 desaparece todo, en 12,5 entra): icono **pequeño** (16 px) con su nombre **pequeño** (9 px). El icono crece hasta 24 px (zoom 15) y el texto sube en **2 saltos**: 9 → 10 px (zoom 13,5) → 11 px (zoom 14,5), que ya no crece. |
 
+- **−15 % en los puntos (2026-11-26)**: `ESCALA_PUNTO=0.85` multiplica **toda** la
+  rampa, de modo que los 3 saltos bajan **proporcionalmente** (la forma no cambia):
+  radios 3,5 → 5 → 7 px quedaron en **2,975 → 4,25 → 5,95 px** y los diámetros de los
+  marcadores HTML 7 → 10 → 14 px en **5,95 → 8,5 → 11,9 px**. También se escalan los
+  ajustes ± entre capas del metro (±1 → ±0,85 px) y los pines de actividad
+  (12 → 24 px quedaron en **10,2 → 20,4 px**, para mantener la proporción).
+  Los **iconos** (16 → 24 px) y el **texto** (9 → 11 px) no cambian.
 - Los tres saltos del punto (12,5 → 11,8 → 11) y el corte en 10,5 son
   `["step",["zoom"],…]` en las capas `circle` (`minzoom: 10,5`, `maxzoom: 12,5`) y
-  `saltoRampa()` en los marcadores HTML (`TAM_PUNTO_MIN/MEDIO/MAX` = 7/10/14 px).
+  `saltoRampa()` en los marcadores HTML (`TAM_PUNTO_MIN/MEDIO/MAX` = 5,95/8,5/11,9 px).
   - Capa de lugares: `${capa}-puntos-mini` (círculo) + `${capa}-puntos`
     (`minzoom: 12,5`, `icon-size` interpolado 0,25 → 0,375).
   - Puntos personalizados: la misma lógica en CSS (`actualizarPuntosSegunZoom()` al
@@ -350,7 +357,7 @@ No hay variables de entorno ni claves de mapas私 embebidas en el repositorio: e
 
 Detalle en `PRUEBAS.md`.
 
-- `node scripts/verificar-mapa.mjs` → **207 pruebas, 0 fallos, 2 avisos** (datos, coordenadas,
+- `node scripts/verificar-mapa.mjs` → **210 pruebas, 0 fallos, 2 avisos** (datos, coordenadas,
   duplicados, iconos SVG, vista de mapa a pantalla completa, controles colapsables,
   comportamiento de los puntos según el zoom, vista fija, referencias del frontend, RLS en
   los SQL, columnas existentes en las consultas SQL y ausencia de claves privadas). El bloque
@@ -385,14 +392,19 @@ Detalle en `PRUEBAS.md`.
   `"text-font":["Noto Sans Regular"]` (el default daba 404 en los tiles de
   OpenFreeMap y tumbaba todas las capas `symbol` de la fuente `transporte-estaciones`).
 - Calibración de los momentos (2026-11-26, segundo lote, verificado en navegador):
-  el punto de color se apaga en **3 saltos** (zoom 11,5 → 10 px · 12,4 → 14 px) y
+  el punto de color se apaga en **3 saltos** (zoom 11,5 → 8,5 px · 12,4 → 11,9 px) y
   **desaparece por debajo de 10,5**; en 12,4 no hay ni texto ni icono y en 12,5 entran
   ambos; el nombre nace en **9 px** y sube a 10 px (13,5) y 11 px (14,5); los grupos
   de puntos ya no muestran número (se pintan como 1 punto más); las líneas del metro
   tienen `minzoom: 9.3`. Con el medidor de zoom se leyeron los tres umbrales y el
   medidor quedó **eliminado**.
-- El service worker quedó en `app-santiago-2026-v10` (los iconos SVG se sirven cache-first
-  y la precache se renovó con la calibración del 2026-11-26).
+- −15 % en los puntos (2026-11-26): `ESCALA_PUNTO=0.85` baja proporcionalmente los
+  3 saltos (radio 2,975 / 4,25 / 5,95 px; diámetro 5,95 / 8,5 / 11,9 px), incluidos los
+  ajustes entre capas del metro y los pines de actividad (10,2 → 20,4 px). Verificado
+  en vivo con `getPaintProperty`: `["step",["zoom"],2.975,11,4.25,11.8,5.95]` y
+  `--punto-tam` 5,95 / 8,5 / 11,9 px; 0 errores de consola.
+- El service worker quedó en `app-santiago-2026-v11` (los iconos SVG se sirven cache-first
+  y la precache se renovó con el −15 % de los puntos del 2026-11-26).
 
 ---
 

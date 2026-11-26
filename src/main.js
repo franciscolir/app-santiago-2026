@@ -848,12 +848,22 @@ const ZOOM_PUNTO_MEDIO=11;     // 3.er salto: el punto queda en su tamaño míni
 const ZOOM_PUNTO_MAX=11.8;     // 2.º salto: tamaño intermedio
 const ZOOM_ICONO=12.5;         // 1.er salto: icono + texto (corte nítido)
 const ZOOM_ICONO_MAX=15;       // el icono deja de crecer
-const RADIO_PUNTO_MIN=3.5;     // radio (px) del punto entre 10,5 y 11
-const RADIO_PUNTO_MEDIO=5;     // radio (px) del punto entre 11 y 11,8
-const RADIO_PUNTO_MAX=7;       // radio (px) del punto entre 11,8 y 12,5
-const TAM_PUNTO_MIN=7;         // diámetro (px) del punto propio más pequeño
-const TAM_PUNTO_MEDIO=10;      // diámetro (px) del punto propio intermedio
-const TAM_PUNTO_MAX=14;        // diámetro (px) del punto propio más grande
+// Disminución del **15 %** en los puntos que reemplazan a los iconos, pedida
+// el 2026-11-26: un solo factor (`ESCALA_PUNTO`) multiplica TODA la rampa, así
+// los 3 saltos bajan proporcionalmente y la forma de la rampa no cambia.
+//   radios (GeoJSON): 3,5 → 5 → 7 px  quedan en  2,975 → 4,25 → 5,95 px
+//   diámetros (HTML): 7 → 10 → 14 px  quedan en  5,95 → 8,5 → 11,9 px
+const ESCALA_PUNTO=0.85;        // −15 % sobre la rampa de puntos
+const RADIO_PUNTO_MIN=3.5*ESCALA_PUNTO;   // radio (px) del punto entre 10,5 y 11
+const RADIO_PUNTO_MEDIO=5*ESCALA_PUNTO;   // radio (px) del punto entre 11 y 11,8
+const RADIO_PUNTO_MAX=7*ESCALA_PUNTO;     // radio (px) del punto entre 11,8 y 12,5
+const TAM_PUNTO_MIN=7*ESCALA_PUNTO;       // diámetro (px) del punto propio más pequeño
+const TAM_PUNTO_MEDIO=10*ESCALA_PUNTO;    // diámetro (px) del punto propio intermedio
+const TAM_PUNTO_MAX=14*ESCALA_PUNTO;      // diámetro (px) del punto propio más grande
+// Pines de actividad (no reemplazan a un icono, pero siguen la misma rampa):
+// mismo −15 %, para que la proporción con los puntos no se despegue.
+const TAM_PIN_MIN=12*ESCALA_PUNTO;        // mínimo seleccionable (10,2 px)
+const TAM_PIN_MAX=24*ESCALA_PUNTO;        // máximo (20,4 px)
 // Texto bajo el icono: aparece pequeño en 12,5 y crece en 2 saltos hasta 11 px.
 const TEXTO_MIN=9;             // px al aparecer el texto (zoom 12,5)
 const TEXTO_MEDIO=10;          // px desde el primer salto
@@ -1036,12 +1046,15 @@ async function cargarTransporte(){
     filter:["==",["get","tipo"],"metrotren"],minzoom:ZOOM_LINEAS_METRO,
     paint:{"line-color":"#0079c2","line-width":3,"line-opacity":0.9}});
   // Estaciones: punto de color en 3 saltos (12,5 → 11,8 → 11) que desaparece
-  // en el zoom 10,5; desde 12,5 toma el icono.
+  // en el zoom 10,5; desde 12,5 toma el icono. Los ajustes de tamaño entre
+  // capas (±1 px) también se escalan con ESCALA_PUNTO (±0,85 px): las
+  // estaciones quedan un pelín más chicas que los lugares y las combinaciones
+  // un pelín más grandes, igual que antes del −15 %.
   insertarBajoSimbolos({id:"metro-estaciones",type:"circle",source:"transporte-estaciones",
     filter:["==",["get","tipo"],"metro"],minzoom:ZOOM_PUNTO_MIN,maxzoom:ZOOM_ICONO,
     paint:{"circle-color":"#ffffff",
             "circle-radius":["step",["zoom"],
-              RADIO_PUNTO_MIN,ZOOM_PUNTO_MEDIO,RADIO_PUNTO_MEDIO,ZOOM_PUNTO_MAX,RADIO_PUNTO_MAX-1],
+              RADIO_PUNTO_MIN,ZOOM_PUNTO_MEDIO,RADIO_PUNTO_MEDIO,ZOOM_PUNTO_MAX,RADIO_PUNTO_MAX-ESCALA_PUNTO],
             "circle-stroke-color":"#181c1d","circle-stroke-width":1.5}});
   insertarBajoSimbolos({id:"metro-estaciones-icono",type:"symbol",source:"transporte-estaciones",
     filter:["==",["get","tipo"],"metro"],minzoom:ZOOM_ICONO,
@@ -1053,7 +1066,7 @@ async function cargarTransporte(){
     minzoom:ZOOM_PUNTO_MIN,maxzoom:ZOOM_ICONO,
     paint:{"circle-color":"#ffd54f",
             "circle-radius":["step",["zoom"],
-              RADIO_PUNTO_MIN+1,ZOOM_PUNTO_MEDIO,RADIO_PUNTO_MEDIO+1,ZOOM_PUNTO_MAX,RADIO_PUNTO_MAX+1],
+              RADIO_PUNTO_MIN+ESCALA_PUNTO,ZOOM_PUNTO_MEDIO,RADIO_PUNTO_MEDIO+ESCALA_PUNTO,ZOOM_PUNTO_MAX,RADIO_PUNTO_MAX+ESCALA_PUNTO],
             "circle-stroke-color":"#181c1d","circle-stroke-width":1.5}});
   insertarBajoSimbolos({id:"metro-combo-icono",type:"symbol",source:"transporte-estaciones",
     filter:["all",["==",["get","tipo"],"metro"],["==",["get","combinaciones"],true]],minzoom:ZOOM_ICONO,
@@ -1518,11 +1531,15 @@ function actualizarPuntosSegunZoom(){
     }
     el.classList.remove("map-point-oculto");
     el.classList.add("map-point-punto");
-    el.style.setProperty("--punto-tam",tamPunto.toFixed(1)+"px");
+    // 2 decimales: con el −15 % los valores quedan en 5,95 / 8,5 / 11,9 px y
+    // toFixed(1) los redondeaba a 6,0.
+    el.style.setProperty("--punto-tam",tamPunto.toFixed(2)+"px");
   });
   // Pines de actividad: NO desaparecen (hay que poder seleccionarlos), solo
-  // se reducen a un punto de color (12 → 24 px con la rampa nueva).
-  const tam=Math.max(12,Math.min(24,Math.round((tamPunto/TAM_PUNTO_MAX)*24)));
+  // se reducen a un punto de color. Llevan el mismo −15 % que el resto de la
+  // rampa (ESCALA_PUNTO): 10,2 → 20,4 px (antes 12 → 24), para mantener la
+  // proporción con los puntos.
+  const tam=Math.max(TAM_PIN_MIN,Math.min(TAM_PIN_MAX,Math.round((tamPunto/TAM_PUNTO_MAX)*TAM_PIN_MAX)));
   state.markers.forEach(m=>{
     const el=m.getElement&&m.getElement(); if(!el) return;
     el.classList.toggle("modo-punto",z<ZOOM_ICONO);
