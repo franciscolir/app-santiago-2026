@@ -2697,6 +2697,9 @@ function abrirCapaForm(tipo,id=null,categorySlug=null){
   $("#capa-form-error").textContent="";
   $("#capa-category-wrap").classList.toggle("hidden",tipo==="categoria");
   $("#capa-sub-wrap").classList.toggle("hidden",tipo==="categoria");
+  const nuevaCategoria=tipo==="categoria" && !id;
+  $("#capa-style-wrap").classList.toggle("hidden",nuevaCategoria);
+  $("#capa-style-hint").classList.toggle("hidden",!nuevaCategoria);
   const selCat=$("#capa-category");
   selCat.innerHTML='<option value="">Sin categoría (esperando asignación)</option>'+
     state.categorias.map(c=>`<option value="${esc(c.slug)}">${esc(c.name)}</option>`).join("");

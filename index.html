@@ -1046,7 +1046,7 @@ dialog::backdrop { background: rgba(44, 49, 50, .6); backdrop-filter: blur(2px);
         <input id="capa-slug" required maxlength="41" class="w-full h-12 px-3 bg-surface rounded-lg text-on-surface border border-outline-variant focus:outline-none focus:ring-2 focus:ring-primary/40">
       </div>
     </div>
-    <div class="grid grid-cols-2 gap-3">
+    <div id="capa-style-wrap" class="grid grid-cols-2 gap-3">
       <div>
         <label for="capa-color" class="block font-label-md text-label-md text-on-surface font-semibold mb-1">Color</label>
         <input id="capa-color" type="color" value="#006492" class="w-full h-12 p-1 bg-surface rounded-lg border border-outline-variant">
@@ -1056,6 +1056,7 @@ dialog::backdrop { background: rgba(44, 49, 50, .6); backdrop-filter: blur(2px);
         <select id="capa-icon" class="w-full h-12 px-3 bg-surface rounded-lg text-on-surface border border-outline-variant focus:outline-none focus:ring-2 focus:ring-primary/40"></select>
       </div>
     </div>
+    <p id="capa-style-hint" class="hidden text-[11px] text-on-surface-variant">El color e icono se definen en cada subcategoría.</p>
     <div id="capa-sub-wrap" class="space-y-3">
       <div>
         <label for="capa-render" class="block font-label-md text-label-md text-on-surface font-semibold mb-1">Comportamiento</label>

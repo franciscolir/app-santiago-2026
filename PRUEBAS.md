@@ -119,7 +119,7 @@ Sin dependencias: solo Node.js ≥ 18. Comprueba:
 | 89 | JW clases CSS | Destello y latido con `@keyframes` y `prefers-reduced-motion`, en el **icono interior** (no en el marcador) | ✅ |
 | 90 | Esquema final | `schema.sql` documenta el estado de las migraciones 10–22 sin fingir un `pg_dump` | ✅ (sección 9; fuente de verdad: `sql/`, declarado) |
 | 91 | Documentación de cierre | `AGENT.md` §36/§37 y `DOCUMENTACION-MAPA.md` §7 resumen la entrega | ✅ |
-| 92 | Verificador final | La corrida completa sigue en verde tras el cierre | ✅ (403 pruebas · 0 fallos · 2 avisos) |
+| 92 | Verificador final | La corrida completa sigue en verde tras el cierre | ✅ (404 pruebas · 0 fallos · 2 avisos) |
 | 93 | Artefactos | No quedan usuarios, grupos, actividades ni puntos de prueba | ✅ (`principal`, `admin`/`test`, 5 actividades, 6 puntos) |
 | 94 | Rol MANAGER | `role='manager'` administra solo su grupo (evento, actividades, puntos, muro) | ✅ (en vivo: `test` como MANAGER; solo actividades de principal; creó una actividad) |
 | 95 | Rol ADMIN | `role='admin'` ve Grupos/Actividades/Mapa/Emergencia, sin Agenda ni Muro | ✅ (en vivo; 4 pestañas, sin Agenda/Muro) |
@@ -161,26 +161,27 @@ Sin dependencias: solo Node.js ≥ 18. Comprueba:
 | 131 | Panel por categorías | Mostrar/ocultar se agrupa por categoría y subcategoría reales | ✅ (Bomberos, Seguridad, Salud, Transporte, Comercio, Áreas verdes, Aplicación) |
 | 132 | Deseleccionar todo | Botón en puntos externos desmarca los 126/269 puntos de la capa | ✅ (Metro: 126 marcados → 0; luego se cierra sin guardar) |
 | 133 | Categorías con estilo | Cada categoría muestra su icono y color en Capas y en ajustes | ✅ (Salud urgencias.svg/#e03131, Seguridad policia.svg/#c92a2a, etc.) |
+| 134 | Nueva categoría | El formulario no pide color ni icono; se definen en subcategorías | ✅ (campos ocultos; valores neutros por defecto) |
 
 ---
 
 ## 3. Resultados de la corrida automática
 
-- **2026-11-26 (Mapa: nombres, controles y subcategorías)**: **403 pruebas · 0 fallos · 2 avisos**.
+- **2026-11-26 (Mapa: nombres, controles y subcategorías)**: **404 pruebas · 0 fallos · 2 avisos**.
   - Nombres multilínea (máx. 3), controles reducidos, alta por clic/pulsación larga,
     subcategorías/capas, overrides globales, JW siempre icono y placeholder “Cerca de mí”.
   - En vivo: punto con 3 líneas y subcategoría Metro; ADMIN creó categoría/subcapa QA; ocultó
     un punto de Metro y la fuente quedó filtrada (154→153); MANAGER no ve el engranaje.
-  - `sw` v33.
-- **2026-11-26 (Emergencia simplificada)**: **403 pruebas · 0 fallos · 2 avisos**. Se verificó
+  - `sw` v34.
+- **2026-11-26 (Emergencia simplificada)**: **404 pruebas · 0 fallos · 2 avisos**. Se verificó
   que la vista solo conserva contactos + botón inferior, que el hero/SOS/estado de red ya no
   existen y que el SOS flotante se oculta en Emergencia y vuelve en las demás pestañas.
-  `sw` v33.
+  `sw` v34.
 - **2026-11-26 (QA 3×10 + seguridad)**: **228 comprobaciones de integración · 0 fallos** con
   `scripts/qa-simulacion.mjs` (3 grupos, 30 usuarios, 1 MANAGER por grupo, eventos solapados,
   actividades de ADMIN/MANAGER, muro, puntos y ataques). Hallazgo corregido: el MANAGER podía
   editar la fila de su grupo por API (`sql/18_endurecer_grupos.sql`).
-- **2026-11-26 (ADMIN/MANAGER)**: **403 pruebas · 0 fallos · 2 avisos** (bloques `[15]` y `[16]`).
+- **2026-11-26 (ADMIN/MANAGER)**: **404 pruebas · 0 fallos · 2 avisos** (bloques `[15]` y `[16]`).
   - Bloque `[15]`: roles `admin/manager/user`, `group_admin` eliminado, `can_manage_group`
     limitado al grupo del MANAGER, `admin_grupos()` sin hash, puntos bloqueados
     (CHECK + trigger), `series_id`, grupo derivado del evento, slug numérico, navegación por
@@ -295,7 +296,7 @@ Sin dependencias: solo Node.js ≥ 18. Comprueba:
 - Avisos no bloqueantes del navegador: Tailwind CDN (aviso conocido de producción) y 3 avisos
   de MapLibre (`Expected value to be of type number, but found null instead`) que provienen del
   estilo OpenFreeMap, no del código de la app.
-- El service worker quedó en `app-santiago-2026-v33` (precache renovada con la jerarquía
+- El service worker quedó en `app-santiago-2026-v34` (precache renovada con la jerarquía
   ADMIN/MANAGER, los puntos bloqueados y los contactos generales).
 - **Limitación del navegador embebido de pruebas**: no dispara `requestAnimationFrame`, por lo
   que MapLibre no repinta (`map.loaded()` queda en `false` y `queryRenderedFeatures()` devuelve

@@ -50,7 +50,8 @@
 //      generado desde categorías/subcategorías.
 // v32: botón "Deseleccionar todo" en puntos externos.
 // v33: las categorías muestran su icono y color en el panel y en ajustes.
-const CACHE_NAME = "app-santiago-2026-v33";
+// v34: nueva categoría no pide color/icono (se definen en subcategorías).
+const CACHE_NAME = "app-santiago-2026-v34";
 const APP_SHELL = [
   "./",
   "./index.html",
