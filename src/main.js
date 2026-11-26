@@ -1473,7 +1473,10 @@ const CAPAS_LUGARES={
   "parques":    {color:"#2e9e4f", label:"Parques grandes, cerros y zoológicos"},
   "plazas":     {color:"#8bc34a", label:"Plazas de Armas"},
   "comercio":   {color:"#e8590c", label:"Centros comerciales (Malls)"},
-  "salud":      {color:"#e03131", label:"Hospitales públicos, SAPU y SAR"},
+  "salud_hospital": {color:"#e03131", label:"Hospitales públicos", dataKey:"salud",
+    filter:(f)=>f.properties?.subcategoria!=="SAPU / SAR"},
+  "salud_sapu":    {color:"#e03131", label:"SAPU / SAR", dataKey:"salud",
+    filter:(f)=>f.properties?.subcategoria==="SAPU / SAR"},
   "seguridad":  {color:"#1c7ed6", label:"Policía, Comisarías y Tenencias"},
   "bomberos":   {color:"#c92a2a", label:"Cuarteles de bomberos"},
   "servicios":  {color:"#0ca678", label:"Municipalidades"},
@@ -1556,7 +1559,8 @@ const ICONOS_MAPA={
 // Icono de cada capa de lugares (§4/§5: identidad visual coherente).
 const ICONO_LUGAR={
   parques:"park",plazas:"park",comercio:"store",
-  salud:"health_and_safety",seguridad:"warning",bomberos:"bomberos",servicios:"casa",
+  salud_hospital:"hospital",salud_sapu:"health_and_safety",
+  seguridad:"warning",bomberos:"bomberos",servicios:"casa",
 };
 
 // Icono por categoría de punto personalizado (§9) y por el icono que el
@@ -1829,11 +1833,13 @@ async function cargarLugares(capa){
   const map=state.map;
   if(!map||lugaresCargados.has(capa)) return;
   const cfg=CAPAS_LUGARES[capa]; if(!cfg) return;
-  const res=await fetch(`./data/lugares/${capa}.geojson`);
+  const res=await fetch(`./data/lugares/${cfg.dataKey||capa}.geojson`);
   if(!res.ok) throw new Error(`HTTP ${res.status} al cargar ${capa}`);
   const raw=await res.json();
-  state.geoCapas[capa]=raw;
-  const geo=filtrarGeoOverrides(capa,JSON.parse(JSON.stringify(raw)));
+  const base=JSON.parse(JSON.stringify(raw));
+  if(typeof cfg.filter==="function") base.features=base.features.filter(cfg.filter);
+  state.geoCapas[capa]=base;
+  const geo=filtrarGeoOverrides(capa,JSON.parse(JSON.stringify(base)));
   if(!state.map||state.map.getSource(`lugares-${capa}`)) return;
 
   // Icono SVG de esta capa (se descarga y rasteriza una sola vez por sesión).
@@ -1974,7 +1980,8 @@ const CAPAS_DEF=[
     {id:"comercio",nombre:"Centros comerciales (Malls)",capaLugares:"comercio"},
   ]},
   {grupo:"Servicios",items:[
-    {id:"salud",nombre:"Hospitales públicos, SAPU y SAR",capaLugares:"salud"},
+    {id:"salud_hospital",nombre:"Hospitales públicos",capaLugares:"salud_hospital"},
+    {id:"salud_sapu",nombre:"SAPU / SAR",capaLugares:"salud_sapu"},
     {id:"seguridad",nombre:"Policía, Comisarías y Tenencias",capaLugares:"seguridad"},
     {id:"bomberos",nombre:"Cuarteles de bomberos",capaLugares:"bomberos"},
     {id:"servicios",nombre:"Municipalidades",capaLugares:"servicios"},
@@ -2199,7 +2206,8 @@ function iconoCategoria(slug,icon){
 function scopeDe(p){ return p.scope || (p.tipo==="general"?"global":"group"); }
 
 // Color de una capa de lugares según su categoría (sql/15).
-const CATEGORIA_DE_CAPA={parques:"parque",plazas:"parque",comercio:"mall",salud:"hospital",
+const CATEGORIA_DE_CAPA={parques:"parque",plazas:"parque",comercio:"mall",
+  salud_hospital:"salud",salud_sapu:"salud",
   seguridad:"policia",bomberos:"bomberos",servicios:"otros"};
 function colorDeCapa(capa,fallback){ return subcategoriaDeCapa(capa)?.color || colorCategoria(CATEGORIA_DE_CAPA[capa],fallback); }
 function iconoDeCapa(capa,fallback){ const s=subcategoriaDeCapa(capa); return s && ICONOS_MAPA[s.icon] ? s.icon : fallback; }
@@ -2717,8 +2725,12 @@ async function abrirCapaPuntos(sub){
       const geo=state.geoTranporte || await fetch("./data/transporte-estaciones.geojson").then(r=>r.json());
       features=geo.features.filter(f=>f.properties?.tipo===sub.layer_key);
     }else{
-      const geo=state.geoCapas[sub.layer_key] || await fetch(`./data/lugares/${sub.layer_key}.geojson`).then(r=>r.json());
+      const cfg=CAPAS_LUGARES[sub.layer_key];
+      const dataKey=cfg?.dataKey||sub.layer_key;
+      const cache=state.geoCapas[sub.layer_key];
+      const geo=cache || await fetch(`./data/lugares/${dataKey}.geojson`).then(r=>r.json());
       features=geo.features||[];
+      if(!cache && typeof cfg?.filter==="function") features=features.filter(cfg.filter);
     }
   }catch(err){ notifyError($("#capa-puntos-error"),describeError(err,"los puntos de la capa")); root.innerHTML=""; return; }
   const ocultos=new Set((state.overrides||[]).filter(o=>o.layer_key===sub.layer_key&&o.visible===false).map(o=>o.external_id));

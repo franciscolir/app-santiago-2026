@@ -621,3 +621,10 @@ alter table public.groups     add column if not exists join_password_hash text;
 --   Trigger map_subcategories_jw: toda subcategoría de categoría JW fuerza
 --   render_mode='icon' (siempre icono + animaciones).
 
+-- 9.11 Salud separada (sql/21)
+--   Subcategorías de salud:
+--     hospitales (layer_key salud_hospital): Hospital público + Hospital/SAR
+--     sapu-sar   (layer_key salud_sapu):    SAPU / SAR
+--   La antigua subcategoría "urgencias" (capa salud) se retiró; los puntos
+--   manuales se reasignaron a hospitales.
+
