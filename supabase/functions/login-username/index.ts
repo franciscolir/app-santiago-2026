@@ -1,3 +1,4 @@
+// @ts-nocheck
 // ============================================================================
 // supabase/functions/login-username/index.ts
 // Login por usuario + contraseña + GRUPO (UPDATE.md Etapa 1.3, 2026-11-26).
@@ -26,6 +27,11 @@
 // IMPORTANTE: desplegar con "Verify JWT" DESACTIVADO (se invoca sin sesión).
 // ============================================================================
 
+// NOTA: `@ts-nocheck` es intencional. Este archivo se ejecuta en Deno
+// (Supabase Edge Functions), que resuelve los especificadores `npm:` y define
+// `Deno`. El servidor de TypeScript de un editor sin la extensión de Deno
+// marca ts(2307) / ts(2304); no son fallos del despliegue. Si trabajas con
+// Deno activado en VS Code puedes quitar esta línea.
 import { createClient } from "npm:@supabase/supabase-js@2";
 
 const corsHeaders = {

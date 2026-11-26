@@ -32,6 +32,12 @@ Content-Type: application/json
 
 ## Despliegue
 
+> **Nota sobre el editor**: `import ... from "npm:@supabase/supabase-js@2"` es el
+> especificador recomendado por Supabase y lo resuelve el runtime (Deno). Si tu editor
+> muestra `Cannot find module ... ts(2307)` o `Cannot find name 'Deno'`, es solo el
+> servidor de TypeScript sin la extensión de Deno; el archivo empieza con un
+> `@ts-nocheck` intencional para silenciarlo. No impide el despliegue.
+
 ### Opción A — CLI
 
 ```bash
