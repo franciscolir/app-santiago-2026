@@ -445,7 +445,7 @@ Detalle en `PRUEBAS.md`.
   vivo: toggle (856, 12) y botones en x = 860, y = 62…430 (46 px de paso); 0 errores
   de consola.
 - **Fases 5–7 de `UPDATE.md` (2026-11-26)**, `node scripts/verificar-mapa.mjs` →
-  **375 pruebas · 0 fallos · 2 avisos**. Bloques nuevos: `[12]` agenda (todos los días,
+  **381 pruebas · 0 fallos · 2 avisos**. Bloques nuevos: `[12]` agenda (todos los días,
   sin filtro Mis/Todas, pasado/hoy/futuro, FAB y SOS), `[13]` evento editable y `[14]`
   animaciones JW (módulo puro de tiempo con zona `America/Santiago`, −30/inicio/+30,
   paso a la siguiente, canceladas, `setInterval` de 60 s sin consultas y animación en el
@@ -454,13 +454,14 @@ Detalle en `PRUEBAS.md`.
   curso, **el icono se infla en su lugar** (marcador con `animation: none`; icono interior
   escala con el mismo centro), artefactos borrados y **0 errores JS**.
 - **Fase 7 (cierre)**: `schema.sql` incorpora la sección 9 con el estado final de las
-  migraciones 10–17 (no es un `pg_dump` en vivo; la fuente de verdad son los `sql/`),
-  `AGENT.md` §36 resume la entrega y `PRUEBAS.md` suma las filas 83–100.
-- **Jerarquía ADMIN/MANAGER (`sql/17`)**: `role='admin'` ve la vista simplificada
+  migraciones 10–18 (no es un `pg_dump` en vivo; la fuente de verdad son los `sql/`),
+  `AGENT.md` §36/§37 resume la entrega y `PRUEBAS.md` suma las filas 83–113.
+- **Jerarquía ADMIN/MANAGER (`sql/17` + `sql/18`)**: `role='admin'` ve la vista simplificada
   (Grupos · Actividades · Mapa · Emergencia); `role='manager'` gestiona su grupo con la app
   normal. `group_admin` desaparece. Se agregan grupos con número y contraseña, actividades
   multi-grupo (`series_id`), puntos fijos bloqueados (solo ADMIN, siempre visibles) y
-  contactos generales de emergencia editables por el ADMIN. `sw` v23.
+  contactos generales de emergencia editables por el ADMIN. `sql/18` cierra la edición de la
+  fila de `groups` al MANAGER. `sw` v23.
 - El service worker quedó en `app-santiago-2026-v23` (precache renovada con la jerarquía
   ADMIN/MANAGER, los puntos bloqueados y los contactos generales).
 

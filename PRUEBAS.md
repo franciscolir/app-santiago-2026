@@ -117,9 +117,9 @@ Sin dependencias: solo Node.js ≥ 18. Comprueba:
 | 87 | JW zona horaria | Usa la hora de pared de Chile (`America/Santiago`) | ✅ (UTC 20:30Z → 17:30 en noviembre) |
 | 88 | JW sin consultas | Un temporizador de 60 s actualiza sin consultar Supabase | ✅ (`setInterval(aplicarEstadoJW,60000)`) |
 | 89 | JW clases CSS | Destello y latido con `@keyframes` y `prefers-reduced-motion`, en el **icono interior** (no en el marcador) | ✅ |
-| 90 | Esquema final | `schema.sql` documenta el estado de las migraciones 10–17 sin fingir un `pg_dump` | ✅ (sección 9; fuente de verdad: `sql/`, declarado) |
-| 91 | Documentación de cierre | `AGENT.md` §36 y `DOCUMENTACION-MAPA.md` §7 resumen la entrega | ✅ |
-| 92 | Verificador final | La corrida completa sigue en verde tras el cierre | ✅ (375 pruebas · 0 fallos · 2 avisos) |
+| 90 | Esquema final | `schema.sql` documenta el estado de las migraciones 10–18 sin fingir un `pg_dump` | ✅ (sección 9; fuente de verdad: `sql/`, declarado) |
+| 91 | Documentación de cierre | `AGENT.md` §36/§37 y `DOCUMENTACION-MAPA.md` §7 resumen la entrega | ✅ |
+| 92 | Verificador final | La corrida completa sigue en verde tras el cierre | ✅ (381 pruebas · 0 fallos · 2 avisos) |
 | 93 | Artefactos | No quedan usuarios, grupos, actividades ni puntos de prueba | ✅ (`principal`, `admin`/`test`, 5 actividades, 6 puntos) |
 | 94 | Rol MANAGER | `role='manager'` administra solo su grupo (evento, actividades, puntos, muro) | ✅ (en vivo: `test` como MANAGER; solo actividades de principal; creó una actividad) |
 | 95 | Rol ADMIN | `role='admin'` ve Grupos/Actividades/Mapa/Emergencia, sin Agenda ni Muro | ✅ (en vivo; 4 pestañas, sin Agenda/Muro) |
@@ -128,16 +128,35 @@ Sin dependencias: solo Node.js ≥ 18. Comprueba:
 | 98 | Punto bloqueado | Solo el ADMIN lo crea/edita/borra; todos lo ven aunque apaguen la capa | ✅ (MANAGER no pudo editar/borrar; siguió visible con la capa apagada; el ADMIN lo editó) |
 | 99 | Contactos generales | El ADMIN agrega/edita/borra contactos que ven todos | ✅ (ADMIN lo creó; MANAGER lo vio sin botones de edición) |
 | 100 | Nombramiento | El ADMIN nombra/quita MANAGER desde los miembros del grupo | ✅ (UI: quitar → Usuario, hacer → MANAGER) |
+| 101 | QA 3 grupos | ADMIN crea 3 grupos con contraseña y evento solapado | ✅ (`qa…g1/g2/g3`; 10 miembros y 1 manager cada uno) |
+| 102 | QA 30 usuarios | 10 usuarios por grupo, 1 MANAGER por grupo | ✅ (30 sesiones reales; perfiles aislados) |
+| 103 | QA eventos | 3 eventos con fechas que se solapan | ✅ (1–10 dic, 5–15 dic, 8–20 dic) |
+| 104 | QA actividades | ADMIN crea serie multi-grupo y MANAGER crea la suya | ✅ (2 actividades por grupo; el usuario ve solo las suyas) |
+| 105 | QA muro | 30 publicaciones; cada usuario ve solo las 10 de su grupo | ✅ (g1: 10, g2: 0, g3: 0) |
+| 106 | QA XSS | `<img onerror>` en el muro no se ejecuta | ✅ (texto escapado; `window.__qaxss` undefined) |
+| 107 | QA inyección SQL | Payloads en login, username, slug y muro | ✅ (rechazados/almacenados como texto; tablas intactas) |
+| 108 | QA anon/JWT | Sin sesión y JWT manipulado no leen datos | ✅ (401/0 filas) |
+| 109 | QA escalada | MANAGER no se asciende, no crea grupos ni contactos | ✅ (403/0 filas) |
+| 110 | QA hash | `join_password_hash` y `verificar_password_grupo` no accesibles | ✅ (403) |
+| 111 | QA IDOR | Actividad/post/punto de otro grupo no se lee ni modifica | ✅ (0 filas/403) |
+| 112 | QA hallazgo | MANAGER podía actualizar la fila de su grupo por API | ✅ corregido con `sql/18_endurecer_grupos.sql` (204 sin filas; nombre intacto) |
+| 113 | QA limpieza | Se borran grupos, 60 usuarios, eventos, actividades, muro y puntos QA | ✅ (quedan 5 actividades, 6 puntos, 1 grupo, 2 perfiles) |
 
 ---
 
 ## 3. Resultados de la corrida automática
 
-- **2026-11-26 (ADMIN/MANAGER)**: **375 pruebas · 0 fallos · 2 avisos**.
+- **2026-11-26 (QA 3×10 + seguridad)**: **228 comprobaciones de integración · 0 fallos** con
+  `scripts/qa-simulacion.mjs` (3 grupos, 30 usuarios, 1 MANAGER por grupo, eventos solapados,
+  actividades de ADMIN/MANAGER, muro, puntos y ataques). Hallazgo corregido: el MANAGER podía
+  editar la fila de su grupo por API (`sql/18_endurecer_grupos.sql`).
+- **2026-11-26 (ADMIN/MANAGER)**: **381 pruebas · 0 fallos · 2 avisos** (bloques `[15]` y `[16]`).
   - Bloque `[15]`: roles `admin/manager/user`, `group_admin` eliminado, `can_manage_group`
     limitado al grupo del MANAGER, `admin_grupos()` sin hash, puntos bloqueados
     (CHECK + trigger), `series_id`, grupo derivado del evento, slug numérico, navegación por
     rol, multi-grupo, contactos generales y nombramiento de managers.
+  - Bloque `[16]`: simulación reproducible, hash/RPC protegidos, XSS/inyección/anon/JWT y
+    endurecimiento de grupos.
   - En vivo: grupo 99 + registro con contraseña; `test` como MANAGER (solo su grupo, sin
     Grupos/Actividades); actividad multi-grupo (2 filas, edición de serie); punto bloqueado
     no editable por el MANAGER y visible con la capa apagada; contacto general visible;
@@ -258,23 +277,54 @@ Sin dependencias: solo Node.js ≥ 18. Comprueba:
 
 ## 4. Pendiente de verificación por el administrador
 
-Las migraciones `sql/06`–`sql/17` **ya están aplicadas** (incluidas `10_grupos`,
-`11_rls_grupos`, `14_registro_perfiles`, `15_categorias_puntos`, `16_jw_actividades` y
-`17_admin_manager`), y las Edge Functions `login-username` (v2) y `register-profile`
-redesplegadas sin `group_admin`.
+Las migraciones `sql/06`–`sql/18` **ya están aplicadas** (incluidas `10_grupos`,
+`11_rls_grupos`, `14_registro_perfiles`, `15_categorias_puntos`, `16_jw_actividades`,
+`17_admin_manager` y `18_endurecer_grupos`), y las Edge Functions `login-username` (v2) y
+`register-profile` redesplegadas sin `group_admin`.
 
-Cuentas actuales: `admin` = ADMIN, `test` = MANAGER del grupo principal. El usuario temporal
-`manager99` y el grupo `99` se eliminaron al limpiar las pruebas.
+Cuentas actuales: `admin` = ADMIN, `test` = MANAGER del grupo principal. La simulación QA
+creó 60 usuarios temporales, 6 grupos, eventos, actividades, muro y puntos; todos se
+eliminaron al final.
 
-Queda pendiente, por falta de una cuenta normal (hoy solo existen `admin` y `test`, ambos
-verificados como ADMIN y MANAGER):
+Queda pendiente:
 
-1. Repetir las pruebas 11–15, 23 y 40 con una cuenta **normal**.
-2. Verificar que el usuario normal recibe error al intentar insertar un punto
-   `tipo='general'` o `scope='global'` (el MANAGER ya se verificó: 403).
-3. Verificar que el MANAGER puede gestionar puntos/evento de su grupo pero **no** los
-   globales ni los de otro grupo (verificado en vivo: 403).
-4. Probar el alta de evento cuando no existe ninguno (la ruta `insert` está cubierta por el
+1. Probar el alta de evento cuando no existe ninguno (la ruta `insert` está cubierta por el
    verificador, pero siempre hay un evento en la base).
-5. Observar en vivo el corte **+30 → siguiente actividad** de las animaciones JW (la lógica
+2. Observar en vivo el corte **+30 → siguiente actividad** de las animaciones JW (la lógica
    está cubierta por las pruebas puras del bloque `[14]`).
+3. Revisar los límites de tasa/abusos de Supabase Auth en producción (no configurables desde
+   el frontend).
+4. `schema.sql` sigue siendo una consolidación documentada, no un `pg_dump` en vivo.
+
+### Cómo repetir la simulación
+
+```bash
+# El usuario QA_ADMIN_USER (test) debe estar temporalmente en role='admin'.
+QA_CONFIRM=1 QA_ADMIN_PASSWORD='<contraseña de test>' QA_RUN='qa01' \
+  node scripts/qa-simulacion.mjs
+```
+
+El script imprime el prefijo (`qa…`). Limpieza (reemplaza `PREFIX` por ese prefijo; ejecuta
+en el SQL Editor o con `supabase db query`):
+
+```sql
+begin;
+delete from public.wall_posts
+ where group_id in (select id from public.groups where slug like 'PREFIX%');
+delete from public.activity_assignments
+ where activity_id in (
+   select id from public.activities
+    where group_id in (select id from public.groups where slug like 'PREFIX%')
+ );
+delete from public.activities
+ where group_id in (select id from public.groups where slug like 'PREFIX%');
+delete from public.map_points where name like 'QA %';
+delete from public.emergency_contacts where name like 'QA Contacto%';
+delete from public.events
+ where group_id in (select id from public.groups where slug like 'PREFIX%');
+delete from auth.users
+ where id in (select id from public.profiles where username like 'PREFIX%');
+delete from public.groups where slug like 'PREFIX%';
+update public.profiles set role = 'manager' where username = 'test';
+commit;
+```

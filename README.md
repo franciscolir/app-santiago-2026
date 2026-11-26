@@ -89,7 +89,8 @@ node scripts/optimizar-iconos.mjs
 
 - Jerarquía **ADMIN / MANAGER** (vista simplificada, grupos, actividades multi-grupo,
   puntos fijos bloqueados y contactos generales): ejecutar
-  **`sql/17_admin_manager.sql`**. Después:
+  **`sql/17_admin_manager.sql`** y luego **`sql/18_endurecer_grupos.sql`** (el MANAGER no
+  puede editar la fila de su grupo por API). Después:
   1. La cuenta **ADMIN** debe tener `role = 'admin'`.
   2. Los gestores de cada grupo usan `role = 'manager'` (el ADMIN los nombra desde
      **Grupos → Miembros**).

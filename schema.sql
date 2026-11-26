@@ -2,10 +2,10 @@
 -- APP SANTIAGO 2026 — schema.sql
 -- Regenerado desde la BD real (Supabase) el 2026-11-23.
 --
--- ACTUALIZACIÓN 2026-11-26: el estado final incorpora las migraciones 10–17
--- (grupos, login/registro, categorías, alcance de puntos, JW y ADMIN/MANAGER).
--- La sección 9 resume ese estado; la fuente de verdad son los archivos sql/10,
--- 11, 14, 15, 16 y 17 (más las anteriores 06–09).
+-- ACTUALIZACIÓN 2026-11-26: el estado final incorpora las migraciones 10–18
+-- (grupos, login/registro, categorías, alcance de puntos, JW, ADMIN/MANAGER y
+-- endurecimiento de grupos). La sección 9 resume ese estado; la fuente de verdad
+-- son los archivos sql/10, 11, 14, 15, 16, 17 y 18 (más las anteriores 06–09).
 --
 -- Fiel a la base de datos existente: columnas, restricciones, índices,
 -- funciones, políticas RLS y GRANTs tal como están aplicados hoy.
@@ -599,4 +599,9 @@ alter table public.groups     add column if not exists join_password_hash text;
 --   user    = usuario normal.
 --   profiles.group_admin ya no existe; se migró a role='manager'.
 --   Un punto bloqueado solo lo puede crear/editar/borrar el ADMIN (trigger).
+
+-- 9.8 Endurecimiento (sql/18)
+--   Se eliminó la política "Admin de grupo edita su grupo": el MANAGER ya no
+--   puede actualizar la fila de groups (nombre, slug, active) por API. La
+--   gestión del grupo queda solo para el ADMIN ("Admin gestiona grupos").
 

@@ -1036,6 +1036,31 @@ console.log("[14] Fase 6: animaciones JW (destello y latido)");
     "ADMIN/MANAGER: estilos de la vista simplificada", "faltan estilos");
 }
 
+// ------------------- 16. QA de integración y endurecimiento (2026-11-26) ----
+{
+  const sql18 = leerTexto("sql/18_endurecer_grupos.sql") || "";
+  const qa = leerTexto("scripts/qa-simulacion.mjs") || "";
+  const main = leerTexto("src/main.js") || "";
+
+  check(/drop policy if exists "Admin de grupo edita su grupo"/.test(sql18) &&
+        /drop policy/.test(sql18),
+    "QA: MANAGER ya no puede editar la fila del grupo (sql/18)",
+    "la política heredada sigue permitiendo update");
+  check(/QA_CONFIRM/.test(qa) && /3 grupos × 10 usuarios|30 usuarios/.test(qa),
+    "QA: simulación reproducible de 3 grupos × 10 usuarios",
+    "falta la simulación de carga");
+  check(/join_password_hash/.test(qa) && /verificar_password_grupo/.test(qa),
+    "QA: comprueba que el hash y la RPC de contraseña no se expongan",
+    "faltan las pruebas del hash");
+  check(/<img src=x onerror=/.test(qa) && /DROP TABLE public\.wall_posts/.test(qa),
+    "QA: pruebas de XSS e inyección SQL", "faltan las pruebas de ataque");
+  check(/anon no lee|JWT manipulado|MANAGER no se asciende/.test(qa),
+    "QA: anon, JWT manipulado y escalada de privilegios", "faltan pruebas de seguridad");
+  check(/esc\(p\.content\)/.test(main) && /wall_posts/.test(main),
+    "QA: el muro escapa el contenido antes de insertarlo en HTML",
+    "el muro podría ser vulnerable a XSS");
+}
+
 // ---------------------------------------------------------------- resumen ----
 console.log("\n" + detalle.join("\n"));
 console.log(`\n=== ${pruebas} pruebas · ${fallos} fallos · ${avisos} avisos ===\n`);
