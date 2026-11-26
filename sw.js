@@ -26,7 +26,8 @@
 // alternativos.
 // v15: Fase 2: categorías de puntos, color por categoría, gestión individual
 // por categoría y alcance global/grupo.
-const CACHE_NAME = "app-santiago-2026-v15";
+// v16: corrección del grupo de los puntos globales y refuerzo de la gestión.
+const CACHE_NAME = "app-santiago-2026-v16";
 const APP_SHELL = [
   "./",
   "./index.html",

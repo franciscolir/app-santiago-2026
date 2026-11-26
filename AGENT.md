@@ -1386,7 +1386,7 @@ categoría y visibilidad global/grupo.
     `update` de limpieza) para corregir los datos.
 - **Pendiente**: RLS de puntos con un **usuario normal** y con un **admin de grupo** (tras la
   limpieza solo quedan `admin` y `test`, ambos admins globales).
-- `sw.js` → **v15**.
+- `sw.js` → **v16**.
 
 ### Pendiente
 
